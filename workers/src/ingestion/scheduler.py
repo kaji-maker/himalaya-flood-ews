@@ -1,14 +1,18 @@
 import os
 import sys
 import time
+import json
 import signal
 import logging
 import argparse
+from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 import httpx
 import rasterio.transform
 import rasterio.crs
+import shapely.geometry
+from shapely.validation import make_valid
 
 from ..config import settings
 from .sentinel2_client import Sentinel2Client
@@ -21,6 +25,10 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s"
 )
 logger = logging.getLogger("ingestion_scheduler")
+
+# Local backup queue for resilient offline/network recovery
+LOCAL_BACKUP_DIR = Path("/tmp/himalaya_ews_backup")
+LOCAL_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
 # Priority High-Risk Himalayan Glacial Lakes Catalog
 PRIORITY_LAKES = [
@@ -79,7 +87,7 @@ PRIORITY_LAKES = [
 
 class IngestionDaemon:
     """
-    Automated Satellite & Weather Ingestion Daemon.
+    Automated Satellite & Weather Ingestion Daemon with Resilient Error Recovery.
     Continuously monitors Himalayan catchments, extracts Sentinel-2 MNDWI water
     geometries, correlates NASA GPM IMERG rainfall, and posts observations to the API.
     """
@@ -91,6 +99,35 @@ class IngestionDaemon:
         self.mndwi_extractor = MNDWIExtractor(default_threshold=settings.MNDWI_WATER_THRESHOLD)
         self.is_running = True
 
+    def _clean_geometry(self, raw_geom_dict: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Repairs self-intersecting or topologically invalid polygons before database transport.
+        """
+        if not raw_geom_dict:
+            return None
+        try:
+            poly = shapely.geometry.shape(raw_geom_dict)
+            if not poly.is_valid:
+                poly = make_valid(poly)
+            return shapely.geometry.mapping(poly)
+        except Exception as e:
+            logger.warning(f"Geometry sanitization fallback ({e})")
+            return raw_geom_dict
+
+    def _persist_dead_letter(self, payload: Dict[str, Any], reason: str):
+        """
+        Persists failed observations to local fallback JSON log for replay.
+        """
+        backup_file = LOCAL_BACKUP_DIR / "dead_letter_ingests.jsonl"
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "reason": reason,
+            "payload": payload
+        }
+        with open(backup_file, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+        logger.info(f"Buffered observation payload to dead-letter queue: {backup_file}")
+
     def process_single_lake(self, lake: Dict[str, Any], sim_growth_factor: float = 1.0) -> Dict[str, Any]:
         """
         Executes the extraction and ingestion lifecycle for a single glacial lake:
@@ -98,7 +135,7 @@ class IngestionDaemon:
         2. MNDWI computation & noise sieving
         3. UTM 45N planar area calculation
         4. GPM IMERG precipitation telemetry
-        5. API POST /api/v1/ingest/observation
+        5. API POST /api/v1/ingest/observation (with retry and dead-letter fallback)
         """
         lake_id = lake["lake_id"]
         lake_name = lake["name"]
@@ -106,7 +143,6 @@ class IngestionDaemon:
         logger.info(f"==> Processing Lake: {lake_name} ({lake['icimod_code']})")
 
         # 1. Query STAC / Generate Sentinel-2 Spectral bands
-        # (Using calibrated high-resolution chip representation centered on lake coords)
         chip_radius = int(50 * sim_growth_factor)
         spectral_data = self.s2_client.generate_synthetic_scene(
             shape=(128, 128),
@@ -122,7 +158,6 @@ class IngestionDaemon:
         )
 
         # 3. Compute MNDWI & Vectorize in UTM Zone 45N
-        # ~0.0001 deg resolution (~10m Sentinel-2 pixel size)
         pixel_size_deg = 0.0001
         aff_transform = rasterio.transform.from_origin(
             lake["lon"] - 0.0064,
@@ -141,11 +176,12 @@ class IngestionDaemon:
 
         extracted_area_sqm = extraction_result["properties"]["total_water_area_sqm"]
         mean_mndwi = extraction_result["properties"]["mean_mndwi"]
-        geojson_geom = (
+        raw_geom = (
             extraction_result["features"][0]["geometry"]
             if extraction_result["features"]
             else None
         )
+        cleaned_geom = self._clean_geometry(raw_geom)
 
         # 4. Fetch GPM IMERG Precipitation Telemetry
         gpm_data = self.gpm_client.fetch_basin_precipitation(
@@ -165,34 +201,41 @@ class IngestionDaemon:
             "mean_mndwi": mean_mndwi,
             "cloud_cover_pct": cloud_pct,
             "precip_48h_mm": precip_48h_mm,
-            "geojson_geometry": geojson_geom,
+            "geojson_geometry": cleaned_geom,
             "dam_distortion_detected": sim_growth_factor > 1.25
         }
 
-        # 6. Post observation to Core API
+        # 6. Post observation to Core API with Retries
         endpoint = f"{self.api_base_url}/ingest/observation"
         logger.info(f"Posting observation for {lake_name} ({extracted_area_sqm:.1f} m²) to {endpoint}...")
 
-        try:
-            with httpx.Client(timeout=10.0) as client:
-                res = client.post(endpoint, json=payload)
-                if res.status_code in [200, 201]:
-                    res_data = res.json()
-                    alert_triggered = res_data.get("data", {}).get("alert_triggered", False)
-                    if alert_triggered:
-                        alert = res_data.get("data", {}).get("alert", {})
-                        logger.warning(
-                            f"🚨 ALERT TRIGGERED: {alert.get('severity')} for {lake_name} -> {alert.get('trigger_reason')}"
-                        )
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                with httpx.Client(timeout=8.0) as client:
+                    res = client.post(endpoint, json=payload)
+                    if res.status_code in [200, 201]:
+                        res_data = res.json()
+                        alert_triggered = res_data.get("data", {}).get("alert_triggered", False)
+                        if alert_triggered:
+                            alert = res_data.get("data", {}).get("alert", {})
+                            logger.warning(
+                                f"🚨 ALERT TRIGGERED: {alert.get('severity')} for {lake_name} -> {alert.get('trigger_reason')}"
+                            )
+                        else:
+                            logger.info(f"✓ Observation recorded successfully for {lake_name} (Normal status).")
+                        return res_data
                     else:
-                        logger.info(f"✓ Observation recorded successfully for {lake_name} (Normal status).")
-                    return res_data
-                else:
-                    logger.warning(f"API returned status {res.status_code}: {res.text}")
-                    return {"success": False, "status_code": res.status_code, "payload": payload}
-        except Exception as e:
-            logger.warning(f"API connection failed ({e}). Returning local observation payload.")
-            return {"success": True, "offline": True, "payload": payload}
+                        logger.warning(f"API attempt {attempt+1} returned status {res.status_code}: {res.text}")
+            except Exception as e:
+                logger.warning(f"API attempt {attempt+1} connection error ({e})")
+
+            if attempt < max_retries:
+                time.sleep(0.5 * (2 ** attempt))
+
+        # If all retries fail, persist to dead-letter queue
+        self._persist_dead_letter(payload, reason="API Connection Failed")
+        return {"success": True, "buffered_locally": True, "payload": payload}
 
     def run_ingestion_cycle(self, lakes: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """
@@ -218,7 +261,6 @@ class IngestionDaemon:
         """
         logger.info(f"Starting Ingestion Daemon with polling interval: {interval_seconds} seconds.")
 
-        # Graceful shutdown handlers
         def shutdown_handler(signum, frame):
             logger.info("Shutdown signal received. Stopping Ingestion Daemon...")
             self.is_running = False
@@ -232,7 +274,6 @@ class IngestionDaemon:
             logger.info(f"--- Ingestion Cycle #{cycle_count} ---")
             self.run_ingestion_cycle()
 
-            # Sleep in 1-second chunks for fast signal interrupt responsiveness
             for _ in range(interval_seconds):
                 if not self.is_running:
                     break

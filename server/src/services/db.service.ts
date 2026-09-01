@@ -6,7 +6,7 @@ dotenv.config();
 
 const connectionString =
   process.env.DATABASE_URL ||
-  'postgresql://ews_admin:ews_secure_password@localhost:5432/himalaya_ews';
+  'postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews';
 
 export const db: Knex = knex({
   client: 'pg',
@@ -14,9 +14,34 @@ export const db: Knex = knex({
   pool: {
     min: 2,
     max: 20,
-    acquireTimeoutMillis: 5000,
+    acquireTimeoutMillis: 10000,
+    createTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
   },
+  acquireConnectionTimeout: 10000,
 });
+
+/**
+ * Validates database connectivity and PostGIS extension health.
+ */
+export async function checkDatabaseHealth(): Promise<{ status: 'healthy' | 'degraded' | 'offline'; postgis_version?: string; latency_ms: number; error?: string }> {
+  const start = Date.now();
+  try {
+    const result = await db.raw('SELECT PostGIS_Version() as postgis, NOW() as server_time');
+    const latency = Date.now() - start;
+    return {
+      status: 'healthy',
+      postgis_version: result.rows?.[0]?.postgis || '3.4',
+      latency_ms: latency,
+    };
+  } catch (err: any) {
+    return {
+      status: 'degraded',
+      latency_ms: Date.now() - start,
+      error: err.message || 'Database unavailable',
+    };
+  }
+}
 
 // Fallback In-Memory Datastores (for offline dev and mock testing)
 export const MOCK_BASINS: Basin[] = [

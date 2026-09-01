@@ -8,6 +8,7 @@ import alertsRouter from './routes/alerts.routes';
 import telemetryRouter from './routes/telemetry.routes';
 import ingestRouter from './routes/ingest.routes';
 import capRouter from './routes/cap.routes';
+import { checkDatabaseHealth } from './services/db.service';
 
 dotenv.config();
 
@@ -123,7 +124,7 @@ app.get('/api/v1/openapi.json', (req: Request, res: Response) => {
   res.json(openApiSpec);
 });
 
-// Healthcheck
+// Basic Healthcheck
 app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'healthy',
@@ -131,6 +132,31 @@ app.get('/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     openapi: '/api/v1/openapi.json',
+  });
+});
+
+// Deep Healthcheck (PostGIS connectivity, memory, uptime)
+app.get('/health/deep', async (req: Request, res: Response) => {
+  const dbHealth = await checkDatabaseHealth();
+  const memory = process.memoryUsage();
+
+  const isHealthy = dbHealth.status !== 'offline';
+  const statusCode = isHealthy ? 200 : 503;
+
+  res.status(statusCode).json({
+    status: isHealthy ? 'healthy' : 'unhealthy',
+    system: 'Himalaya Flood & GLOF Early Warning System',
+    uptime_seconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    components: {
+      api: { status: 'healthy' },
+      database: dbHealth,
+    },
+    system_metrics: {
+      heap_used_mb: Math.round(memory.heapUsed / 1024 / 1024),
+      heap_total_mb: Math.round(memory.heapTotal / 1024 / 1024),
+      rss_mb: Math.round(memory.rss / 1024 / 1024),
+    },
   });
 });
 
@@ -157,6 +183,7 @@ if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`[Himalaya EWS Server] Running on http://localhost:${PORT}`);
     console.log(`[Himalaya EWS Server] Healthcheck: http://localhost:${PORT}/health`);
+    console.log(`[Himalaya EWS Server] Deep Health: http://localhost:${PORT}/health/deep`);
     console.log(`[Himalaya EWS Server] OpenAPI Spec: http://localhost:${PORT}/api/v1/openapi.json`);
     console.log(`[Himalaya EWS Server] CAP-XML Feed: http://localhost:${PORT}/api/v1/alerts/cap.xml`);
   });

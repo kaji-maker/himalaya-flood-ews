@@ -8,6 +8,14 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     expect(res.body.status).toBe('healthy');
   });
 
+  it('GET /health/deep - should return system components and memory metrics', async () => {
+    const res = await request(app).get('/health/deep');
+    expect([200, 503]).toContain(res.status);
+    expect(res.body).toHaveProperty('components');
+    expect(res.body).toHaveProperty('system_metrics');
+    expect(res.body.system_metrics).toHaveProperty('heap_used_mb');
+  });
+
   it('GET /api/v1/lakes - should return lakes filtered by basin and risk status (danger_level)', async () => {
     // 1. All lakes
     const allRes = await request(app).get('/api/v1/lakes');
@@ -76,6 +84,19 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     expect(res.body.data.alert_triggered).toBe(true);
     expect(res.body.data.alert).not.toBeNull();
     expect(['WARNING', 'EMERGENCY']).toContain(res.body.data.alert.severity);
+  });
+
+  it('POST /api/v1/ingest/observation - should reject malformed payload with 400 Bad Request', async () => {
+    const invalidPayload = {
+      lake_id: '', // Empty lake_id
+      sensor_name: 'Sentinel-2A MSI L2A',
+      area_sqm: -500, // Negative area
+    };
+
+    const res = await request(app).post('/api/v1/ingest/observation').send(invalidPayload);
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body).toHaveProperty('details');
   });
 
   it('GET /api/v1/alerts/cap.xml - should generate valid OASIS CAP-XML 1.2 feed', async () => {

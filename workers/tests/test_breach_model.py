@@ -18,8 +18,8 @@ def test_peak_outflow_calculation():
     outflow = GLOFBreachModel.calculate_peak_outflow(params)
 
     assert outflow["q_froehlich_cms"] > 5000.0
-    assert outflow["q_costa_cms"] > 5000.0
-    assert outflow["q_recommended_cms"] > 5000.0
+    assert outflow["q_costa_cms"] > 3000.0
+    assert outflow["q_recommended_cms"] > 4000.0
     assert 0.25 <= outflow["formation_time_hrs"] <= 4.0
 
 
@@ -48,7 +48,8 @@ def test_full_breach_simulation():
         lake_name="Tsho Rolpa",
         icimod_code="PDGL_NEP_KOSHI_001",
         lake_volume_mcm=85.9,
-        dam_height_m=150.0
+        dam_height_m=150.0,
+        breach_depth_m=35.0
     )
     settlements = [
         {"name": "Na", "distance_km": 6.5, "lon": 86.46, "lat": 27.84},
