@@ -53,10 +53,11 @@ class GLOFBreachModel:
         1. Froehlich (1995): Q_p = 0.607 * (V_w^0.295) * (h_w^1.24)
         2. Costa (1985): Q_p = 0.0181 * (V_w^0.42) * (h_w^1.28)
         3. USBR (1988): Q_p = 19.1 * (h_w^1.85)
-        where V_w is volume in m³ and h_w is height in m.
+        where V_w is volume in m³ and h_w is effective hydraulic breach depth in m.
         """
         v_w = params.lake_volume_mcm * 1e6  # Convert MCM to m³
-        h_w = params.dam_height_m
+        # Effective breach hydraulic depth (constrained by breach incision depth)
+        h_w = min(params.dam_height_m, params.breach_depth_m) if params.breach_depth_m > 0 else params.dam_height_m
 
         # Froehlich (1995)
         q_froehlich = 0.607 * math.pow(v_w, 0.295) * math.pow(h_w, 1.24)
@@ -71,7 +72,7 @@ class GLOFBreachModel:
         q_recommended = 0.5 * q_froehlich + 0.3 * q_costa + 0.2 * q_usbr
 
         # Breach formation time (Froehlich 1995): t_f = 0.00254 * (V_w^0.53) * (h_b^-0.90) in hours
-        t_formation_hrs = 0.00254 * math.pow(v_w, 0.53) * math.pow(params.breach_depth_m, -0.90)
+        t_formation_hrs = 0.00254 * math.pow(v_w, 0.53) * math.pow(h_w, -0.90)
         t_formation_hrs = max(0.25, min(t_formation_hrs, 4.0))
 
         return {
@@ -104,12 +105,12 @@ class GLOFBreachModel:
             elev_drop = s.get("elevation_drop_m", dist_km * 45.0)
 
             # Peak discharge attenuation along valley: Q(x) = Q_0 * exp(-k * x)
-            # where k ~ 0.018 km^-1 for steep Himalayan incised gorges
+            # where k ~ 0.016 km^-1 for steep Himalayan incised gorges
             attenuation_factor = math.exp(-0.016 * dist_km)
             q_local = q_peak_cms * attenuation_factor
 
             # Approximate flood wave celerity (Manning / kinematic wave): c = (5/3) * v
-            # High-gradient torrent velocity: v ~ 6.0 to 12.0 m/s
+            # High-gradient torrent velocity: v ~ 4.0 to 9.0 m/s
             channel_width = max(30.0, 25.0 + 0.8 * dist_km)
             hydraulic_depth = max(1.5, math.pow((q_local * manning_n) / (channel_width * math.sqrt(sin_slope)), 0.6))
             velocity = q_local / (channel_width * hydraulic_depth)
@@ -119,12 +120,12 @@ class GLOFBreachModel:
             travel_time_min = travel_time_sec / 60.0
 
             # Peak water stage rise above riverbed (meters)
-            stage_rise_m = round(hydraulic_depth * 1.35, 1)
+            stage_rise_m = round(hydraulic_depth * 1.25, 1)
 
             # Hazard Rating based on arrival time & flood wave height
-            if travel_time_min < 30.0 or stage_rise_m > 8.0:
+            if travel_time_min < 30.0 or stage_rise_m > 6.0:
                 hazard = "EXTREME_IMMEDIATE_EVACUATION"
-            elif travel_time_min < 90.0 or stage_rise_m > 4.0:
+            elif travel_time_min < 90.0 or stage_rise_m > 3.0:
                 hazard = "HIGH_PRIORITY_EVACUATION"
             else:
                 hazard = "MODERATE_WARNING"
