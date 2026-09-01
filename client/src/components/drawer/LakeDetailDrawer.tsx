@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { GlacialLake, ObservationPoint, PrecipitationPoint } from '@/types';
+import { GlacialLake, ObservationPoint, PrecipitationPoint, TwoAxisRiskScore } from '@/types';
 import { RiskBadge } from '../alerts/RiskBadge';
 import { TimeSeriesAreaChart } from '../charts/TimeSeriesAreaChart';
 import { PrecipitationChart } from '../charts/PrecipitationChart';
@@ -17,6 +17,9 @@ import {
   Waves,
   AlertOctagon,
   Clock,
+  Gauge,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 
 interface LakeDetailDrawerProps {
@@ -43,6 +46,23 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
     ((lake.current_area_sqm - lake.initial_area_sqm) / lake.initial_area_sqm) *
     100
   ).toFixed(1);
+
+  // Compute or fallback Two-Axis Scores (arXiv:2608.12422)
+  const isCritical = ['CRITICAL', 'EMERGENCY'].includes(lake.danger_level.toUpperCase());
+  const isWatch = ['HIGH', 'MEDIUM', 'WATCH'].includes(lake.danger_level.toUpperCase());
+
+  const sScore = lake.two_axis_score?.susceptibility_score ?? (isCritical ? 0.88 : isWatch ? 0.72 : 0.42);
+  const tScore = lake.two_axis_score?.trigger_urgency_score ?? (isCritical ? 0.78 : isWatch ? 0.52 : 0.18);
+  const hIndex = lake.two_axis_score?.combined_hazard_index ?? Number((sScore * tScore).toFixed(3));
+  const quadrant =
+    lake.two_axis_score?.risk_matrix_quadrant ??
+    (sScore >= 0.6 && tScore >= 0.6
+      ? 'CRITICAL_DUAL_TRIGGER'
+      : sScore >= 0.6
+      ? 'HIGH_SUSCEPTIBILITY_WATCH'
+      : tScore >= 0.6
+      ? 'TRIGGERED_TRANSIENT_WARNING'
+      : 'DORMANT_STABLE');
 
   // Default synthetic polygon coordinates if none provided
   const polygonCoords = lake.polygon_coordinates?.[0] || [
@@ -120,15 +140,17 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                 <span className="text-sky-400 font-bold">{currentAreaKm2} km²</span>
               </div>
               <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-                <span className="text-slate-500 block text-[10px] uppercase">Growth Delta</span>
+                <span className="text-slate-500 block text-[10px] uppercase">Combined Hazard</span>
                 <span
                   className={
-                    Number(growthPct) > 15
+                    hIndex >= 0.5
                       ? 'text-rose-400 font-bold'
+                      : hIndex >= 0.3
+                      ? 'text-amber-400 font-bold'
                       : 'text-emerald-400 font-bold'
                   }
                 >
-                  +{growthPct}%
+                  H = {hIndex.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -136,7 +158,109 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
 
           {/* Drawer Body Content */}
           <div className="p-6 space-y-6 flex-1">
-            {/* 1. High-Resolution Polygon Boundary Overlay */}
+            {/* 1. Two-Axis Susceptibility vs. Triggering Matrix (arXiv:2608.12422) */}
+            <div className="bg-slate-900/70 border border-blue-500/30 rounded-xl p-4 shadow-xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Gauge className="w-4 h-4 text-sky-400" />
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Two-Axis Prediction Model (arXiv:2608.12422)
+                  </h4>
+                </div>
+                <span className="text-[10px] font-mono bg-blue-500/20 text-sky-300 px-2 py-0.5 rounded border border-blue-500/40">
+                  {quadrant.replace(/_/g, ' ')}
+                </span>
+              </div>
+
+              {/* Dual Progress Gauges */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {/* Susceptibility (S) */}
+                <div className="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                  <div className="flex justify-between items-center text-xs font-mono mb-1.5">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                      Susceptibility (S)
+                    </span>
+                    <span className="font-bold text-amber-300">{(sScore * 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-amber-400 h-full rounded-full transition-all"
+                      style={{ width: `${sScore * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono mt-1 block">
+                    Fuse Length (Slope/Volume/Relief)
+                  </span>
+                </div>
+
+                {/* Trigger Urgency (T) */}
+                <div className="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                  <div className="flex justify-between items-center text-xs font-mono mb-1.5">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <Zap className="w-3.5 h-3.5 text-rose-400" />
+                      Trigger Urgency (T)
+                    </span>
+                    <span className="font-bold text-rose-300">{(tScore * 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-rose-500 h-full rounded-full transition-all"
+                      style={{ width: `${tScore * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono mt-1 block">
+                    Is Fuse Lit? (GPM Rain / Surge)
+                  </span>
+                </div>
+              </div>
+
+              {/* 2x2 Risk Quadrant Grid */}
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                <div
+                  className={`p-2 rounded-lg border transition-all ${
+                    quadrant === 'HIGH_SUSCEPTIBILITY_WATCH'
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-200'
+                      : 'bg-slate-950/40 border-slate-800/60 text-slate-500'
+                  }`}
+                >
+                  <span className="font-bold block">1. Susceptible Watch</span>
+                  High static risk, quiet weather
+                </div>
+                <div
+                  className={`p-2 rounded-lg border transition-all ${
+                    quadrant === 'CRITICAL_DUAL_TRIGGER'
+                      ? 'bg-rose-500/25 border-rose-400 text-rose-200 shadow-lg animate-pulse'
+                      : 'bg-slate-950/40 border-slate-800/60 text-slate-500'
+                  }`}
+                >
+                  <span className="font-bold block">2. Dual Trigger Emergency</span>
+                  High fragility + Active storm window
+                </div>
+                <div
+                  className={`p-2 rounded-lg border transition-all ${
+                    quadrant === 'DORMANT_STABLE'
+                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200'
+                      : 'bg-slate-950/40 border-slate-800/60 text-slate-500'
+                  }`}
+                >
+                  <span className="font-bold block">3. Dormant Stable</span>
+                  Low fragility, quiet weather
+                </div>
+                <div
+                  className={`p-2 rounded-lg border transition-all ${
+                    quadrant === 'TRIGGERED_TRANSIENT_WARNING'
+                      ? 'bg-orange-500/20 border-orange-400 text-orange-200'
+                      : 'bg-slate-950/40 border-slate-800/60 text-slate-500'
+                  }`}
+                >
+                  <span className="font-bold block">4. Transient Warning</span>
+                  Heavy rain, moderate moraine
+                </div>
+              </div>
+            </div>
+
+            {/* 2. High-Resolution Polygon Boundary Overlay */}
             <div className="bg-slate-900/60 border border-himalaya-border rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -183,7 +307,7 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
               </div>
             </div>
 
-            {/* 2. Hydrodynamic GLOF Breach & Inundation Propagation Routing */}
+            {/* 3. Hydrodynamic GLOF Breach & Inundation Propagation Routing */}
             <div className="bg-slate-900/60 border border-rose-500/30 rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -224,7 +348,7 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
               </div>
             </div>
 
-            {/* 3. Historical Surface Area Time-Series Chart */}
+            {/* 4. Historical Surface Area Time-Series Chart */}
             <div>
               <TimeSeriesAreaChart
                 data={observations}
@@ -233,15 +357,15 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
               />
             </div>
 
-            {/* 4. Upstream 48-Hour Precipitation Graph */}
+            {/* 5. Upstream 48-Hour Precipitation Graph */}
             <div>
               <PrecipitationChart data={precipitationData} lakeName={lake.name} />
             </div>
 
-            {/* 5. Dam & Downstream Vulnerability Parameters */}
+            {/* 6. Moraine Dam Attributes */}
             <div className="bg-slate-900/60 border border-himalaya-border rounded-xl p-4">
               <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3">
-                Moraine Dam & Downstream Risk Attributes
+                Moraine Dam Geomorphic Attributes
               </h4>
               <div className="grid grid-cols-2 gap-3 text-xs font-mono">
                 <div className="p-2.5 bg-slate-950/60 rounded-lg border border-slate-800">

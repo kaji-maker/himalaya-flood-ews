@@ -1,6 +1,13 @@
 export type LakeDangerLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AlertSeverityLevel = 'ADVISORY' | 'WARNING' | 'EMERGENCY';
 
+export interface TwoAxisRiskScore {
+  susceptibility_score: number; // S in [0, 1]
+  trigger_urgency_score: number; // T in [0, 1]
+  combined_hazard_index: number; // H = S * T
+  risk_matrix_quadrant: 'DORMANT_STABLE' | 'HIGH_SUSCEPTIBILITY_WATCH' | 'TRIGGERED_TRANSIENT_WARNING' | 'CRITICAL_DUAL_TRIGGER';
+}
+
 export interface Basin {
   id: string;
   name: 'Koshi' | 'Gandaki' | 'Karnali' | 'Mahakali' | string;
@@ -18,6 +25,7 @@ export interface GlacialLake {
   danger_level: LakeDangerLevel;
   basin_id: string;
   basin_name?: string;
+  two_axis_score?: TwoAxisRiskScore;
   created_at?: string;
   updated_at?: string;
 }
@@ -42,6 +50,7 @@ export interface FloodAlert {
   trigger_reason: string;
   created_at: string;
   resolved_at?: string | null;
+  two_axis_score?: TwoAxisRiskScore;
 }
 
 export interface PrecipitationTelemetry {

@@ -1,6 +1,13 @@
 export type LakeDangerLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AlertSeverity = 'ADVISORY' | 'WARNING' | 'EMERGENCY';
 
+export interface TwoAxisRiskScore {
+  susceptibility_score: number; // Static Fuse Length S in [0, 1]
+  trigger_urgency_score: number; // Dynamic Weather Trigger T in [0, 1]
+  combined_hazard_index: number; // H = S * T
+  risk_matrix_quadrant: 'DORMANT_STABLE' | 'HIGH_SUSCEPTIBILITY_WATCH' | 'TRIGGERED_TRANSIENT_WARNING' | 'CRITICAL_DUAL_TRIGGER';
+}
+
 export interface DownstreamImpact {
   settlement_name: string;
   distance_km: number;
@@ -28,6 +35,7 @@ export interface GlacialLake {
   downstream_villages?: string[];
   downstream_impacts?: DownstreamImpact[];
   inundation_swath_coords?: [number, number][];
+  two_axis_score?: TwoAxisRiskScore;
 }
 
 export interface ObservationPoint {
@@ -56,6 +64,7 @@ export interface FloodAlert {
   created_at: string;
   resolved_at?: string | null;
   affected_villages?: string[];
+  two_axis_score?: TwoAxisRiskScore;
 }
 
 export interface MapLayerState {
