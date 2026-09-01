@@ -1,4 +1,5 @@
 import io
+import math
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple, Union
@@ -131,15 +132,26 @@ class MNDWIExtractor:
         if polygon_wgs84.is_empty or not polygon_wgs84.is_valid:
             return 0.0
 
-        if self.transformer:
+        # If coordinates are geographic WGS84 (-180..180, -90..90)
+        minx, miny, maxx, maxy = polygon_wgs84.bounds
+        is_geographic = -180.0 <= minx <= 180.0 and -90.0 <= miny <= 90.0
+
+        if is_geographic and self.transformer:
             try:
                 projected_poly = transform(self.transformer.transform, polygon_wgs84)
-                return float(projected_poly.area)
+                area_val = float(projected_poly.area)
+                if not math.isnan(area_val) and area_val > 0:
+                    return area_val
             except Exception as e:
                 logger.warning(f"Transformation to EPSG:32645 failed ({e}). Using ellipsoidal approximation.")
 
-        # Ellipsoidal metric approximation in Nepal/Himalayan latitude (~28°N)
-        return float(polygon_wgs84.area * (98200.0 * 110800.0))
+        if is_geographic:
+            # Ellipsoidal metric approximation in Nepal/Himalayan latitude (~28°N)
+            area_val = float(polygon_wgs84.area * (98200.0 * 110800.0))
+            return 0.0 if math.isnan(area_val) else area_val
+
+        # If pixel coordinates (e.g. raw array 10m pixel size = 100 sqm/pixel)
+        return float(polygon_wgs84.area * 100.0)
 
     def extract(
         self,
