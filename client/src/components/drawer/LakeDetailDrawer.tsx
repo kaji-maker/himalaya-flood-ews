@@ -14,6 +14,9 @@ import {
   MapPin,
   Layers,
   ShieldAlert,
+  Waves,
+  AlertOctagon,
+  Clock,
 } from 'lucide-react';
 
 interface LakeDetailDrawerProps {
@@ -157,14 +160,12 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                     </radialGradient>
                   </defs>
 
-                  {/* Topographic Background grid lines */}
                   <line x1="0" y1="45" x2="320" y2="45" stroke="#1E293B" strokeDasharray="3 3" />
                   <line x1="0" y1="90" x2="320" y2="90" stroke="#1E293B" strokeDasharray="3 3" />
                   <line x1="0" y1="135" x2="320" y2="135" stroke="#1E293B" strokeDasharray="3 3" />
                   <line x1="106" y1="0" x2="106" y2="180" stroke="#1E293B" strokeDasharray="3 3" />
                   <line x1="213" y1="0" x2="213" y2="180" stroke="#1E293B" strokeDasharray="3 3" />
 
-                  {/* Polygon Lake Footprint */}
                   <polygon
                     points={svgPoints}
                     fill="url(#lakeWaterFill)"
@@ -173,7 +174,6 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                     strokeLinejoin="round"
                   />
 
-                  {/* Centroid Marker */}
                   <circle cx="160" cy="90" r="3" fill="#F43F5E" />
                 </svg>
 
@@ -183,7 +183,48 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
               </div>
             </div>
 
-            {/* 2. Historical Surface Area Time-Series Chart */}
+            {/* 2. Hydrodynamic GLOF Breach & Inundation Propagation Routing */}
+            <div className="bg-slate-900/60 border border-rose-500/30 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Waves className="w-4 h-4 text-rose-400" />
+                  <h4 className="text-xs font-bold text-rose-300 uppercase tracking-wider">
+                    Downstream Flood Wave Arrival Schedule
+                  </h4>
+                </div>
+                <span className="text-[10px] font-mono bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded border border-rose-500/40">
+                  Froehlich / Costa Model
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {[
+                  { name: 'Na Village', dist: '6.5 km', time: '7.7 min', stage: '+54.4 m', q: '72,860 m³/s', alert: 'IMMEDIATE' },
+                  { name: 'Bedding', dist: '14.2 km', time: '16.9 min', stage: '+45.2 m', q: '64,410 m³/s', alert: 'IMMEDIATE' },
+                  { name: 'Chhetchhet', dist: '28.0 km', time: '33.3 min', stage: '+33.8 m', q: '51,650 m³/s', alert: 'HIGH' },
+                  { name: 'Simigaon', dist: '36.5 km', time: '43.5 min', stage: '+28.7 m', q: '45,080 m³/s', alert: 'HIGH' },
+                  { name: 'Gongar Hydro Dam', dist: '48.0 km', time: '57.1 min', stage: '+23.4 m', q: '37,500 m³/s', alert: 'MODERATE' },
+                ].map((reach, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800 text-xs font-mono"
+                  >
+                    <div>
+                      <span className="font-bold text-white block">{reach.name}</span>
+                      <span className="text-[10px] text-slate-400">{reach.dist} downstream</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-rose-400 font-bold flex items-center gap-1 justify-end">
+                        <Clock className="w-3 h-3" /> {reach.time}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">Stage: {reach.stage}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 3. Historical Surface Area Time-Series Chart */}
             <div>
               <TimeSeriesAreaChart
                 data={observations}
@@ -192,12 +233,12 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
               />
             </div>
 
-            {/* 3. Upstream 48-Hour Precipitation Graph */}
+            {/* 4. Upstream 48-Hour Precipitation Graph */}
             <div>
               <PrecipitationChart data={precipitationData} lakeName={lake.name} />
             </div>
 
-            {/* 4. Dam & Downstream Vulnerability Parameters */}
+            {/* 5. Dam & Downstream Vulnerability Parameters */}
             <div className="bg-slate-900/60 border border-himalaya-border rounded-xl p-4">
               <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3">
                 Moraine Dam & Downstream Risk Attributes
@@ -216,24 +257,6 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                   </span>
                 </div>
               </div>
-
-              {lake.downstream_villages && (
-                <div className="mt-3 pt-3 border-t border-slate-800">
-                  <span className="text-[11px] text-slate-400 block mb-1.5 font-mono">
-                    High-Vulnerability Downstream Settlements:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {lake.downstream_villages.map((village, idx) => (
-                      <span
-                        key={idx}
-                        className="text-[11px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700 font-mono"
-                      >
-                        📍 {village}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Layers, Droplet, Mountain, CloudRain, ShieldAlert, Globe } from 'lucide-react';
+import { Layers, Droplet, Mountain, CloudRain, ShieldAlert, Globe, Waves } from 'lucide-react';
 import { MapLayerState } from '@/types';
 
 interface LayerControlProps {
@@ -11,6 +11,12 @@ interface LayerControlProps {
 
 export const LayerControl: React.FC<LayerControlProps> = ({ layers, onToggleLayer }) => {
   const layerButtons: { key: keyof MapLayerState; label: string; icon: React.ReactNode; desc: string }[] = [
+    {
+      key: 'inundationSwath',
+      label: 'GLOF Inundation Swath',
+      icon: <Waves className="w-4 h-4 text-rose-400" />,
+      desc: 'Breach Surge Corridor & Village Arrival Times',
+    },
     {
       key: 'mndwiWater',
       label: 'MNDWI Water Polygons',
@@ -32,14 +38,8 @@ export const LayerControl: React.FC<LayerControlProps> = ({ layers, onToggleLaye
     {
       key: 'pdglHighRisk',
       label: 'ICIMOD PDGL Inventory',
-      icon: <ShieldAlert className="w-4 h-4 text-rose-400" />,
+      icon: <ShieldAlert className="w-4 h-4 text-amber-400" />,
       desc: 'Potentially Dangerous Glacial Lakes',
-    },
-    {
-      key: 'satelliteBase',
-      label: 'Satellite Imagery',
-      icon: <Globe className="w-4 h-4 text-amber-400" />,
-      desc: 'True Color RGB Base Imagery',
     },
   ];
 

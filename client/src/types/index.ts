@@ -1,6 +1,16 @@
 export type LakeDangerLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AlertSeverity = 'ADVISORY' | 'WARNING' | 'EMERGENCY';
 
+export interface DownstreamImpact {
+  settlement_name: string;
+  distance_km: number;
+  travel_time_minutes: number;
+  peak_discharge_cms: number;
+  peak_stage_rise_m: number;
+  hazard_level: 'EXTREME_IMMEDIATE_EVACUATION' | 'HIGH_PRIORITY_EVACUATION' | 'MODERATE_WARNING';
+  coordinates: [number, number]; // [lon, lat]
+}
+
 export interface GlacialLake {
   id: string;
   icimod_code: string;
@@ -16,6 +26,8 @@ export interface GlacialLake {
   freeboard_m?: number;
   moraine_slope_deg?: number;
   downstream_villages?: string[];
+  downstream_impacts?: DownstreamImpact[];
+  inundation_swath_coords?: [number, number][];
 }
 
 export interface ObservationPoint {
@@ -52,4 +64,5 @@ export interface MapLayerState {
   gpmPrecipitation: boolean;
   pdglHighRisk: boolean;
   satelliteBase: boolean;
+  inundationSwath: boolean;
 }
