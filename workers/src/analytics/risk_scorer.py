@@ -1,109 +1,140 @@
 import logging
-from typing import Dict, Any, List
+from datetime import datetime, timezone
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
 
+class LakeMetricsInput(BaseModel):
+    lake_id: str
+    lake_name: str = "Unknown Glacial Lake"
+    current_area_sqm: float
+    current_observation_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    baseline_30d_area_sqm: Optional[float] = None
+    baseline_1yr_area_sqm: Optional[float] = None
+    recent_observations_14d: Optional[List[Dict[str, Any]]] = None  # [{"date": datetime, "area_sqm": float}]
+    precip_48h_mm: float = 0.0
+    dam_distortion_ratio: float = 1.0  # Ratio of perimeter-to-area or moraine freeboard change (<0.7 or >1.3 indicates sudden collapse)
+    sudden_dam_anomaly_detected: bool = False
+
+
+class FloodAlertPayload(BaseModel):
+    lake_id: str
+    severity: str  # 'ADVISORY', 'WARNING', 'EMERGENCY'
+    trigger_reason: str
+    created_at: str
+    resolved_at: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class GLOFRiskScorer:
     """
-    Composite Glacial Lake Outburst Flood (GLOF) & Flash Flood Risk Assessment Engine.
-    Combines satellite-derived lake expansion, GPM precipitation anomalies,
-    moraine dam geometry, and downstream vulnerability indices.
+    GLOF & Flash Flood Risk Scorer Engine for HimalayaFlood-EWS.
+    Evaluates multi-temporal area expansion dynamics, antecedent rainfall,
+    and moraine dam stability to produce structured 'flood_alerts' payloads.
     """
 
-    # Model Weights
-    WEIGHT_EXPANSION = 0.35
-    WEIGHT_RAINFALL = 0.30
-    WEIGHT_FREEBOARD_MORAINE = 0.20
-    WEIGHT_VULNERABILITY = 0.15
+    # Escalation Thresholds
+    THRESHOLD_WARNING_GROWTH_14D_PCT = 15.0   # > 15% growth within 14 days
+    THRESHOLD_WARNING_PRECIP_48H_MM = 50.0    # > 50mm rainfall in 48 hours
+    THRESHOLD_EMERGENCY_GROWTH_PCT = 30.0     # > 30% surge relative to baseline
+    THRESHOLD_ADVISORY_GROWTH_1YR_PCT = 8.0   # > 8% annual growth
+    THRESHOLD_ADVISORY_PRECIP_48H_MM = 25.0   # > 25mm rainfall in 48 hours
 
     @classmethod
-    def evaluate_risk(
-        cls,
-        lake_name: str,
-        annualized_expansion_pct: float,
-        accumulated_72h_rain_mm: float,
-        freeboard_m: float,
-        moraine_slope_deg: float,
-        downstream_villages_count: int,
-        dam_type: str = "MORAINE_DAMMED"
-    ) -> Dict[str, Any]:
+    def calculate_growth_percentage(cls, current: float, baseline: Optional[float]) -> float:
         """
-        Calculates normalized component scores and composite risk index [0.0 - 1.0].
+        Calculates percentage change relative to baseline.
+        """
+        if baseline is None or baseline <= 0:
+            return 0.0
+        return round(((current - baseline) / baseline) * 100.0, 2)
+
+    @classmethod
+    def evaluate_lake_risk(cls, data: LakeMetricsInput) -> Optional[FloodAlertPayload]:
+        """
+        Core Risk Evaluation Rule Engine:
+        1. Compares current area against 30-day and 1-year baselines.
+        2. Escalates to 'EMERGENCY' if area growth > 30% OR sudden dam contraction/expansion detected.
+        3. Escalates to 'WARNING' if area growth > 15% within 14 days OR 48h rain > 50 mm.
+        4. Escalates to 'ADVISORY' if moderate growth > 8% or 48h rain > 25 mm.
+        5. Returns structured FloodAlertPayload for insertion into 'flood_alerts', or None if normal.
         """
         triggers: List[str] = []
+        severity: Optional[str] = None
 
-        # 1. Expansion Score (0.0 to 1.0)
-        # 0% growth -> 0.1, 10% growth -> 0.6, >= 20% growth -> 1.0
-        if annualized_expansion_pct <= 0:
-            s_exp = 0.05
-        elif annualized_expansion_pct < 5.0:
-            s_exp = 0.25
-        elif annualized_expansion_pct < 12.0:
-            s_exp = 0.60
-            triggers.append(f"Elevated lake expansion: +{annualized_expansion_pct:.1f}%/yr")
-        else:
-            s_exp = min(1.0, 0.60 + (annualized_expansion_pct - 12.0) * 0.05)
-            triggers.append(f"CRITICAL surge in lake surface area: +{annualized_expansion_pct:.1f}%/yr")
+        # 1. Compute baseline growth deltas
+        growth_30d_pct = cls.calculate_growth_percentage(data.current_area_sqm, data.baseline_30d_area_sqm)
+        growth_1yr_pct = cls.calculate_growth_percentage(data.current_area_sqm, data.baseline_1yr_area_sqm)
 
-        # 2. Rainfall Anomaly Score (0.0 to 1.0)
-        # < 30mm -> 0.1, 30-75mm -> 0.4, 75-150mm -> 0.75, > 150mm -> 1.0
-        if accumulated_72h_rain_mm < 30.0:
-            s_rain = 0.10
-        elif accumulated_72h_rain_mm < 75.0:
-            s_rain = 0.40
-        elif accumulated_72h_rain_mm < 140.0:
-            s_rain = 0.75
-            triggers.append(f"Heavy 72h rainfall: {accumulated_72h_rain_mm:.1f} mm")
-        else:
-            s_rain = 1.0
-            triggers.append(f"Extreme precipitation trigger: {accumulated_72h_rain_mm:.1f} mm (72h)")
+        # Compute 14-day growth if observations are available
+        growth_14d_pct = 0.0
+        if data.recent_observations_14d and len(data.recent_observations_14d) > 0:
+            earliest_14d = sorted(data.recent_observations_14d, key=lambda x: x["date"])[0]
+            growth_14d_pct = cls.calculate_growth_percentage(data.current_area_sqm, earliest_14d["area_sqm"])
+        elif data.baseline_30d_area_sqm is not None:
+            # Fallback estimation if only 30-day baseline is given
+            growth_14d_pct = round(growth_30d_pct * (14.0 / 30.0), 2)
 
-        # 3. Moraine & Freeboard Vulnerability Score (0.0 to 1.0)
-        # Low freeboard (< 10m) + steep moraine slope (> 30 deg) = high risk
-        freeboard_factor = max(0.0, (30.0 - freeboard_m) / 30.0)  # freeboard < 5m gives > 0.83
-        slope_factor = min(1.0, moraine_slope_deg / 45.0)
-        s_moraine = 0.6 * freeboard_factor + 0.4 * slope_factor
+        # Check for dam distortion / moraine crest contraction or expansion anomaly
+        is_dam_anomaly = data.sudden_dam_anomaly_detected or (data.dam_distortion_ratio < 0.70 or data.dam_distortion_ratio > 1.35)
 
-        if freeboard_m < 12.0:
-            triggers.append(f"Critically low moraine dam freeboard: {freeboard_m:.1f} m")
-        if moraine_slope_deg > 30.0:
-            triggers.append(f"Unstable steep moraine face: {moraine_slope_deg:.1f}°")
+        # 2. Rule: EMERGENCY Evaluation
+        # Area growth > 30% OR sudden dam contraction/expansion detected
+        if growth_30d_pct > cls.THRESHOLD_EMERGENCY_GROWTH_PCT or growth_1yr_pct > cls.THRESHOLD_EMERGENCY_GROWTH_PCT or is_dam_anomaly:
+            severity = "EMERGENCY"
+            if is_dam_anomaly:
+                triggers.append(f"Sudden moraine dam geometry instability detected (distortion ratio: {data.dam_distortion_ratio:.2f})")
+            if growth_30d_pct > cls.THRESHOLD_EMERGENCY_GROWTH_PCT:
+                triggers.append(f"Catastrophic lake expansion: +{growth_30d_pct:.1f}% surge within 30 days")
+            elif growth_1yr_pct > cls.THRESHOLD_EMERGENCY_GROWTH_PCT:
+                triggers.append(f"Critical annualized expansion: +{growth_1yr_pct:.1f}% relative to 1-year baseline")
 
-        # 4. Downstream Vulnerability Score
-        s_vuln = min(1.0, downstream_villages_count / 15.0)
+        # 3. Rule: WARNING Evaluation
+        # Area growth > 15% within 14 days OR upstream 48-hour precipitation > 50 mm
+        elif (growth_14d_pct > cls.THRESHOLD_WARNING_GROWTH_14D_PCT) or (data.precip_48h_mm > cls.THRESHOLD_WARNING_PRECIP_48H_MM):
+            severity = "WARNING"
+            if growth_14d_pct > cls.THRESHOLD_WARNING_GROWTH_14D_PCT:
+                triggers.append(f"Rapid 14-day surface area expansion: +{growth_14d_pct:.1f}% (threshold: >15%)")
+            if data.precip_48h_mm > cls.THRESHOLD_WARNING_PRECIP_48H_MM:
+                triggers.append(f"Heavy antecedent precipitation: {data.precip_48h_mm:.1f} mm in 48 hours (threshold: >50 mm)")
 
-        # Composite Weighted Score
-        composite_score = (
-            cls.WEIGHT_EXPANSION * s_exp +
-            cls.WEIGHT_RAINFALL * s_rain +
-            cls.WEIGHT_FREEBOARD_MORAINE * s_moraine +
-            cls.WEIGHT_VULNERABILITY * s_vuln
+        # 4. Rule: ADVISORY Evaluation
+        elif (growth_1yr_pct > cls.THRESHOLD_ADVISORY_GROWTH_1YR_PCT) or (data.precip_48h_mm > cls.THRESHOLD_ADVISORY_PRECIP_48H_MM):
+            severity = "ADVISORY"
+            if growth_1yr_pct > cls.THRESHOLD_ADVISORY_GROWTH_1YR_PCT:
+                triggers.append(f"Steady lake surface expansion: +{growth_1yr_pct:.1f}% over 1 year")
+            if data.precip_48h_mm > cls.THRESHOLD_ADVISORY_PRECIP_48H_MM:
+                triggers.append(f"Elevated upstream precipitation: {data.precip_48h_mm:.1f} mm in 48 hours")
+
+        # If normal, no flood alert is triggered
+        if not severity:
+            logger.info(f"Lake {data.lake_name} ({data.lake_id}) within normal baseline parameters. No alert triggered.")
+            return None
+
+        # Format trigger reason text
+        combined_reason = f"GLOF {severity} Alert for {data.lake_name}: " + "; ".join(triggers)
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        alert_payload = FloodAlertPayload(
+            lake_id=data.lake_id,
+            severity=severity,
+            trigger_reason=combined_reason,
+            created_at=now_iso,
+            resolved_at=None,
+            metadata={
+                "lake_name": data.lake_name,
+                "current_area_sqm": data.current_area_sqm,
+                "growth_14d_pct": growth_14d_pct,
+                "growth_30d_pct": growth_30d_pct,
+                "growth_1yr_pct": growth_1yr_pct,
+                "precip_48h_mm": data.precip_48h_mm,
+                "dam_distortion_ratio": data.dam_distortion_ratio,
+                "individual_triggers": triggers
+            }
         )
-        composite_score = round(float(np_clip := max(0.0, min(1.0, composite_score))), 3)
 
-        # Classify Alert Level
-        if composite_score >= 0.85:
-            level = "CRITICAL"
-        elif composite_score >= 0.70:
-            level = "WARNING"
-        elif composite_score >= 0.50:
-            level = "WATCH"
-        elif composite_score >= 0.30:
-            level = "ADVISORY"
-        else:
-            level = "NORMAL"
-
-        return {
-            "lake_name": lake_name,
-            "risk_score": composite_score,
-            "alert_level": level,
-            "sub_scores": {
-                "expansion_score": round(s_exp, 3),
-                "rainfall_score": round(s_rain, 3),
-                "moraine_freeboard_score": round(s_moraine, 3),
-                "vulnerability_score": round(s_vuln, 3)
-            },
-            "triggers": triggers,
-            "requires_dispatch": level in ["CRITICAL", "WARNING", "WATCH"]
-        }
+        logger.warning(f"🚨 [RISK SCORER] {severity} Alert Generated for {data.lake_name}: {combined_reason}")
+        return alert_payload
