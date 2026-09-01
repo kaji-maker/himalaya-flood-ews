@@ -8,6 +8,8 @@ import alertsRouter from './routes/alerts.routes';
 import telemetryRouter from './routes/telemetry.routes';
 import ingestRouter from './routes/ingest.routes';
 import capRouter from './routes/cap.routes';
+import dispatchRouter from './routes/dispatch.routes';
+import reportsRouter from './routes/reports.routes';
 import { checkDatabaseHealth } from './services/db.service';
 
 dotenv.config();
@@ -70,6 +72,17 @@ const openApiSpec = {
         },
       },
     },
+    '/lakes/{id}/report': {
+      get: {
+        summary: 'Generate official ICIMOD/DHM-compliant GLOF Hazard Assessment Dossier',
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'ICIMOD/DHM GLOF Hazard Assessment Dossier' },
+        },
+      },
+    },
     '/ingest/observation': {
       post: {
         summary: 'Ingest newly computed observation from Python worker and trigger automated risk evaluation',
@@ -113,6 +126,14 @@ const openApiSpec = {
         summary: 'Generate OASIS Common Alerting Protocol (CAP-XML v1.2) XML feed',
         responses: {
           '200': { description: 'CAP-XML 1.2 Feed' },
+        },
+      },
+    },
+    '/dispatch/test': {
+      post: {
+        summary: 'Broadcast simulated emergency alert to SMS, Telegram, and Hydropower SCADA channels',
+        responses: {
+          '200': { description: 'Emergency broadcast transmitted' },
         },
       },
     },
@@ -162,8 +183,10 @@ app.get('/health/deep', async (req: Request, res: Response) => {
 
 // API Routes
 app.use('/api/v1', lakesRouter);
+app.use('/api/v1', reportsRouter);
 app.use('/api/v1/alerts', alertsRouter);
 app.use('/api/v1/alerts', capRouter);
+app.use('/api/v1/dispatch', dispatchRouter);
 app.use('/api/v1/telemetry', telemetryRouter);
 app.use('/api/v1/ingest', ingestRouter);
 

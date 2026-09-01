@@ -53,6 +53,28 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     expect(res.body.geojson.features[0].properties).toHaveProperty('area_sqm');
   });
 
+  it('GET /api/v1/lakes/:id/report - should generate official ICIMOD/DHM Hazard Dossier', async () => {
+    const res = await request(app).get('/api/v1/lakes/PDGL_NEP_KOSHI_001/report');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('document_title');
+    expect(res.body.data).toHaveProperty('two_axis_hazard_evaluation');
+    expect(res.body.data).toHaveProperty('hydrodynamic_breach_scenarios');
+    expect(res.body.data.downstream_impact_matrix.length).toBeGreaterThan(0);
+  });
+
+  it('POST /api/v1/dispatch/test - should broadcast alert to SMS, Telegram, and Hydropower SCADA channels', async () => {
+    const res = await request(app).post('/api/v1/dispatch/test').send({
+      lake_id: 'l-tsho-rolpa',
+      lake_name: 'Tsho Rolpa',
+      severity: 'EMERGENCY',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.dispatch_results.length).toBeGreaterThan(0);
+    expect(res.body.dispatch_results[0]).toHaveProperty('status');
+  });
+
   it('POST /api/v1/ingest/observation - should ingest worker observation and trigger risk evaluation', async () => {
     const payload = {
       lake_id: 'l1111111-1111-1111-1111-111111111111',
