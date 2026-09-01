@@ -1,31 +1,24 @@
-# Himalaya Flood & GLOF Early Warning System - Agent Rules
+# HimalayaFlood-EWS: Agent Engineering Guidelines
 
-## 1. Geospatial & Coordinate Systems (CRS)
-- **Standard Exchange CRS**: Always use **WGS 84 (EPSG:4326)** for GeoJSON payloads, API responses, and database ingestion.
-- **Planar / Measurement CRS**: For precise surface area (m², km²), expansion rate, distance, and slope calculations in the Nepal/HKH region, reproject to **UTM Zone 45N (EPSG:32645)** or **UTM Zone 44N (EPSG:32644)**.
-- **Geometry Validity**: All lake and basin polygons must pass `ST_IsValid` in PostGIS and `geom.is_valid` in Shapely. Apply `ST_MakeValid` / `make_valid` on all vectorization outputs.
+## Core Principles
+1. **Coordinate Systems & Projections:** 
+   - All GeoJSON and API payloads MUST use **WGS 84 (EPSG:4326)**.
+   - All geometric area ($m^2$, $km^2$) and distance calculations in Python or PostGIS MUST be reprojected to **UTM Zone 45N (EPSG:32645)** for accurate Himalayan planar measurements.
+2. **Data Integrity:** 
+   - Never mutate raw satellite scenes directly in memory; use streaming windows via Rasterio / GDAL or Cloud-Optimized GeoTIFFs (COGs).
+3. **Database Rules:** 
+   - All spatial tables MUST maintain GIST indexes on geometry columns (`ST_SetSRID(geom, 4326)`).
+   - Geometry validity must be enforced (`ST_IsValid` / `ST_MakeValid`).
 
-## 2. Remote Sensing & Extraction Standards
-- **Optical Indices**:
-  - **MNDWI (Modified Normalized Difference Water Index)**:
-    $$\text{MNDWI} = \frac{\text{Green (B03)} - \text{SWIR1 (B11)}}{\text{Green (B03)} + \text{SWIR1 (B11)}}$$
-  - Default water threshold: $\text{MNDWI} > 0.0$ (fine-tuned via Otsu / adaptive histogram clipping).
-- **Cloud & Shadow Masking**:
-  - Use Sentinel-2 SCL (Scene Classification Layer) or cloud probability bands.
-  - Exclude high probability clouds (SCL 9), cirrus (SCL 10), and cloud shadows (SCL 3).
-  - Explicitly differentiate clean glacial ice/snow (high NIR) from supraglacial/proglacial water bodies (low NIR/SWIR).
+## Subsystem Responsibilities
+- `database/`: Pure SQL and migration files. Do not mix application logic here.
+- `workers/`: Python 3.11+. Use typed hints (`pydantic`, `numpy`, `rasterio`, `geopandas`, `shapely`). Must contain unit tests with mock raster chips.
+- `server/`: Express / Fastify TypeScript API (`strict: true`). Expose OpenAPI specs (`/api/v1/openapi.json`).
+- `client/`: Next.js 14+ (App Router), MapLibre GL, Deck.gl, TailwindCSS.
 
-## 3. GLOF Risk Formulation
-- Multi-factor risk composite $R \in [0.0, 1.0]$:
-  - $w_1 \cdot \text{ExpansionRateScore} + w_2 \cdot \text{RainfallAnomalyScore} + w_3 \cdot \text{MoraineFreeboardScore} + w_4 \cdot \text{VulnerabilityScore}$
-  - Default weights: $[0.35, 0.30, 0.20, 0.15]$.
-- Alert levels:
-  - **CRITICAL** ($R \ge 0.85$ or Sudden Moraine Collapse/Overtopping)
-  - **WARNING** ($0.70 \le R < 0.85$)
-  - **WATCH** ($0.50 \le R < 0.70$)
-  - **ADVISORY** ($0.30 \le R < 0.50$)
-  - **NORMAL** ($R < 0.30$)
-
-## 4. Code & Architecture Best Practices
-- **Strict Typing**: TypeScript `strict: true` for server/client, Python type hints (`mypy` compliant) with Pydantic v2 schemas.
-- **Fail-Safe Processing**: Ingestion and vectorizer pipelines must be idempotent and log telemetry on cloudy/missing satellite passes.
+## Remote Sensing & Indices
+- **MNDWI (Modified Normalized Difference Water Index)**:
+  $$\text{MNDWI} = \frac{\text{Green (B03)} - \text{SWIR1 (B11)}}{\text{Green (B03)} + \text{SWIR1 (B11)}}$$
+- **Cloud & Shadow Masking**: SCL classes (3=Shadows, 8=Cloud Medium, 9=Cloud High, 10=Cirrus) must be excluded.
+- **GLOF Risk Composite Formula**:
+  $$R = 0.35 \cdot S_{\text{expansion}} + 0.30 \cdot S_{\text{rain72h}} + 0.20 \cdot S_{\text{freeboard\_moraine}} + 0.15 \cdot S_{\text{vulnerability}}$$
