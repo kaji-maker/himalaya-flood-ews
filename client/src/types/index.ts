@@ -1,50 +1,49 @@
-export type PDGLHazardLevel = 'VERY_HIGH' | 'HIGH' | 'MEDIUM' | 'POTENTIAL' | 'LOW';
-export type AlertLevel = 'CRITICAL' | 'WARNING' | 'WATCH' | 'ADVISORY' | 'NORMAL';
-export type AlertStatus = 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED';
+export type LakeDangerLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type AlertSeverity = 'ADVISORY' | 'WARNING' | 'EMERGENCY';
 
-export interface Basin {
+export interface GlacialLake {
   id: string;
-  code: string;
+  icimod_code: string;
   name: string;
-  country: string;
-  area_sqkm: number;
-  upstream_glaciers_count: number;
-}
-
-export interface Lake {
-  id: string;
-  glims_id: string;
-  name: string;
-  basin_id: string;
-  basin_code?: string;
+  basin_name: string;
   sub_basin?: string;
   elevation_m: number;
-  dam_type: string;
-  pdgl_status: PDGLHazardLevel;
-  baseline_area_sqkm: number;
-  baseline_volume_mcm?: number;
+  initial_area_sqm: number;
+  current_area_sqm: number;
+  danger_level: LakeDangerLevel;
+  centroid: { type: 'Point'; coordinates: [number, number] }; // [lon, lat]
+  polygon_coordinates?: number[][][];
   freeboard_m?: number;
   moraine_slope_deg?: number;
-  downstream_settlements_count?: number;
-  current_risk_score: number;
-  centroid?: { type: 'Point'; coordinates: [number, number] };
-  geometry?: any;
+  downstream_villages?: string[];
 }
 
-export interface GLOFAlert {
+export interface ObservationPoint {
+  date: string;
+  area_sqm: number;
+  area_sqkm: number;
+  sensor_name: string;
+  mean_mndwi?: number;
+  cloud_cover_pct: number;
+}
+
+export interface PrecipitationPoint {
+  timestamp: string;
+  precip_mm: number;
+  accumulated_48h_mm: number;
+  sensor: string;
+}
+
+export interface FloodAlert {
   id: string;
-  alert_code: string;
   lake_id: string;
-  lake_name?: string;
-  basin_code?: string;
-  alert_level: AlertLevel;
-  risk_score: number;
-  headline: string;
-  description: string;
-  triggers: Record<string, any>;
-  affected_villages: string[];
-  status: AlertStatus;
-  issued_at: string;
+  lake_name: string;
+  basin_name: string;
+  severity: AlertSeverity;
+  trigger_reason: string;
+  created_at: string;
+  resolved_at?: string | null;
+  affected_villages?: string[];
 }
 
 export interface MapLayerState {

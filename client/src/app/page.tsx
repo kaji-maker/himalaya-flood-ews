@@ -1,336 +1,421 @@
 'use client';
 
 import React, { useState } from 'react';
-import { StatCard } from '@/components/ui/StatCard';
 import { GlacierMap } from '@/components/map/GlacierMap';
+import { AlertBanner } from '@/components/alerts/AlertBanner';
+import { LakeDetailDrawer } from '@/components/drawer/LakeDetailDrawer';
+import { StatCard } from '@/components/ui/StatCard';
 import { RiskBadge } from '@/components/alerts/RiskBadge';
-import { TimeSeriesAreaChart } from '@/components/charts/TimeSeriesAreaChart';
-import { Lake, GLOFAlert } from '@/types';
+import { GlacialLake, FloodAlert, ObservationPoint, PrecipitationPoint } from '@/types';
 import {
   ShieldAlert,
   Mountain,
   TrendingUp,
   CloudRain,
-  AlertTriangle,
+  Layers,
+  Search,
+  Filter,
   ExternalLink,
-  CheckCircle2,
-  ChevronRight,
 } from 'lucide-react';
 
-const SAMPLE_LAKES: Lake[] = [
+const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
   {
-    id: 'l1',
-    glims_id: 'G086475E27885N',
-    name: 'Tsho Rolpa',
-    basin_id: 'b1',
-    basin_code: 'KOSHI',
+    id: 'l-tsho-rolpa',
+    icimod_code: 'PDGL_NEP_KOSHI_001',
+    name: 'Tsho Rolpa Glacial Lake',
+    basin_name: 'Koshi',
     sub_basin: 'Tama Koshi',
     elevation_m: 4580,
-    dam_type: 'MORAINE_DAMMED',
-    pdgl_status: 'VERY_HIGH',
-    baseline_area_sqkm: 1.54,
-    baseline_volume_mcm: 85.9,
+    initial_area_sqm: 1540000.0,
+    current_area_sqm: 1820000.0,
+    danger_level: 'CRITICAL', // Red
+    centroid: { type: 'Point', coordinates: [86.475, 27.868] },
     freeboard_m: 12.5,
     moraine_slope_deg: 28.5,
-    downstream_settlements_count: 14,
-    current_risk_score: 0.88,
-    centroid: { type: 'Point', coordinates: [86.475, 27.868] },
+    downstream_villages: ['Na', 'Bedding', 'Chhetchhet', 'Simigaon', 'Gongar Khola'],
+    polygon_coordinates: [
+      [
+        [86.468, 27.855],
+        [86.485, 27.862],
+        [86.495, 27.873],
+        [86.488, 27.881],
+        [86.465, 27.876],
+        [86.458, 27.864],
+        [86.468, 27.855],
+      ],
+    ],
   },
   {
-    id: 'l2',
-    glims_id: 'G086915E27902N',
-    name: 'Imja Tsho',
-    basin_id: 'b1',
-    basin_code: 'KOSHI',
+    id: 'l-imja-tsho',
+    icimod_code: 'PDGL_NEP_KOSHI_002',
+    name: 'Imja Tsho (Everest Region)',
+    basin_name: 'Koshi',
     sub_basin: 'Dudh Koshi',
     elevation_m: 5010,
-    dam_type: 'MORAINE_DAMMED',
-    pdgl_status: 'VERY_HIGH',
-    baseline_area_sqkm: 1.28,
-    baseline_volume_mcm: 75.8,
+    initial_area_sqm: 1280000.0,
+    current_area_sqm: 1460000.0,
+    danger_level: 'HIGH', // Yellow
+    centroid: { type: 'Point', coordinates: [86.924, 27.910] },
     freeboard_m: 14.2,
     moraine_slope_deg: 32.0,
-    downstream_settlements_count: 19,
-    current_risk_score: 0.82,
-    centroid: { type: 'Point', coordinates: [86.924, 27.910] },
+    downstream_villages: ['Chhukung', 'Dingboche', 'Pangboche', 'Tengboche', 'Namche Bazaar'],
+    polygon_coordinates: [
+      [
+        [86.910, 27.898],
+        [86.932, 27.905],
+        [86.940, 27.915],
+        [86.928, 27.922],
+        [86.905, 27.912],
+        [86.910, 27.898],
+      ],
+    ],
   },
   {
-    id: 'l3',
-    glims_id: 'G087095E27798N',
-    name: 'Lower Barun Lake',
-    basin_id: 'b1',
-    basin_code: 'KOSHI',
-    sub_basin: 'Barun / Arun',
-    elevation_m: 4570,
-    dam_type: 'MORAINE_DAMMED',
-    pdgl_status: 'HIGH',
-    baseline_area_sqkm: 1.72,
-    baseline_volume_mcm: 92.0,
-    freeboard_m: 18.5,
-    moraine_slope_deg: 35.0,
-    downstream_settlements_count: 8,
-    current_risk_score: 0.74,
-    centroid: { type: 'Point', coordinates: [87.102, 27.808] },
-  },
-  {
-    id: 'l4',
-    glims_id: 'G084534E28512N',
-    name: 'Thulagi Lake',
-    basin_id: 'b2',
-    basin_code: 'GANDAKI',
+    id: 'l-thulagi',
+    icimod_code: 'PDGL_NEP_GANDAKI_001',
+    name: 'Thulagi Lake (Manaslu)',
+    basin_name: 'Gandaki',
     sub_basin: 'Marsyangdi',
     elevation_m: 4040,
-    dam_type: 'MORAINE_DAMMED',
-    pdgl_status: 'HIGH',
-    baseline_area_sqkm: 0.94,
-    baseline_volume_mcm: 35.3,
+    initial_area_sqm: 940000.0,
+    current_area_sqm: 1040000.0,
+    danger_level: 'HIGH', // Yellow
+    centroid: { type: 'Point', coordinates: [84.532, 28.517] },
     freeboard_m: 22.0,
     moraine_slope_deg: 24.5,
-    downstream_settlements_count: 11,
-    current_risk_score: 0.68,
-    centroid: { type: 'Point', coordinates: [84.532, 28.517] },
+    downstream_villages: ['Dharapani', 'Tal', 'Chamje', 'Jagat', 'Syange'],
+    polygon_coordinates: [
+      [
+        [84.525, 28.505],
+        [84.542, 28.512],
+        [84.548, 28.524],
+        [84.535, 28.530],
+        [84.518, 28.518],
+        [84.525, 28.505],
+      ],
+    ],
   },
   {
-    id: 'l5',
-    glims_id: 'G082342E29891N',
-    name: 'Karnali High Lake',
-    basin_id: 'b3',
-    basin_code: 'KARNALI',
+    id: 'l-lower-barun',
+    icimod_code: 'PDGL_NEP_KOSHI_003',
+    name: 'Lower Barun Lake',
+    basin_name: 'Koshi',
+    sub_basin: 'Barun / Arun',
+    elevation_m: 4570,
+    initial_area_sqm: 1720000.0,
+    current_area_sqm: 1910000.0,
+    danger_level: 'MEDIUM', // Yellow
+    centroid: { type: 'Point', coordinates: [87.102, 27.808] },
+    freeboard_m: 18.5,
+    moraine_slope_deg: 35.0,
+    downstream_villages: ['Yangkharca', 'Mumbuk', 'Tashigaon', 'Num'],
+    polygon_coordinates: [
+      [
+        [87.085, 27.790],
+        [87.112, 27.802],
+        [87.125, 27.815],
+        [87.108, 27.822],
+        [87.080, 27.805],
+        [87.085, 27.790],
+      ],
+    ],
+  },
+  {
+    id: 'l-karnali-alpine',
+    icimod_code: 'PDGL_NEP_KARNALI_001',
+    name: 'Karnali High-Alpine Glacial Lake',
+    basin_name: 'Karnali',
     sub_basin: 'Humla Karnali',
     elevation_m: 4920,
-    dam_type: 'MORAINE_DAMMED',
-    pdgl_status: 'MEDIUM',
-    baseline_area_sqkm: 0.68,
-    baseline_volume_mcm: 18.5,
+    initial_area_sqm: 680000.0,
+    current_area_sqm: 695000.0,
+    danger_level: 'LOW', // Green
+    centroid: { type: 'Point', coordinates: [82.342, 29.893] },
     freeboard_m: 25.0,
     moraine_slope_deg: 19.5,
-    downstream_settlements_count: 6,
-    current_risk_score: 0.45,
-    centroid: { type: 'Point', coordinates: [82.342, 29.893] },
+    downstream_villages: ['Simikot', 'Hilsa', 'Yari', 'Dharapuri'],
+    polygon_coordinates: [
+      [
+        [82.335, 29.882],
+        [82.350, 29.890],
+        [82.355, 29.900],
+        [82.342, 29.905],
+        [82.328, 29.895],
+        [82.335, 29.882],
+      ],
+    ],
   },
-];
-
-const SAMPLE_ALERTS: GLOFAlert[] = [
   {
-    id: 'a1',
-    alert_code: 'GLOF-2026-TSHOROLPA-01',
-    lake_id: 'l1',
-    lake_name: 'Tsho Rolpa',
-    basin_code: 'KOSHI',
-    alert_level: 'CRITICAL',
-    risk_score: 0.88,
-    headline: 'High Risk GLOF Alert: Tsho Rolpa Moraine Pressure Surge',
-    description: 'Rapid lake expansion (+18.2% annualized) coupled with heavy antecedent 72h monsoon rainfall (142mm) indicates critical moraine crest breach risk.',
-    triggers: {
-      expansion_rate_pct_yr: 18.2,
-      accumulated_72h_rain_mm: 142.0,
-      freeboard_m: 12.5,
-    },
-    affected_villages: ['Na', 'Bedding', 'Chhetchhet', 'Simigaon', 'Gongar Khola'],
-    status: 'ACTIVE',
-    issued_at: '2026-09-01T16:30:00Z',
+    id: 'l-api-nampa',
+    icimod_code: 'PDGL_NEP_MAHAKALI_001',
+    name: 'Api Nampa Proglacial Lake',
+    basin_name: 'Mahakali',
+    sub_basin: 'Chameliya',
+    elevation_m: 4750,
+    initial_area_sqm: 420000.0,
+    current_area_sqm: 428000.0,
+    danger_level: 'LOW', // Green
+    centroid: { type: 'Point', coordinates: [80.950, 29.980] },
+    freeboard_m: 30.0,
+    moraine_slope_deg: 16.0,
+    downstream_villages: ['Khandeswari', 'Gokuleshwor', 'Darchula'],
+    polygon_coordinates: [
+      [
+        [80.940, 29.970],
+        [80.960, 29.975],
+        [80.965, 29.988],
+        [80.948, 29.992],
+        [80.938, 29.982],
+        [80.940, 29.970],
+      ],
+    ],
   },
 ];
 
-const SAMPLE_OBSERVATIONS = [
-  { date: '2023-05-10', area_sqkm: 1.38 },
-  { date: '2023-10-15', area_sqkm: 1.42 },
-  { date: '2024-04-20', area_sqkm: 1.46 },
-  { date: '2024-11-05', area_sqkm: 1.51 },
-  { date: '2025-05-12', area_sqkm: 1.59 },
-  { date: '2025-10-22', area_sqkm: 1.68 },
-  { date: '2026-08-30', area_sqkm: 1.78 },
+const INITIAL_ALERTS: FloodAlert[] = [
+  {
+    id: 'alt-01',
+    lake_id: 'l-tsho-rolpa',
+    lake_name: 'Tsho Rolpa Glacial Lake',
+    basin_name: 'Koshi',
+    severity: 'EMERGENCY',
+    trigger_reason: 'GLOF EMERGENCY Alert: Moraine crest pressure surge with +18.2% rapid expansion and 72h antecedent rainfall exceeding 142mm.',
+    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+    resolved_at: null,
+    affected_villages: ['Na', 'Bedding', 'Chhetchhet', 'Simigaon', 'Gongar Khola'],
+  },
+  {
+    id: 'alt-02',
+    lake_id: 'l-imja-tsho',
+    lake_name: 'Imja Tsho (Everest Region)',
+    basin_name: 'Koshi',
+    severity: 'WARNING',
+    trigger_reason: 'GLOF WARNING Alert: Accelerated supraglacial calving expanding water perimeter toward terminal moraine face.',
+    created_at: new Date(Date.now() - 3600000 * 8).toISOString(),
+    resolved_at: null,
+    affected_villages: ['Dingboche', 'Pangboche', 'Tengboche', 'Namche Bazaar'],
+  },
+];
+
+const MOCK_OBSERVATIONS: ObservationPoint[] = [
+  { date: '2024-05-10', area_sqm: 1540000, area_sqkm: 1.540, sensor_name: 'Sentinel-2A MSI L2A', mean_mndwi: 0.65, cloud_cover_pct: 1.8 },
+  { date: '2024-11-04', area_sqm: 1590000, area_sqkm: 1.590, sensor_name: 'Sentinel-2B MSI L2A', mean_mndwi: 0.68, cloud_cover_pct: 3.4 },
+  { date: '2025-05-18', area_sqm: 1660000, area_sqkm: 1.660, sensor_name: 'Sentinel-2A MSI L2A', mean_mndwi: 0.70, cloud_cover_pct: 0.9 },
+  { date: '2025-10-25', area_sqm: 1740000, area_sqkm: 1.740, sensor_name: 'Sentinel-2B MSI L2A', mean_mndwi: 0.72, cloud_cover_pct: 2.5 },
+  { date: '2026-08-30', area_sqm: 1820000, area_sqkm: 1.820, sensor_name: 'Sentinel-2A MSI L2A', mean_mndwi: 0.76, cloud_cover_pct: 1.2 },
+];
+
+const MOCK_PRECIPITATION: PrecipitationPoint[] = [
+  { timestamp: '2026-09-01T00:00:00Z', precip_mm: 4.2, accumulated_48h_mm: 12.5, sensor: 'GPM_IMERG_V07B' },
+  { timestamp: '2026-09-01T06:00:00Z', precip_mm: 8.5, accumulated_48h_mm: 21.0, sensor: 'GPM_IMERG_V07B' },
+  { timestamp: '2026-09-01T12:00:00Z', precip_mm: 16.4, accumulated_48h_mm: 37.4, sensor: 'GPM_IMERG_V07B' },
+  { timestamp: '2026-09-01T18:00:00Z', precip_mm: 21.0, accumulated_48h_mm: 58.4, sensor: 'GPM_IMERG_V07B' },
 ];
 
 export default function DashboardPage() {
-  const [selectedLake, setSelectedLake] = useState<Lake>(SAMPLE_LAKES[0]);
-  const [alerts, setAlerts] = useState<GLOFAlert[]>(SAMPLE_ALERTS);
+  const [lakes] = useState<GlacialLake[]>(NEPAL_GLACIAL_LAKES);
+  const [alerts, setAlerts] = useState<FloodAlert[]>(INITIAL_ALERTS);
+  const [selectedLake, setSelectedLake] = useState<GlacialLake | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [basinFilter, setBasinFilter] = useState<string>('ALL');
+
+  const handleSelectLake = (lake: GlacialLake) => {
+    setSelectedLake(lake);
+    setIsDrawerOpen(true);
+  };
+
+  const handleSelectLakeById = (lakeId: string) => {
+    const found = lakes.find((l) => l.id === lakeId || l.icimod_code === lakeId);
+    if (found) {
+      setSelectedLake(found);
+      setIsDrawerOpen(true);
+    }
+  };
 
   const handleAcknowledgeAlert = (alertId: string) => {
     setAlerts((prev) =>
-      prev.map((a) => (a.id === alertId ? { ...a, status: 'ACKNOWLEDGED' } : a))
+      prev.map((a) =>
+        a.id === alertId ? { ...a, resolved_at: new Date().toISOString() } : a
+      )
     );
   };
 
+  const filteredLakes = lakes.filter((l) => {
+    if (basinFilter === 'ALL') return true;
+    return l.basin_name.toUpperCase() === basinFilter.toUpperCase();
+  });
+
+  const activeWarningsCount = alerts.filter(
+    (a) => !a.resolved_at && (a.severity === 'EMERGENCY' || a.severity === 'WARNING')
+  ).length;
+
   return (
     <div className="space-y-6">
-      {/* Top Telemetry & KPI Cards */}
+      {/* 1. Real-time Warning & Emergency Banner across Nepal (Requirement 4) */}
+      <AlertBanner
+        alerts={alerts}
+        onAcknowledge={handleAcknowledgeAlert}
+        onSelectLakeById={handleSelectLakeById}
+      />
+
+      {/* 2. Top Telemetry KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Active GLOF Alerts"
-          value={alerts.filter((a) => a.status === 'ACTIVE').length}
-          subtitle="1 Critical, 0 Watch"
+          title="Active Nepal GLOF Warnings"
+          value={activeWarningsCount}
+          subtitle="1 Emergency, 1 Warning"
           icon={<ShieldAlert className="w-5 h-5" />}
           highlightColor="red"
         />
         <StatCard
-          title="High-Risk Glacial Lakes"
-          value={SAMPLE_LAKES.length}
-          subtitle="Monitored via Sentinel-2"
+          title="Monitored High-Risk Lakes"
+          value={lakes.length}
+          subtitle="Sentinel-2 Optical (10m)"
           icon={<Mountain className="w-5 h-5" />}
           highlightColor="blue"
         />
         <StatCard
-          title="Max Expansion Rate"
+          title="Max Surface Area Surge"
           value="+18.2%"
-          subtitle="Annualized growth (Tsho Rolpa)"
+          subtitle="Tsho Rolpa (Tama Koshi)"
           icon={<TrendingUp className="w-5 h-5" />}
-          trend={{ value: "+4.5%", isPositive: false }}
+          trend={{ value: "+4.2%", isPositive: false }}
           highlightColor="yellow"
         />
         <StatCard
-          title="72h Peak Rainfall"
-          value="142 mm"
-          subtitle="NASA GPM (Tama Koshi)"
+          title="48h Upstream Rain"
+          value="58.4 mm"
+          subtitle="NASA GPM IMERG V07B"
           icon={<CloudRain className="w-5 h-5" />}
           highlightColor="blue"
         />
       </div>
 
-      {/* Critical Early Warning Alert Banner */}
-      {alerts.length > 0 && (
-        <div className="bg-rose-950/40 border border-rose-500/50 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="p-2.5 bg-rose-600/30 rounded-xl border border-rose-500/50 text-rose-300 shrink-0">
-                <AlertTriangle className="w-6 h-6 animate-pulse" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <RiskBadge level={alerts[0].alert_level} size="sm" />
-                  <span className="text-xs font-mono text-slate-400">
-                    {alerts[0].alert_code} • {alerts[0].basin_code} Basin
-                  </span>
-                </div>
-                <h3 className="text-base font-bold text-white mt-1">
-                  {alerts[0].headline}
-                </h3>
-                <p className="text-xs text-rose-200/80 mt-1 max-w-3xl">
-                  {alerts[0].description}
-                </p>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {alerts[0].affected_villages.map((v, i) => (
-                    <span
-                      key={i}
-                      className="text-[11px] bg-rose-900/60 text-rose-200 px-2 py-0.5 rounded border border-rose-700/50 font-mono"
-                    >
-                      📍 {v}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+      {/* 3. 3D Terrain Map Centered on Nepal (Requirement 1 & 2) */}
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              Himalayan Glacial Lake 3D Monitoring Grid
+            </h2>
+            <p className="text-xs text-slate-400">
+              Centered on Nepal (28.3949° N, 84.1240° E) • Click any lake pin to inspect detailed telemetry.
+            </p>
+          </div>
 
-            <div className="flex items-center gap-2 self-end md:self-center">
-              {alerts[0].status === 'ACTIVE' ? (
-                <button
-                  onClick={() => handleAcknowledgeAlert(alerts[0].id)}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg shadow transition-colors flex items-center gap-1.5"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Acknowledge Warning
-                </button>
-              ) : (
-                <span className="text-xs font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
-                  ✓ Acknowledged
-                </span>
-              )}
-            </div>
+          {/* Basin Filter Buttons */}
+          <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 p-1 rounded-xl">
+            {['ALL', 'KOSHI', 'GANDAKI', 'KARNALI', 'MAHAKALI'].map((b) => (
+              <button
+                key={b}
+                onClick={() => setBasinFilter(b)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
+                  basinFilter === b
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                {b}
+              </button>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* Main Interactive Geospatial Map */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            Pan-Himalaya Glacial Lake Monitoring Grid
-          </h2>
-          <span className="text-xs text-slate-400 font-mono">
-            CRS: EPSG:4326 (WGS84) • Spatial Extent: 80.0°E - 89.0°E
-          </span>
-        </div>
         <GlacierMap
-          lakes={SAMPLE_LAKES}
+          lakes={filteredLakes}
           selectedLake={selectedLake}
-          onSelectLake={(lake) => setSelectedLake(lake)}
+          onSelectLake={handleSelectLake}
         />
       </div>
 
-      {/* Bottom Section: Glacial Lake Watchlist & Surface Area Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Watchlist Panel */}
-        <div className="lg:col-span-1 bg-himalaya-card border border-himalaya-border rounded-2xl p-5">
-          <div className="flex items-center justify-between pb-3 border-b border-himalaya-border mb-3">
+      {/* 4. Monitored Glacial Lakes Directory & Status Table */}
+      <div className="bg-himalaya-card border border-himalaya-border rounded-2xl p-5 shadow-xl">
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-himalaya-border">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-sky-400" />
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-              Priority Glacial Lakes
+              Glacial Lake Catchments Directory ({filteredLakes.length} Monitored)
             </h3>
-            <span className="text-xs text-slate-400 font-mono">
-              {SAMPLE_LAKES.length} Tracked
-            </span>
           </div>
-
-          <div className="space-y-2.5">
-            {SAMPLE_LAKES.map((lake) => {
-              const isSelected = selectedLake?.id === lake.id;
-              return (
-                <div
-                  key={lake.id}
-                  onClick={() => setSelectedLake(lake)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                    isSelected
-                      ? 'bg-blue-600/20 border-blue-500/50 shadow-md'
-                      : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                      {lake.name}
-                    </h4>
-                    <RiskBadge level={lake.pdgl_status} size="sm" />
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono mt-1">
-                    <span>{lake.sub_basin}</span>
-                    <span>{lake.elevation_m} m</span>
-                    <span className={lake.current_risk_score >= 0.7 ? 'text-rose-400 font-bold' : 'text-emerald-400'}>
-                      Score: {lake.current_risk_score.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <span className="text-xs font-mono text-slate-400">
+            CRS: EPSG:4326 (WGS84) / Metric Area: EPSG:32645
+          </span>
         </div>
 
-        {/* Selected Lake Detailed Surface Growth Chart */}
-        <div className="lg:col-span-2 space-y-4">
-          <TimeSeriesAreaChart
-            data={SAMPLE_OBSERVATIONS}
-            lakeName={selectedLake.name}
-            baselineArea={selectedLake.baseline_area_sqkm}
-          />
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="border-b border-slate-800 text-slate-400">
+                <th className="pb-2.5">Glacial Lake</th>
+                <th className="pb-2.5">ICIMOD Code</th>
+                <th className="pb-2.5">River Basin</th>
+                <th className="pb-2.5">Elevation</th>
+                <th className="pb-2.5">Current Area</th>
+                <th className="pb-2.5">Risk Rating</th>
+                <th className="pb-2.5 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/80">
+              {filteredLakes.map((lake) => {
+                const isCritical = ['CRITICAL', 'EMERGENCY'].includes(lake.danger_level.toUpperCase());
+                const isWatch = ['HIGH', 'MEDIUM', 'WATCH'].includes(lake.danger_level.toUpperCase());
 
-          {/* Lake Parameters Breakdown */}
-          <div className="bg-himalaya-card border border-himalaya-border rounded-2xl p-5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
-            <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-800">
-              <span className="text-slate-500 block">Dam Geometry</span>
-              <span className="text-slate-200 font-bold mt-1 block">{selectedLake.dam_type}</span>
-            </div>
-            <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-800">
-              <span className="text-slate-500 block">Moraine Freeboard</span>
-              <span className="text-slate-200 font-bold mt-1 block">{selectedLake.freeboard_m} m</span>
-            </div>
-            <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-800">
-              <span className="text-slate-500 block">Moraine Slope</span>
-              <span className="text-slate-200 font-bold mt-1 block">{selectedLake.moraine_slope_deg}°</span>
-            </div>
-            <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-800">
-              <span className="text-slate-500 block">Downstream Settlements</span>
-              <span className="text-slate-200 font-bold mt-1 block">{selectedLake.downstream_settlements_count} Villages</span>
-            </div>
-          </div>
+                return (
+                  <tr
+                    key={lake.id}
+                    className="hover:bg-slate-800/40 cursor-pointer transition-colors"
+                    onClick={() => handleSelectLake(lake)}
+                  >
+                    <td className="py-3 font-bold text-white flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          isCritical
+                            ? 'bg-rose-500 animate-pulse'
+                            : isWatch
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500'
+                        }`}
+                      />
+                      {lake.name}
+                    </td>
+                    <td className="py-3 text-slate-400">{lake.icimod_code}</td>
+                    <td className="py-3 text-slate-300">
+                      {lake.basin_name} ({lake.sub_basin || 'Main'})
+                    </td>
+                    <td className="py-3 text-slate-300">{lake.elevation_m} m</td>
+                    <td className="py-3 text-sky-400 font-bold">
+                      {(lake.current_area_sqm / 1e6).toFixed(3)} km²
+                    </td>
+                    <td className="py-3">
+                      <RiskBadge level={lake.danger_level} size="sm" />
+                    </td>
+                    <td className="py-3 text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectLake(lake);
+                        }}
+                        className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-sky-400 hover:text-white rounded border border-blue-500/40 text-[11px] font-mono transition-colors"
+                      >
+                        Inspect Drawer →
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      {/* 5. Interactive Side Drawer (Requirement 3) */}
+      <LakeDetailDrawer
+        lake={selectedLake}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        observations={MOCK_OBSERVATIONS}
+        precipitationData={MOCK_PRECIPITATION}
+      />
     </div>
   );
 }
