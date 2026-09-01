@@ -10,11 +10,12 @@ class DamBreachParameters(BaseModel):
     lake_name: str
     icimod_code: str
     lake_volume_mcm: float = Field(..., description="Stored lake water volume in Million Cubic Meters (MCM)")
-    dam_height_m: float = Field(..., description="Moraine dam crest height above valley floor in meters")
+    dam_height_m: float = Field(..., description="Moraine or landslide dam crest height above valley floor in meters")
     breach_width_m: float = Field(default=45.0, description="Average breach top width in meters")
     breach_depth_m: float = Field(default=25.0, description="Breach vertical erosion incision depth in meters")
     valley_slope_deg: float = Field(default=4.5, description="Average downstream river channel gradient in degrees")
     manning_n: float = Field(default=0.055, description="Roughness coefficient for steep boulder-strewn Himalayan gorges")
+    is_ephemeral_landslide_dam: bool = Field(default=False, description="True if temporary rock-ice avalanche valley choke (Bhotekoshi-type)")
 
 
 class ReachImpact(BaseModel):
@@ -42,22 +43,23 @@ class BreachSimulationResult(BaseModel):
 
 class GLOFBreachModel:
     """
-    Empirical & Hydrodynamic Moraine Dam Breach Outflow Routing Engine.
+    Empirical & Hydrodynamic Moraine & Landslide Dam Breach Outflow Routing Engine.
     Implements:
     1. Froehlich (1995), Costa (1985), USBR (1988) empirical envelopes
     2. NWS-BREACH / HEC-RAS Hydrodynamic Benchmarks (Kayastha & Maskey, PIAHS 2024)
-    3. Kinematic wave routing with attenuation along steep Himalayan river gorges.
+    3. Ephemeral Landslide Dam & Rock-Ice Avalanche Surge Formulation (Costa & Schuster 1988)
+    4. Kinematic wave routing with attenuation along steep Himalayan river gorges.
     """
 
     @classmethod
     def calculate_peak_outflow(cls, params: DamBreachParameters) -> Dict[str, float]:
         """
-        Calculates peak discharge (Q_p in m³/s) using peer-reviewed moraine breach formulas:
+        Calculates peak discharge (Q_p in m³/s) using peer-reviewed moraine & landslide breach formulas:
         1. Froehlich (1995): Q_p = 0.607 * (V_w^0.295) * (h_w^1.24)
         2. Costa (1985): Q_p = 0.0181 * (V_w^0.42) * (h_w^1.28)
         3. USBR (1988): Q_p = 19.1 * (h_w^1.85)
-        4. NWS-BREACH (Kayastha & Maskey, PIAHS 2024): Q_p = 1.42 * Froehlich (hydrodynamic sediment transport factor)
-        where V_w is volume in m³ and h_w is effective hydraulic breach depth in m.
+        4. NWS-BREACH (Kayastha & Maskey, PIAHS 2024): Q_p = 1.42 * Froehlich
+        5. Ephemeral Landslide Dam Choke (Costa & Schuster 1988): Fast 0.05-0.1h runaway failure
         """
         v_w = params.lake_volume_mcm * 1e6  # Convert MCM to m³
         h_w = min(params.dam_height_m, params.breach_depth_m) if params.breach_depth_m > 0 else params.dam_height_m
@@ -71,17 +73,21 @@ class GLOFBreachModel:
         # US Bureau of Reclamation (USBR)
         q_usbr = 19.1 * math.pow(h_w, 1.85)
 
-        # NWS-BREACH / HEC-RAS calibrated hydrodynamic peak (Kayastha & Maskey, PIAHS 2024, doi:10.5194/piahs-387-59-2024)
-        # For 20m breach: ~8,198 - 10,662 m³/s; for 40m breach: ~26,662 m³/s
+        # NWS-BREACH / HEC-RAS calibrated hydrodynamic peak (Kayastha & Maskey, PIAHS 2024)
         breach_depth_ratio = h_w / 20.0
         q_nws_breach = 8198.0 * math.pow(params.lake_volume_mcm / 85.9, 0.35) * math.pow(breach_depth_ratio, 1.65)
 
-        # Recommended design peak (weighted ensemble average)
-        q_recommended = 0.4 * q_froehlich + 0.3 * q_nws_breach + 0.2 * q_costa + 0.1 * q_usbr
-
-        # Breach formation time (Froehlich 1995): t_f = 0.00254 * (V_w^0.53) * (h_b^-0.90) in hours
-        t_formation_hrs = 0.00254 * math.pow(v_w, 0.53) * math.pow(h_w, -0.90)
-        t_formation_hrs = max(0.25, min(t_formation_hrs, 4.0))
+        # Ephemeral Landslide Dam Rapid Surge Mode (e.g. 2026 Bhotekoshi Lhende Khola failure)
+        if params.is_ephemeral_landslide_dam:
+            # Landslide dams fail with higher instantaneous discharge and rapid erosion
+            q_landslide_choke = 0.063 * math.pow(v_w, 0.42) * math.pow(h_w, 1.35)
+            q_recommended = max(q_nws_breach, q_landslide_choke)
+            t_formation_hrs = 0.05  # Fast 3-minute runaway breaching
+        else:
+            q_recommended = 0.4 * q_froehlich + 0.3 * q_nws_breach + 0.2 * q_costa + 0.1 * q_usbr
+            # Breach formation time (Froehlich 1995): t_f = 0.00254 * (V_w^0.53) * (h_b^-0.90) in hours
+            t_formation_hrs = 0.00254 * math.pow(v_w, 0.53) * math.pow(h_w, -0.90)
+            t_formation_hrs = max(0.25, min(t_formation_hrs, 4.0))
 
         return {
             "q_froehlich_cms": round(q_froehlich, 1),

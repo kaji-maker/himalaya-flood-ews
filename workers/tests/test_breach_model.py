@@ -19,9 +19,25 @@ def test_peak_outflow_calculation():
 
     assert outflow["q_froehlich_cms"] > 5000.0
     assert outflow["q_costa_cms"] > 3000.0
-    assert outflow["q_nws_breach_cms"] > 10000.0  # Kayastha & Maskey (PIAHS 2024)
+    assert outflow["q_nws_breach_cms"] > 10000.0
     assert outflow["q_recommended_cms"] > 4000.0
     assert 0.25 <= outflow["formation_time_hrs"] <= 4.0
+
+
+def test_ephemeral_landslide_dam_surge():
+    """Test 2026 Bhotekoshi-type rapid 3-minute ephemeral landslide dam breach"""
+    params = DamBreachParameters(
+        lake_name="Lhende Khola Landslide Choke",
+        icimod_code="LANDSLIDE_DAM_BHOTEKOSHI",
+        lake_volume_mcm=12.0,
+        dam_height_m=45.0,
+        breach_depth_m=30.0,
+        is_ephemeral_landslide_dam=True
+    )
+
+    outflow = GLOFBreachModel.calculate_peak_outflow(params)
+    assert outflow["formation_time_hrs"] == 0.05  # Fast 3-minute runaway failure
+    assert outflow["q_recommended_cms"] > 4000.0
 
 
 def test_flood_wave_routing_downstream():
@@ -68,4 +84,4 @@ def test_full_breach_simulation():
     assert result.peak_outflow_q_nws_breach_cms > 10000.0
     assert len(result.downstream_impacts) == 2
     assert result.inundation_geojson["type"] == "FeatureCollection"
-    assert len(result.inundation_geojson["features"]) == 3  # 1 line + 2 points
+    assert len(result.inundation_geojson["features"]) == 3
