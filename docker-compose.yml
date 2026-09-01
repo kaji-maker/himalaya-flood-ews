@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  postgis:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: himalaya-postgis
+    environment:
+      POSTGRES_DB: himalaya_ews
+      POSTGRES_USER: ews_admin
+      POSTGRES_PASSWORD: ews_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ews_admin -d himalaya_ews"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: himalaya-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: himalaya-server
+    environment:
+      PORT: 4000
+      NODE_ENV: development
+      DATABASE_URL: postgresql://ews_admin:ews_secure_password@postgis:5432/himalaya_ews
+      REDIS_URL: redis://redis:6379
+      ALERT_WEBHOOK_URL: http://server:4000/api/v1/alerts/webhook-mock
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgis:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+
+  workers:
+    build:
+      context: ./workers
+      dockerfile: Dockerfile
+    container_name: himalaya-workers
+    environment:
+      DATABASE_URL: postgresql://ews_admin:ews_secure_password@postgis:5432/himalaya_ews
+      REDIS_URL: redis://redis:6379
+      SENTINEL_STAC_URL: https://planetarycomputer.microsoft.com/api/stac/v1
+      POLL_INTERVAL_SECONDS: 60
+    depends_on:
+      postgis:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./workers:/app
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: himalaya-client
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+      NEXT_PUBLIC_MAPLIBRE_TERRAIN: "true"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+
+volumes:
+  postgis_data:
+  redis_data:

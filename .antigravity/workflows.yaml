@@ -1,0 +1,42 @@
+version: "1.0"
+name: himalaya-flood-ews-pipelines
+
+workflows:
+  - id: worker-tests
+    name: "Python Geospatial Worker Tests"
+    trigger:
+      on_change:
+        - "workers/**"
+    steps:
+      - name: "Run Pytest Suite"
+        command: "cd workers && pytest tests/ -v"
+
+  - id: server-tests
+    name: "Node.js API Server Tests"
+    trigger:
+      on_change:
+        - "server/**"
+    steps:
+      - name: "Run Server Test Suite"
+        command: "cd server && npm test"
+
+  - id: client-lint
+    name: "Next.js Dashboard Typecheck & Lint"
+    trigger:
+      on_change:
+        - "client/**"
+    steps:
+      - name: "Typecheck Client"
+        command: "cd client && npm run type-check"
+
+  - id: e2e-pipeline
+    name: "End-to-End Pipeline Validation"
+    trigger:
+      manual: true
+    steps:
+      - name: "Validate PostGIS Migrations"
+        command: "make db-migrate"
+      - name: "Run Seed Data"
+        command: "make db-seed"
+      - name: "Run Worker Test Vectorizer"
+        command: "cd workers && pytest tests/test_lake_vectorizer.py"

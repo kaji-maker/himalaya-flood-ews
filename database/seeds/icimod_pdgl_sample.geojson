@@ -1,0 +1,188 @@
+{
+  "type": "FeatureCollection",
+  "name": "ICIMOD_PDGL_Nepal_Sample",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "glims_id": "G086475E27885N",
+        "name": "Tsho Rolpa",
+        "basin_code": "KOSHI",
+        "basin_name": "Koshi Basin",
+        "sub_basin": "Tama Koshi",
+        "elevation_m": 4580,
+        "dam_type": "MORAINE_DAMMED",
+        "pdgl_status": "VERY_HIGH",
+        "baseline_area_sqkm": 1.54,
+        "baseline_volume_mcm": 85.9,
+        "freeboard_m": 12.5,
+        "moraine_slope_deg": 28.5,
+        "downstream_settlements_count": 14,
+        "current_risk_score": 0.88,
+        "downstream_villages": ["Na", "Bedding", "Chhetchhet", "Simigaon", "Gongar Khola"]
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [86.468, 27.855],
+              [86.485, 27.862],
+              [86.495, 27.873],
+              [86.488, 27.881],
+              [86.465, 27.876],
+              [86.458, 27.864],
+              [86.468, 27.855]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "glims_id": "G086915E27902N",
+        "name": "Imja Tsho",
+        "basin_code": "KOSHI",
+        "basin_name": "Koshi Basin",
+        "sub_basin": "Dudh Koshi",
+        "elevation_m": 5010,
+        "dam_type": "MORAINE_DAMMED",
+        "pdgl_status": "VERY_HIGH",
+        "baseline_area_sqkm": 1.28,
+        "baseline_volume_mcm": 75.8,
+        "freeboard_m": 14.2,
+        "moraine_slope_deg": 32.0,
+        "downstream_settlements_count": 19,
+        "current_risk_score": 0.82,
+        "downstream_villages": ["Chhukung", "Dingboche", "Pangboche", "Tengboche", "Namche Bazaar"]
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [86.910, 27.898],
+              [86.932, 27.905],
+              [86.940, 27.915],
+              [86.928, 27.922],
+              [86.905, 27.912],
+              [86.910, 27.898]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "glims_id": "G084534E28512N",
+        "name": "Thulagi Lake",
+        "basin_code": "GANDAKI",
+        "basin_name": "Gandaki Basin",
+        "sub_basin": "Marsyangdi",
+        "elevation_m": 4040,
+        "dam_type": "MORAINE_DAMMED",
+        "pdgl_status": "HIGH",
+        "baseline_area_sqkm": 0.94,
+        "baseline_volume_mcm": 35.3,
+        "freeboard_m": 22.0,
+        "moraine_slope_deg": 24.5,
+        "downstream_settlements_count": 11,
+        "current_risk_score": 0.68,
+        "downstream_villages": ["Dharapani", "Tal", "Chamje", "Jagat", "Syange"]
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [84.525, 28.505],
+              [84.542, 28.512],
+              [84.548, 28.524],
+              [84.535, 28.530],
+              [84.518, 28.518],
+              [84.525, 28.505]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "glims_id": "G087095E27798N",
+        "name": "Lower Barun Lake",
+        "basin_code": "KOSHI",
+        "basin_name": "Koshi Basin",
+        "sub_basin": "Barun / Arun",
+        "elevation_m": 4570,
+        "dam_type": "MORAINE_DAMMED",
+        "pdgl_status": "HIGH",
+        "baseline_area_sqkm": 1.72,
+        "baseline_volume_mcm": 92.0,
+        "freeboard_m": 18.5,
+        "moraine_slope_deg": 35.0,
+        "downstream_settlements_count": 8,
+        "current_risk_score": 0.74,
+        "downstream_villages": ["Yangkharca", "Mumbuk", "Tashigaon", "Num"]
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [87.085, 27.790],
+              [87.112, 27.802],
+              [87.125, 27.815],
+              [87.108, 27.822],
+              [87.080, 27.805],
+              [87.085, 27.790]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "glims_id": "G082342E29891N",
+        "name": "Karnali High-Alpine Glacial Lake",
+        "basin_code": "KARNALI",
+        "basin_name": "Karnali Basin",
+        "sub_basin": "Humla Karnali",
+        "elevation_m": 4920,
+        "dam_type": "MORAINE_DAMMED",
+        "pdgl_status": "MEDIUM",
+        "baseline_area_sqkm": 0.68,
+        "baseline_volume_mcm": 18.5,
+        "freeboard_m": 25.0,
+        "moraine_slope_deg": 19.5,
+        "downstream_settlements_count": 6,
+        "current_risk_score": 0.45,
+        "downstream_villages": ["Simikot", "Hilsa", "Yari", "Dharapuri"]
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [82.335, 29.882],
+              [82.350, 29.890],
+              [82.355, 29.900],
+              [82.342, 29.905],
+              [82.328, 29.895],
+              [82.335, 29.882]
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
