@@ -7,6 +7,7 @@ import lakesRouter from './routes/lakes.routes';
 import alertsRouter from './routes/alerts.routes';
 import telemetryRouter from './routes/telemetry.routes';
 import ingestRouter from './routes/ingest.routes';
+import capRouter from './routes/cap.routes';
 
 dotenv.config();
 
@@ -106,6 +107,14 @@ const openApiSpec = {
         },
       },
     },
+    '/alerts/cap.xml': {
+      get: {
+        summary: 'Generate OASIS Common Alerting Protocol (CAP-XML v1.2) XML feed',
+        responses: {
+          '200': { description: 'CAP-XML 1.2 Feed' },
+        },
+      },
+    },
   },
 };
 
@@ -128,6 +137,7 @@ app.get('/health', (req: Request, res: Response) => {
 // API Routes
 app.use('/api/v1', lakesRouter);
 app.use('/api/v1/alerts', alertsRouter);
+app.use('/api/v1/alerts', capRouter);
 app.use('/api/v1/telemetry', telemetryRouter);
 app.use('/api/v1/ingest', ingestRouter);
 
@@ -148,6 +158,7 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`[Himalaya EWS Server] Running on http://localhost:${PORT}`);
     console.log(`[Himalaya EWS Server] Healthcheck: http://localhost:${PORT}/health`);
     console.log(`[Himalaya EWS Server] OpenAPI Spec: http://localhost:${PORT}/api/v1/openapi.json`);
+    console.log(`[Himalaya EWS Server] CAP-XML Feed: http://localhost:${PORT}/api/v1/alerts/cap.xml`);
   });
 }
 

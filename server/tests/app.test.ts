@@ -77,4 +77,13 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     expect(res.body.data.alert).not.toBeNull();
     expect(['WARNING', 'EMERGENCY']).toContain(res.body.data.alert.severity);
   });
+
+  it('GET /api/v1/alerts/cap.xml - should generate valid OASIS CAP-XML 1.2 feed', async () => {
+    const res = await request(app).get('/api/v1/alerts/cap.xml');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('xml');
+    expect(res.text).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+    expect(res.text).toContain('<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">');
+    expect(res.text).toContain('<event>Glacial Lake Outburst Flood (GLOF)</event>');
+  });
 });
