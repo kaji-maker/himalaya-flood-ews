@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import { GlacialLake, MapLayerState, DownstreamImpact } from '@/types';
 import { LayerControl } from './LayerControl';
+import { FloodWaveSimulator } from './FloodWaveSimulator';
 import { RiskBadge } from '../alerts/RiskBadge';
-import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp } from 'lucide-react';
+import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame } from 'lucide-react';
 
 interface GlacierMapProps {
   lakes: GlacialLake[];
@@ -149,9 +150,11 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
   const [hoveredLake, setHoveredLake] = useState<GlacialLake | null>(null);
   const [hoveredSettlement, setHoveredSettlement] = useState<DownstreamImpact | null>(null);
 
-  // Geographic center of Nepal: 28.3949° N, 84.1240° E
-  const NEPAL_CENTER_LAT = 28.3949;
-  const NEPAL_CENTER_LON = 84.1240;
+  // Simulation State
+  const [showSimulator, setShowSimulator] = useState(true);
+  const [simTimeMinutes, setSimTimeMinutes] = useState(12.5); // Default to 12.5 min to show active surge
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [speed, setSpeed] = useState(2);
 
   // Geographic Bounding Box for Nepal Projection
   const minLon = 80.0;
@@ -200,11 +203,27 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
     }
   };
 
-  // Active breach corridors to render
+  // Active breach corridor to simulate (Defaults to selected lake or Tsho Rolpa)
+  const activeCorridorKey = selectedLake?.icimod_code === 'PDGL_NEP_KOSHI_002' ? 'PDGL_NEP_KOSHI_002' : 'PDGL_NEP_KOSHI_001';
+  const activeCorridor = GLOF_INUNDATION_CORRIDORS[activeCorridorKey];
   const activeCorridors = Object.values(GLOF_INUNDATION_CORRIDORS);
 
+  // Interpolate Wavefront Position along active corridor
+  const corridorCoords = activeCorridor.corridor_coords;
+  const progressRatio = Math.min(1.0, simTimeMinutes / 60.0);
+  const totalSegments = corridorCoords.length - 1;
+  const segProgress = progressRatio * totalSegments;
+  const currentSegIdx = Math.min(totalSegments - 1, Math.floor(segProgress));
+  const segFraction = segProgress - currentSegIdx;
+
+  const [p0Lon, p0Lat] = corridorCoords[currentSegIdx];
+  const [p1Lon, p1Lat] = corridorCoords[currentSegIdx + 1] || corridorCoords[currentSegIdx];
+  const waveLon = p0Lon + (p1Lon - p0Lon) * segFraction;
+  const waveLat = p0Lat + (p1Lat - p0Lat) * segFraction;
+  const waveCoords = getCanvasCoords(waveLon, waveLat);
+
   return (
-    <div className="relative w-full h-[580px] bg-slate-950 rounded-2xl overflow-hidden border border-himalaya-border shadow-2xl">
+    <div className="relative w-full h-[620px] bg-slate-950 rounded-2xl overflow-hidden border border-himalaya-border shadow-2xl">
       {/* 3D Himalayan Terrain Mesh Background */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0B1323] to-[#040810]">
         {/* Topographic 3D Elevation Ridges */}
@@ -258,34 +277,46 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
             </filter>
           </defs>
 
-          {activeCorridors.map((c) => {
-            const pts = c.corridor_coords
-              .map(([lon, lat]) => {
-                const { numX, numY } = getCanvasCoords(lon, lat);
-                return `${(numX * 10).toFixed(1)},${(numY * 6).toFixed(1)}`;
+          {/* Render Thalweg Flowlines for all active corridors */}
+          {activeCorridors.map((corridor, cIdx) => {
+            const pathData = corridor.corridor_coords
+              .map(([lon, lat], i) => {
+                const pt = getCanvasCoords(lon, lat);
+                return `${i === 0 ? 'M' : 'L'} ${pt.numX * 10},${pt.numY * 6}`;
               })
-              .join(' L ');
+              .join(' ');
 
             return (
-              <g key={c.lake_id}>
-                {/* Wide Inundation Buffer Swath */}
+              <g key={cIdx}>
+                {/* Outer Inundation Swath Buffer */}
                 <path
-                  d={`M ${pts}`}
+                  d={pathData}
                   fill="none"
-                  stroke="#E11D48"
-                  strokeWidth="14"
-                  strokeOpacity="0.2"
+                  stroke="#F43F5E"
+                  strokeWidth="24"
+                  strokeOpacity="0.18"
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
-                {/* Center Flood Wave Flow Thalweg */}
+                {/* Secondary Inundation Swath Buffer */}
                 <path
-                  d={`M ${pts}`}
+                  d={pathData}
+                  fill="none"
+                  stroke="#FB923C"
+                  strokeWidth="12"
+                  strokeOpacity="0.35"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {/* Central Thalweg Surge Line */}
+                <path
+                  d={pathData}
                   fill="none"
                   stroke="url(#surgeGradient)"
-                  strokeWidth="3.5"
-                  strokeDasharray="8 4"
-                  className="animate-pulse"
+                  strokeWidth="3"
                   filter="url(#surgeGlow)"
+                  strokeDasharray="4 6"
+                  className="animate-pulse"
                 />
               </g>
             );
@@ -293,191 +324,182 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
         </svg>
       )}
 
-      {/* Center Navigation Crosshair Badge */}
-      <div className="absolute top-4 left-4 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl px-3.5 py-2 shadow-lg flex items-center gap-3">
-        <div className="p-1.5 bg-blue-500/20 text-sky-400 rounded-lg border border-blue-500/30">
-          <Compass className="w-4 h-4" />
-        </div>
-        <div>
-          <span className="text-xs font-bold text-white block">
-            Nepal Glacial Monitoring Center
-          </span>
-          <span className="text-[10px] font-mono text-slate-400">
-            {NEPAL_CENTER_LAT.toFixed(4)}° N, {NEPAL_CENTER_LON.toFixed(4)}° E (WGS84)
-          </span>
-        </div>
-      </div>
-
-      {/* Downstream At-Risk Settlement Pins (Layer: Inundation Swath) */}
-      {layers.inundationSwath && (
-        <div className="absolute inset-0 pointer-events-auto z-25">
-          {activeCorridors.flatMap((c) =>
-            c.settlements.map((s, idx) => {
-              const [lon, lat] = s.coordinates;
-              const { x, y } = getCanvasCoords(lon, lat);
-              const isExtreme = s.hazard_level === 'EXTREME_IMMEDIATE_EVACUATION';
-
-              return (
-                <div
-                  key={`${s.settlement_name}-${idx}`}
-                  style={{ left: x, top: y }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group"
-                  onMouseEnter={() => setHoveredSettlement(s)}
-                  onMouseLeave={() => setHoveredSettlement(null)}
-                >
-                  <div className="relative flex items-center justify-center">
-                    {isExtreme && (
-                      <span className="animate-ping absolute inline-flex h-6 w-6 rounded-full bg-rose-500/60" />
-                    )}
-                    <div
-                      className={`w-4 h-4 rounded-full flex items-center justify-center border transition-all ${
-                        isExtreme
-                          ? 'bg-rose-500 border-white shadow-lg ring-2 ring-rose-400/50'
-                          : 'bg-amber-500 border-white ring-2 ring-amber-400/50'
-                      }`}
-                    >
-                      <AlertOctagon className="w-2.5 h-2.5 text-white" />
-                    </div>
-                  </div>
-
-                  {/* Arrival Time Badge */}
-                  <div className="absolute top-5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-950/95 border border-rose-500/50 px-2 py-0.5 rounded text-[10px] font-mono font-bold text-rose-300 shadow-xl flex items-center gap-1">
-                    <Clock className="w-2.5 h-2.5 text-rose-400" />
-                    {s.settlement_name}: {s.travel_time_minutes}m
-                  </div>
-                </div>
-              );
-            })
-          )}
+      {/* Dynamic Animated Leading Wavefront Marker */}
+      {showSimulator && (
+        <div
+          className="absolute z-20 pointer-events-none transform -translate-x-1/2 -translate-y-1/2 transition-all duration-100"
+          style={{ left: waveCoords.x, top: waveCoords.y }}
+        >
+          {/* Animated Expanding Ripple Rings */}
+          <div className="absolute -inset-4 rounded-full bg-rose-500/30 animate-ping" />
+          <div className="absolute -inset-2 rounded-full bg-sky-400/50 animate-pulse" />
+          <div className="relative w-6 h-6 rounded-full bg-rose-600 border-2 border-white shadow-xl flex items-center justify-center">
+            <Flame className="w-3.5 h-3.5 text-amber-200 animate-bounce" />
+          </div>
+          {/* Wavefront Label Badge */}
+          <div className="absolute left-7 top-1/2 -translate-y-1/2 bg-rose-950/90 border border-rose-500/60 px-2 py-0.5 rounded text-[10px] font-mono font-bold text-rose-200 shadow-xl whitespace-nowrap flex items-center gap-1">
+            <Waves className="w-3 h-3 text-rose-400 animate-pulse" />
+            Wavefront: T + {simTimeMinutes.toFixed(1)} min
+          </div>
         </div>
       )}
 
-      {/* Interactive Glacial Lake Markers */}
-      <div className="absolute inset-0 p-8 pointer-events-auto">
-        {lakes.map((lake) => {
-          const [lon, lat] = lake.centroid.coordinates;
-          const { x, y } = getCanvasCoords(lon, lat);
-          const isSelected = selectedLake?.id === lake.id;
-          const color = getLakeColorClasses(lake.danger_level);
-          const isCritical = ['CRITICAL', 'EMERGENCY'].includes(lake.danger_level.toUpperCase());
+      {/* Downstream Settlement Inundation Markers */}
+      {layers.inundationSwath &&
+        activeCorridors.flatMap((c) => c.settlements).map((settlement, sIdx) => {
+          const coords = getCanvasCoords(settlement.coordinates[0], settlement.coordinates[1]);
+          const isHit = settlement.travel_time_minutes <= simTimeMinutes;
+          const isNext = !isHit && (settlement.travel_time_minutes - simTimeMinutes <= 10.0);
 
           return (
             <div
-              key={lake.id}
-              style={{ left: x, top: y }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer z-30 group"
-              onClick={() => onSelectLake(lake)}
-              onMouseEnter={() => setHoveredLake(lake)}
-              onMouseLeave={() => setHoveredLake(null)}
+              key={`settle-${sIdx}`}
+              className="absolute z-15 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: coords.x, top: coords.y }}
+              onMouseEnter={() => setHoveredSettlement(settlement)}
+              onMouseLeave={() => setHoveredSettlement(null)}
             >
-              {/* Pulsing ring for critical/warning lakes */}
-              <div className="relative flex items-center justify-center">
-                {isCritical && (
-                  <span className={`animate-ping absolute inline-flex h-8 w-8 rounded-full ${color.glow} opacity-75`} />
-                )}
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all shadow-xl ${
-                    isSelected
-                      ? 'bg-sky-400 border-white ring-4 ring-sky-500/60 scale-125'
-                      : `${color.bg} ${color.border} group-hover:scale-110`
-                  }`}
-                >
-                  <Mountain className="w-3 h-3 text-white" />
-                </div>
-              </div>
+              {/* Pulsing Alert Ring if inundated */}
+              {isHit && (
+                <div className="absolute -inset-2 rounded-full bg-rose-500/40 animate-ping pointer-events-none" />
+              )}
 
-              {/* Lake Label Marker */}
-              <div className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap bg-slate-900/95 border border-slate-700/80 px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-100 shadow-xl group-hover:border-sky-400 flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${color.bg}`} />
-                {lake.name}
+              {/* Settlement Pin */}
+              <div
+                className={`p-1.5 rounded-lg border shadow-lg transition-transform group-hover:scale-125 flex items-center gap-1 font-mono text-[10px] ${
+                  isHit
+                    ? 'bg-rose-950/95 border-rose-500 text-rose-200 ring-2 ring-rose-500/50'
+                    : isNext
+                    ? 'bg-amber-950/90 border-amber-500 text-amber-200 ring-1 ring-amber-500/30'
+                    : 'bg-slate-900/90 border-slate-700 text-slate-300'
+                }`}
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    isHit ? 'bg-rose-500 animate-pulse' : isNext ? 'bg-amber-400' : 'bg-slate-500'
+                  }`}
+                />
+                <span className="font-bold">{settlement.settlement_name}</span>
+                <span className="text-[9px] opacity-75">
+                  ({isHit ? `+${settlement.peak_stage_rise_m}m` : `${settlement.travel_time_minutes}m`})
+                </span>
               </div>
             </div>
           );
         })}
-      </div>
 
-      {/* Layer Control Panel */}
-      <div className="absolute top-4 right-4 z-35">
+      {/* Glacial Lake Markers */}
+      {lakes.map((lake) => {
+        const coords = getCanvasCoords(
+          lake.centroid.coordinates[0],
+          lake.centroid.coordinates[1]
+        );
+        const colors = getLakeColorClasses(lake.danger_level);
+        const isSelected = selectedLake?.id === lake.id;
+
+        return (
+          <div
+            key={lake.id}
+            className="absolute z-20 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+            style={{ left: coords.x, top: coords.y }}
+            onClick={() => onSelectLake(lake)}
+            onMouseEnter={() => setHoveredLake(lake)}
+            onMouseLeave={() => setHoveredLake(null)}
+          >
+            {/* Outer Pulsing Aura for High Risk */}
+            {(lake.danger_level === 'CRITICAL' || lake.danger_level === 'HIGH') && (
+              <div
+                className={`absolute -inset-2.5 rounded-full ${colors.glow} animate-ping opacity-60 pointer-events-none`}
+              />
+            )}
+
+            {/* Main Center Lake Pin */}
+            <div
+              className={`relative w-6 h-6 rounded-full ${colors.bg} border-2 ${
+                colors.border
+              } shadow-lg flex items-center justify-center transition-transform group-hover:scale-125 ${
+                isSelected ? 'ring-4 ring-sky-400 scale-125' : ''
+              }`}
+            >
+              <Mountain className="w-3.5 h-3.5 text-white" />
+            </div>
+
+            {/* Lake Name Tooltip */}
+            <div className="absolute left-1/2 -translate-x-1/2 top-7 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/95 border border-slate-700 px-2 py-1 rounded-md text-[11px] font-mono text-white whitespace-nowrap shadow-xl pointer-events-none z-30">
+              <div className="font-bold">{lake.name}</div>
+              <div className="text-[10px] text-slate-400">
+                {(lake.current_area_sqm / 1e6).toFixed(2)} km² • {lake.danger_level}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Hover Settlement Inspection Card */}
+      {hoveredSettlement && (
+        <div className="absolute top-4 left-4 z-30 bg-slate-900/95 border border-rose-500/50 rounded-xl p-3.5 shadow-2xl backdrop-blur-md max-w-xs font-mono text-xs text-slate-200">
+          <div className="flex items-center gap-1.5 text-rose-400 font-bold mb-1.5">
+            <AlertOctagon className="w-4 h-4" />
+            <span>Downstream Hazard Inspection</span>
+          </div>
+          <div className="text-white font-bold text-sm mb-1">{hoveredSettlement.settlement_name}</div>
+          <div className="space-y-1 text-[11px] text-slate-300">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Distance from Lake:</span>
+              <span className="font-bold">{hoveredSettlement.distance_km} km</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Wave Travel Time:</span>
+              <span className="font-bold text-rose-300">{hoveredSettlement.travel_time_minutes} min</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Peak Stage Rise:</span>
+              <span className="font-bold text-sky-300">+{hoveredSettlement.peak_stage_rise_m} m</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Peak Discharge (Q_p):</span>
+              <span className="font-bold text-amber-300">
+                {Math.round(hoveredSettlement.peak_discharge_cms).toLocaleString()} m³/s
+              </span>
+            </div>
+            <div className="pt-1.5 border-t border-slate-800">
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                {hoveredSettlement.hazard_level.replace(/_/g, ' ')}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Map Header Overlay */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <button
+          onClick={() => setShowSimulator(!showSimulator)}
+          className={`px-3 py-1.5 rounded-xl border text-xs font-mono font-semibold transition-all flex items-center gap-1.5 shadow-lg ${
+            showSimulator
+              ? 'bg-sky-500/20 border-sky-400 text-sky-200'
+              : 'bg-slate-900/80 border-slate-700 text-slate-400 hover:text-white'
+          }`}
+        >
+          <Waves className="w-3.5 h-3.5" />
+          {showSimulator ? 'Hide Wave Simulator' : 'Show Wave Simulator'}
+        </button>
         <LayerControl layers={layers} onToggleLayer={toggleLayer} />
       </div>
 
-      {/* Settlement Hover Tooltip */}
-      {hoveredSettlement && (
-        <div className="absolute bottom-4 left-4 z-40 bg-slate-900/95 backdrop-blur-md border border-rose-500/50 rounded-xl p-4 shadow-2xl max-w-sm pointer-events-none font-mono">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <h4 className="text-sm font-bold text-rose-300 flex items-center gap-1.5">
-              <AlertOctagon className="w-4 h-4 text-rose-400" />
-              {hoveredSettlement.settlement_name}
-            </h4>
-            <span className="text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded font-bold">
-              {hoveredSettlement.hazard_level.replace(/_/g, ' ')}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
-            <div>
-              <span className="text-slate-500 block">Breach Distance:</span>
-              {hoveredSettlement.distance_km} km
-            </div>
-            <div>
-              <span className="text-slate-500 block">Wave Arrival:</span>
-              <span className="text-rose-400 font-bold">{hoveredSettlement.travel_time_minutes} min</span>
-            </div>
-            <div>
-              <span className="text-slate-500 block">Peak Discharge:</span>
-              {hoveredSettlement.peak_discharge_cms.toLocaleString()} m³/s
-            </div>
-            <div>
-              <span className="text-slate-500 block">Stage Rise:</span>
-              <span className="text-rose-400 font-bold">+{hoveredSettlement.peak_stage_rise_m} m</span>
-            </div>
-          </div>
-        </div>
+      {/* Floating 3D Flood Wave Simulator Controller */}
+      {showSimulator && (
+        <FloodWaveSimulator
+          activeCorridorName={activeCorridorKey === 'PDGL_NEP_KOSHI_001' ? 'Tsho Rolpa ➔ Tama Koshi Gorge' : 'Imja Tsho ➔ Dudh Koshi'}
+          settlements={activeCorridor.settlements}
+          simTimeMinutes={simTimeMinutes}
+          setSimTimeMinutes={setSimTimeMinutes}
+          isPlaying={isPlaying}
+          setIsPlaying={setIsPlaying}
+          speed={speed}
+          setSpeed={setSpeed}
+        />
       )}
-
-      {/* Lake Hover Info Tooltip */}
-      {hoveredLake && !hoveredSettlement && (
-        <div className="absolute bottom-4 left-4 z-30 bg-himalaya-card/95 backdrop-blur-md border border-himalaya-border rounded-xl p-4 shadow-2xl max-w-sm pointer-events-none">
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <h4 className="text-sm font-bold text-white">{hoveredLake.name}</h4>
-            <RiskBadge level={hoveredLake.danger_level} size="sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 font-mono">
-            <div>
-              <span className="text-slate-500 block">Basin:</span>
-              {hoveredLake.basin_name} ({hoveredLake.sub_basin || 'Main'})
-            </div>
-            <div>
-              <span className="text-slate-500 block">Elevation:</span>
-              {hoveredLake.elevation_m} m
-            </div>
-            <div>
-              <span className="text-slate-500 block">Surface Area:</span>
-              {(hoveredLake.current_area_sqm / 1e6).toFixed(3)} km²
-            </div>
-            <div>
-              <span className="text-slate-500 block">Status:</span>
-              <span className="font-bold text-sky-400">Click to Inspect</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Legend */}
-      <div className="absolute bottom-4 right-4 z-20 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2 text-[11px] text-slate-300 flex items-center gap-4 font-mono shadow-xl">
-        <span className="text-slate-500 uppercase text-[10px]">Overlays:</span>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-          <span>Surge Path</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-          <span>At-Risk Village</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-          <span>Stable Lake</span>
-        </div>
-      </div>
     </div>
   );
 };
