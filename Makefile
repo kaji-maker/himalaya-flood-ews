@@ -1,20 +1,22 @@
-.PHONY: help setup dev up down db-migrate db-seed test test-workers test-server test-client build lint clean
+.PHONY: help setup dev up down db-migrate db-seed test test-workers test-server test-client worker-daemon worker-cycle build lint clean
 
 help:
 	@echo "Himalaya Flood & GLOF Early Warning System (EWS)"
 	@echo "================================================"
-	@echo "make setup        - Install dependencies across workers, server, and client"
-	@echo "make dev          - Run all services locally via docker-compose"
-	@echo "make up           - Start background docker containers"
-	@echo "make down         - Stop all docker containers"
-	@echo "make db-migrate   - Apply PostGIS migrations"
-	@echo "make db-seed      - Ingest ICIMOD PDGL GeoJSON seed dataset"
-	@echo "make test         - Run all test suites across modules"
-	@echo "make test-workers - Run Python worker pytest suite"
-	@echo "make test-server  - Run Node.js API test suite"
-	@echo "make test-client  - Run Client tests/type-check"
-	@echo "make lint         - Run linters across python and typescript codebases"
-	@echo "make clean        - Remove temporary build artifacts and caches"
+	@echo "make setup         - Install dependencies across workers, server, and client"
+	@echo "make dev           - Run all services locally via docker-compose"
+	@echo "make up            - Start background docker containers"
+	@echo "make down          - Stop all docker containers"
+	@echo "make db-migrate    - Apply PostGIS migrations"
+	@echo "make db-seed       - Ingest ICIMOD PDGL GeoJSON seed dataset"
+	@echo "make test          - Run all test suites across modules"
+	@echo "make test-workers  - Run Python worker pytest suite"
+	@echo "make test-server   - Run Node.js API test suite"
+	@echo "make test-client   - Run Client tests/type-check"
+	@echo "make worker-daemon - Start background satellite & weather ingestion daemon"
+	@echo "make worker-cycle  - Run a single satellite & weather ingestion pass"
+	@echo "make lint          - Run linters across python and typescript codebases"
+	@echo "make clean         - Remove temporary build artifacts and caches"
 
 setup:
 	@echo "Setting up Python workers environment..."
@@ -35,19 +37,19 @@ down:
 
 db-migrate:
 	@echo "Applying database migrations to PostGIS..."
-	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5432/himalaya_ews}" -f database/migrations/001_enable_postgis.sql
-	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5432/himalaya_ews}" -f database/migrations/002_create_basins_and_lakes.sql
-	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5432/himalaya_ews}" -f database/migrations/003_create_observations_and_alerts.sql
+	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/001_enable_postgis.sql
+	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/002_create_basins_and_lakes.sql
+	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/003_create_observations_and_alerts.sql
 
 db-seed:
 	@echo "Seeding ICIMOD PDGL GeoJSON dataset..."
-	cd workers && python3 -m src.ingestion.seed_db
+	cd workers && ./venv/bin/python3 -m src.ingestion.seed_db
 
 test: test-workers test-server test-client
 
 test-workers:
 	@echo "Running Python worker tests..."
-	cd workers && pytest tests/ -v
+	cd workers && ./venv/bin/pytest tests/ -v
 
 test-server:
 	@echo "Running Node.js server tests..."
@@ -57,8 +59,16 @@ test-client:
 	@echo "Type checking client application..."
 	cd client && npm run type-check
 
+worker-daemon:
+	@echo "Starting Ingestion Daemon..."
+	cd workers && ./venv/bin/python3 -m src.ingestion.scheduler
+
+worker-cycle:
+	@echo "Running single satellite ingestion pass..."
+	cd workers && ./venv/bin/python3 -m src.ingestion.scheduler --run-once
+
 lint:
-	cd workers && flake8 src/ tests/ || true
+	cd workers && ./venv/bin/flake8 src/ tests/ || true
 	cd server && npm run lint || true
 	cd client && npm run lint || true
 
