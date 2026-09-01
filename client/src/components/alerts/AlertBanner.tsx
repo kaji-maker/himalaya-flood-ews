@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FloodAlert } from '@/types';
 import { RiskBadge } from './RiskBadge';
 import { AlertTriangle, ShieldAlert, CheckCircle, ChevronRight, BellRing } from 'lucide-react';
@@ -16,6 +16,12 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
   onAcknowledge,
   onSelectLakeById,
 }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const activeAlerts = alerts.filter(
     (a) => !a.resolved_at && (a.severity === 'EMERGENCY' || a.severity === 'WARNING')
   );
@@ -76,8 +82,13 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
                     <span className="text-xs font-mono text-slate-400">
                       • {alert.basin_name} River Basin
                     </span>
-                    <span className="text-[11px] font-mono text-slate-500">
-                      [{new Date(alert.created_at).toLocaleTimeString()}]
+                    <span
+                      className="text-[11px] font-mono text-slate-500"
+                      suppressHydrationWarning
+                    >
+                      {mounted && alert.created_at
+                        ? `[${new Date(alert.created_at).toLocaleTimeString()}]`
+                        : `[${(alert.created_at || '').slice(11, 16) || 'LIVE'}]`}
                     </span>
                   </div>
 
