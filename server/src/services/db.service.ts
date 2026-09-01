@@ -1,18 +1,24 @@
-import { Pool, QueryResult } from 'pg';
+import knex, { Knex } from 'knex';
 import dotenv from 'dotenv';
 import { Basin, GlacialLake, FloodAlert } from '../types';
 
 dotenv.config();
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://ews_admin:ews_secure_password@localhost:5432/himalaya_ews';
+const connectionString =
+  process.env.DATABASE_URL ||
+  'postgresql://ews_admin:ews_secure_password@localhost:5432/himalaya_ews';
 
-export const pool = new Pool({
-  connectionString,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+export const db: Knex = knex({
+  client: 'pg',
+  connection: connectionString,
+  pool: {
+    min: 2,
+    max: 20,
+    acquireTimeoutMillis: 5000,
+  },
 });
 
+// Fallback In-Memory Datastores (for offline dev and mock testing)
 export const MOCK_BASINS: Basin[] = [
   { id: 'b1111111-1111-1111-1111-111111111111', name: 'Koshi' },
   { id: 'b2222222-2222-2222-2222-222222222222', name: 'Gandaki' },
@@ -81,15 +87,6 @@ export const MOCK_FLOOD_ALERTS: FloodAlert[] = [
     severity: 'EMERGENCY',
     trigger_reason: 'Moraine displacement surge +18.2% expansion and 72h GPM IMERG rainfall exceeding 140mm',
     created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-    resolved_at: null,
-  },
-  {
-    id: 'a2222222-2222-2222-2222-222222222222',
-    lake_id: 'l2222222-2222-2222-2222-222222222222',
-    lake_name: 'Imja Tsho',
-    severity: 'WARNING',
-    trigger_reason: 'Supraglacial calving expansion approaching terminal moraine crest',
-    created_at: new Date(Date.now() - 3600000 * 12).toISOString(),
     resolved_at: null,
   },
 ];

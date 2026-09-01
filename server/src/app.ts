@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import lakesRouter from './routes/lakes.routes';
 import alertsRouter from './routes/alerts.routes';
 import telemetryRouter from './routes/telemetry.routes';
+import ingestRouter from './routes/ingest.routes';
 
 dotenv.config();
 
@@ -15,7 +16,7 @@ const PORT = process.env.PORT || 4000;
 // Security & Middleware
 app.use(helmet());
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '15mb' }));
 
 // OpenAPI 3.0 Specification
 const openApiSpec = {
@@ -45,71 +46,63 @@ const openApiSpec = {
     },
     '/lakes': {
       get: {
-        summary: 'Query monitored glacial lakes inventory with spatial and risk filters',
+        summary: 'Return all glacial lakes filtered by basin and current danger level / risk status',
         parameters: [
-          { name: 'basin_code', in: 'query', schema: { type: 'string' } },
-          { name: 'pdgl_status', in: 'query', schema: { type: 'string' } },
-          { name: 'min_risk', in: 'query', schema: { type: 'number' } },
+          { name: 'basin', in: 'query', schema: { type: 'string' } },
+          { name: 'danger_level', in: 'query', schema: { type: 'string' } },
+          { name: 'risk_status', in: 'query', schema: { type: 'string' } },
         ],
         responses: {
           '200': { description: 'List of glacial lakes' },
         },
       },
     },
-    '/lakes/{id}/observations': {
+    '/lakes/{id}/history': {
       get: {
-        summary: 'Retrieve multi-temporal surface area observation history for a glacial lake',
+        summary: 'Return time-series surface area trends and historical observation polygons as GeoJSON',
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
         ],
         responses: {
-          '200': { description: 'Time series observations' },
+          '200': { description: 'Time series observations and GeoJSON FeatureCollection' },
         },
       },
     },
-    '/alerts': {
-      get: {
-        summary: 'List active and historical GLOF alerts',
-        responses: {
-          '200': { description: 'List of alerts' },
-        },
-      },
-    },
-    '/alerts/evaluate': {
+    '/ingest/observation': {
       post: {
-        summary: 'Ingest Python worker risk evaluation and trigger warning dispatch',
+        summary: 'Ingest newly computed observation from Python worker and trigger automated risk evaluation',
         requestBody: {
           required: true,
           content: {
             'application/json': {
               schema: {
                 type: 'object',
+                required: ['lake_id', 'sensor_name', 'area_sqm'],
                 properties: {
                   lake_id: { type: 'string' },
-                  risk_score: { type: 'number' },
-                  alert_level: { type: 'string' },
-                  triggers: { type: 'object' },
+                  observation_date: { type: 'string' },
+                  sensor_name: { type: 'string' },
+                  area_sqm: { type: 'number' },
+                  mean_mndwi: { type: 'number' },
+                  cloud_cover_pct: { type: 'number' },
+                  geojson_geometry: { type: 'object' },
+                  precip_48h_mm: { type: 'number' },
+                  dam_distortion_detected: { type: 'boolean' },
                 },
               },
             },
           },
         },
         responses: {
-          '201': { description: 'Alert evaluation recorded' },
+          '201': { description: 'Observation ingested and risk evaluation triggered' },
         },
       },
     },
-    '/telemetry/precipitation': {
+    '/alerts': {
       get: {
-        summary: 'Query NASA GPM IMERG 72h precipitation records',
+        summary: 'List active and historical flood alerts',
         responses: {
-          '200': { description: 'Precipitation telemetry data' },
-        },
-      },
-      post: {
-        summary: 'Ingest GPM or ground station precipitation measurement',
-        responses: {
-          '201': { description: 'Telemetry point ingested' },
+          '200': { description: 'List of alerts' },
         },
       },
     },
@@ -136,12 +129,7 @@ app.get('/health', (req: Request, res: Response) => {
 app.use('/api/v1', lakesRouter);
 app.use('/api/v1/alerts', alertsRouter);
 app.use('/api/v1/telemetry', telemetryRouter);
-
-// Root Mock Webhook Receiver for testing dispatchers
-app.post('/api/v1/alerts/webhook-mock', (req: Request, res: Response) => {
-  console.log('[MOCK-WEBHOOK] Received Alert Webhook Payload:', JSON.stringify(req.body, null, 2));
-  res.json({ received: true });
-});
+app.use('/api/v1/ingest', ingestRouter);
 
 // 404 Handler
 app.use((req: Request, res: Response) => {
