@@ -19,6 +19,7 @@ def test_peak_outflow_calculation():
 
     assert outflow["q_froehlich_cms"] > 5000.0
     assert outflow["q_costa_cms"] > 3000.0
+    assert outflow["q_nws_breach_cms"] > 10000.0  # Kayastha & Maskey (PIAHS 2024)
     assert outflow["q_recommended_cms"] > 4000.0
     assert 0.25 <= outflow["formation_time_hrs"] <= 4.0
 
@@ -64,6 +65,7 @@ def test_full_breach_simulation():
 
     assert result.lake_name == "Tsho Rolpa"
     assert result.recommended_peak_q_cms > 1000.0
+    assert result.peak_outflow_q_nws_breach_cms > 10000.0
     assert len(result.downstream_impacts) == 2
     assert result.inundation_geojson["type"] == "FeatureCollection"
     assert len(result.inundation_geojson["features"]) == 3  # 1 line + 2 points
