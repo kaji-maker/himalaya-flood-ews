@@ -1,25 +1,25 @@
 'use client';
 
 import React from 'react';
-import { AlertLevel, PDGLHazardLevel } from '@/types';
+import { AlertSeverity, LakeDangerLevel } from '@/types';
 
 interface RiskBadgeProps {
-  level: AlertLevel | PDGLHazardLevel | string;
+  level: AlertSeverity | LakeDangerLevel | string;
   size?: 'sm' | 'md' | 'lg';
   showPulse?: boolean;
 }
 
 export const RiskBadge: React.FC<RiskBadgeProps> = ({ level, size = 'md', showPulse = true }) => {
-  const normalized = level.toUpperCase();
+  const normalized = (level || 'LOW').toUpperCase();
 
   const getStyle = () => {
     switch (normalized) {
       case 'CRITICAL':
-      case 'VERY_HIGH':
+      case 'EMERGENCY':
         return {
           bg: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
           dot: 'bg-rose-500',
-          label: normalized === 'VERY_HIGH' ? 'VERY HIGH RISK' : 'CRITICAL',
+          label: normalized === 'EMERGENCY' ? 'EMERGENCY' : 'CRITICAL',
         };
       case 'WARNING':
       case 'HIGH':
@@ -67,7 +67,7 @@ export const RiskBadge: React.FC<RiskBadgeProps> = ({ level, size = 'md', showPu
     >
       {showPulse && (
         <span className="relative flex h-2 w-2">
-          {['CRITICAL', 'VERY_HIGH', 'WARNING', 'HIGH'].includes(normalized) && (
+          {['CRITICAL', 'EMERGENCY', 'WARNING', 'HIGH'].includes(normalized) && (
             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${style.dot}`}></span>
           )}
           <span className={`relative inline-flex rounded-full h-2 w-2 ${style.dot}`}></span>

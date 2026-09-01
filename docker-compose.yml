@@ -9,13 +9,13 @@ services:
       POSTGRES_USER: ews_admin
       POSTGRES_PASSWORD: ews_secure_password
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - postgis_data:/var/lib/postgresql/data
       - ./database/migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ews_admin -d himalaya_ews"]
-      interval: 5s
+      interval: 3s
       timeout: 5s
       retries: 5
 
@@ -23,12 +23,12 @@ services:
     image: redis:7-alpine
     container_name: himalaya-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 3s
       timeout: 5s
       retries: 5
 

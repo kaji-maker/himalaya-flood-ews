@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GlacierMap } from '@/components/map/GlacierMap';
 import { AlertBanner } from '@/components/alerts/AlertBanner';
 import { LakeDetailDrawer } from '@/components/drawer/LakeDetailDrawer';
@@ -17,6 +17,8 @@ import {
   Filter,
   ExternalLink,
 } from 'lucide-react';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
   {
@@ -213,26 +215,95 @@ const MOCK_PRECIPITATION: PrecipitationPoint[] = [
 ];
 
 export default function DashboardPage() {
-  const [lakes] = useState<GlacialLake[]>(NEPAL_GLACIAL_LAKES);
+  const [lakes, setLakes] = useState<GlacialLake[]>(NEPAL_GLACIAL_LAKES);
   const [alerts, setAlerts] = useState<FloodAlert[]>(INITIAL_ALERTS);
   const [selectedLake, setSelectedLake] = useState<GlacialLake | null>(null);
+  const [lakeObservations, setLakeObservations] = useState<ObservationPoint[]>(MOCK_OBSERVATIONS);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [basinFilter, setBasinFilter] = useState<string>('ALL');
 
-  const handleSelectLake = (lake: GlacialLake) => {
+  // Fetch live lakes and alerts from PostGIS API
+  useEffect(() => {
+    async function fetchLiveData() {
+      try {
+        const [lakesRes, alertsRes] = await Promise.all([
+          fetch(`${API_BASE}/lakes`).catch(() => null),
+          fetch(`${API_BASE}/alerts`).catch(() => null),
+        ]);
+
+        if (lakesRes && lakesRes.ok) {
+          const lakesJson = await lakesRes.json();
+          if (lakesJson?.data && Array.isArray(lakesJson.data) && lakesJson.data.length > 0) {
+            setLakes((prev) =>
+              lakesJson.data.map((l: any, idx: number) => {
+                const match = prev.find((p) => p.icimod_code === l.icimod_code || p.name === l.name);
+                return {
+                  id: l.id || match?.id || `lake-${idx}`,
+                  icimod_code: l.icimod_code || match?.icimod_code || `PDGL-${idx}`,
+                  name: l.name || match?.name,
+                  basin_name: l.basin_name || match?.basin_name || 'Koshi',
+                  sub_basin: match?.sub_basin,
+                  elevation_m: l.elevation_m || match?.elevation_m || 4500,
+                  initial_area_sqm: Number(l.initial_area_sqm || match?.initial_area_sqm || 1000000),
+                  current_area_sqm: Number(l.current_area_sqm || match?.current_area_sqm || 1150000),
+                  danger_level: l.danger_level || match?.danger_level || 'LOW',
+                  centroid: l.centroid || match?.centroid || { type: 'Point', coordinates: [86.5, 27.9] },
+                  freeboard_m: match?.freeboard_m || 15.0,
+                  moraine_slope_deg: match?.moraine_slope_deg || 25.0,
+                  downstream_villages: match?.downstream_villages || ['Downstream Catchment'],
+                  polygon_coordinates: match?.polygon_coordinates,
+                };
+              })
+            );
+          }
+        }
+
+        if (alertsRes && alertsRes.ok) {
+          const alertsJson = await alertsRes.json();
+          if (alertsJson?.data && Array.isArray(alertsJson.data) && alertsJson.data.length > 0) {
+            setAlerts(alertsJson.data);
+          }
+        }
+      } catch (err) {
+        console.warn('API polling fallback to initial datasets:', err);
+      }
+    }
+
+    fetchLiveData();
+  }, []);
+
+  // Fetch lake history upon lake selection
+  const handleSelectLake = async (lake: GlacialLake) => {
     setSelectedLake(lake);
     setIsDrawerOpen(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/lakes/${lake.icimod_code || lake.id}/history`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.time_series && data.time_series.length > 0) {
+          setLakeObservations(data.time_series);
+        }
+      }
+    } catch (e) {
+      setLakeObservations(MOCK_OBSERVATIONS);
+    }
   };
 
   const handleSelectLakeById = (lakeId: string) => {
     const found = lakes.find((l) => l.id === lakeId || l.icimod_code === lakeId);
     if (found) {
-      setSelectedLake(found);
-      setIsDrawerOpen(true);
+      handleSelectLake(found);
     }
   };
 
-  const handleAcknowledgeAlert = (alertId: string) => {
+  const handleAcknowledgeAlert = async (alertId: string) => {
+    try {
+      await fetch(`${API_BASE}/alerts/${alertId}/resolve`, { method: 'PATCH' });
+    } catch (e) {
+      // Offline fallback
+    }
+
     setAlerts((prev) =>
       prev.map((a) =>
         a.id === alertId ? { ...a, resolved_at: new Date().toISOString() } : a
@@ -251,7 +322,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* 1. Real-time Warning & Emergency Banner across Nepal (Requirement 4) */}
+      {/* 1. Real-time Warning & Emergency Banner across Nepal */}
       <AlertBanner
         alerts={alerts}
         onAcknowledge={handleAcknowledgeAlert}
@@ -263,7 +334,7 @@ export default function DashboardPage() {
         <StatCard
           title="Active Nepal GLOF Warnings"
           value={activeWarningsCount}
-          subtitle="1 Emergency, 1 Warning"
+          subtitle="Real-time PostGIS dispatch"
           icon={<ShieldAlert className="w-5 h-5" />}
           highlightColor="red"
         />
@@ -291,7 +362,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 3. 3D Terrain Map Centered on Nepal (Requirement 1 & 2) */}
+      {/* 3. 3D Terrain Map Centered on Nepal */}
       <div className="space-y-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
@@ -408,12 +479,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 5. Interactive Side Drawer (Requirement 3) */}
+      {/* 5. Interactive Side Drawer */}
       <LakeDetailDrawer
         lake={selectedLake}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        observations={MOCK_OBSERVATIONS}
+        observations={lakeObservations}
         precipitationData={MOCK_PRECIPITATION}
       />
     </div>

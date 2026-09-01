@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { MOCK_FLOOD_ALERTS, MOCK_GLACIAL_LAKES, pool } from '../services/db.service';
+import { MOCK_FLOOD_ALERTS, MOCK_GLACIAL_LAKES, db } from '../services/db.service';
 import { FloodAlert, AlertSeverityLevel } from '../types';
 
 const router = Router();
@@ -10,26 +10,27 @@ router.get('/', async (req: Request, res: Response) => {
   const { severity, active_only } = req.query;
 
   try {
-    let query = `
-      SELECT f.id, f.lake_id, g.name AS lake_name, f.severity,
-             f.trigger_reason, f.created_at, f.resolved_at
-      FROM flood_alerts f
-      JOIN glacial_lakes g ON f.lake_id = g.id
-      WHERE 1=1
-    `;
-    const params: any[] = [];
+    let query = db('flood_alerts as f')
+      .join('glacial_lakes as g', 'f.lake_id', 'g.id')
+      .select(
+        'f.id',
+        'f.lake_id',
+        'g.name as lake_name',
+        'f.severity',
+        'f.trigger_reason',
+        'f.created_at',
+        'f.resolved_at'
+      );
 
     if (severity) {
-      params.push(severity);
-      query += ` AND f.severity = $${params.length}`;
+      query = query.where('f.severity', severity as string);
     }
     if (active_only === 'true') {
-      query += ` AND f.resolved_at IS NULL`;
+      query = query.whereNull('f.resolved_at');
     }
 
-    query += ` ORDER BY f.created_at DESC;`;
-    const result = await pool.query(query, params);
-    return res.json({ success: true, count: result.rows.length, data: result.rows });
+    const alerts = await query.orderBy('f.created_at', 'desc');
+    return res.json({ success: true, count: alerts.length, data: alerts });
   } catch (e) {
     let filtered = [...alertsMemoryStore];
     if (severity) {
@@ -64,13 +65,14 @@ router.post('/', async (req: Request, res: Response) => {
   };
 
   try {
-    const result = await pool.query(
-      `INSERT INTO flood_alerts (lake_id, severity, trigger_reason)
-       VALUES ($1, $2, $3)
-       RETURNING id, lake_id, severity, trigger_reason, created_at, resolved_at;`,
-      [lake_id, severity, trigger_reason]
-    );
-    return res.status(201).json({ success: true, data: result.rows[0] });
+    const [inserted] = await db('flood_alerts')
+      .insert({
+        lake_id,
+        severity,
+        trigger_reason,
+      })
+      .returning(['id', 'lake_id', 'severity', 'trigger_reason', 'created_at', 'resolved_at']);
+    return res.status(201).json({ success: true, data: inserted });
   } catch (e) {
     alertsMemoryStore.unshift(newAlert);
     return res.status(201).json({ success: true, data: newAlert });
@@ -82,12 +84,13 @@ router.patch('/:id/resolve', async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    const result = await pool.query(
-      `UPDATE flood_alerts SET resolved_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *;`,
-      [id]
-    );
-    if (result.rows.length > 0) {
-      return res.json({ success: true, data: result.rows[0] });
+    const [updated] = await db('flood_alerts')
+      .where({ id })
+      .update({ resolved_at: new Date().toISOString() })
+      .returning('*');
+
+    if (updated) {
+      return res.json({ success: true, data: updated });
     }
   } catch (e) {
     const alert = alertsMemoryStore.find((a) => a.id === id);

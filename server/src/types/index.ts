@@ -43,3 +43,16 @@ export interface FloodAlert {
   created_at: string;
   resolved_at?: string | null;
 }
+
+export interface PrecipitationTelemetry {
+  id: string;
+  basin_id?: string;
+  lake_id?: string;
+  recorded_at: string;
+  sensor: string;
+  precip_rate_mm_hr: number;
+  accumulated_24h_mm: number;
+  accumulated_72h_mm: number;
+  anomaly_pct?: number;
+  location?: { type: 'Point'; coordinates: [number, number] };
+}

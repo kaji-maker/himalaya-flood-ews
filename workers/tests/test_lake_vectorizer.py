@@ -10,16 +10,18 @@ def test_lake_vectorizer_polygon_creation():
     mask = np.zeros((20, 20), dtype=bool)
     mask[5:15, 5:15] = True
 
-    # 10m pixel size transform
+    # 10m pixel size transform (0.0001 deg in WGS84)
     transform = rasterio.transform.from_origin(86.4, 27.9, 0.0001, 0.0001)
 
     result = vectorizer.vectorize_mask(mask, affine_transform=transform, pixel_size_m=10.0)
 
     assert result["lake_count"] >= 1
-    assert result["area_sqm"] == 100 * 100.0  # 100 pixels * 100 sqm/pixel = 10,000 sqm
-    assert result["area_sqkm"] == 0.01
+    # Projected area in UTM Zone 45N (EPSG:32645) for 100 pixels (~10.9k m² at 27.9°N)
+    assert 10000.0 <= result["area_sqm"] <= 11500.0
+    assert result["area_sqkm"] > 0.009
     assert result["geojson"]["type"] == "MultiPolygon"
     assert len(result["geojson"]["coordinates"]) > 0
+    assert result["planar_crs"] == "EPSG:32645"
 
 
 def test_empty_mask_handling():
