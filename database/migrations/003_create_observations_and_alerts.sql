@@ -1,87 +1,44 @@
 -- 003_create_observations_and_alerts.sql
--- Multi-temporal satellite observations, precipitation telemetry, and GLOF alerts
+-- Creates lake_observations and flood_alerts tables with temporal tracking and spatial indexing
 
+-- 1. Severity level enum for flood early warnings
 DO $$ BEGIN
-    CREATE TYPE sensor_type_enum AS ENUM ('SENTINEL_2_L2A', 'LANDSAT_9_OLI', 'PLANETSCOPE', 'SENTINEL_1_SAR', 'SYNTHETIC');
+    CREATE TYPE alert_severity_level AS ENUM ('ADVISORY', 'WARNING', 'EMERGENCY');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
-DO $$ BEGIN
-    CREATE TYPE alert_level_enum AS ENUM ('CRITICAL', 'WARNING', 'WATCH', 'ADVISORY', 'NORMAL');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE alert_status_enum AS ENUM ('ACTIVE', 'ACKNOWLEDGED', 'RESOLVED', 'DISMISSED');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- 1. Glacial Lake Multi-Temporal Observations
+-- 2. Multi-temporal Satellite Observations (Sentinel-2, Landsat, PlanetScope)
 CREATE TABLE IF NOT EXISTS lake_observations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    lake_id UUID NOT NULL REFERENCES lakes(id) ON DELETE CASCADE,
-    observed_at TIMESTAMPTZ NOT NULL,
-    sensor sensor_type_enum DEFAULT 'SENTINEL_2_L2A',
-    raw_scene_id VARCHAR(128),
-    area_sqkm NUMERIC(8, 4) NOT NULL,
-    area_change_sqkm NUMERIC(8, 4), -- Delta relative to previous observation
-    expansion_rate_pct_yr NUMERIC(6, 2), -- Annualized expansion rate
-    cloud_cover_pct NUMERIC(5, 2) DEFAULT 0.00,
-    mndwi_mean NUMERIC(5, 3),
-    freeboard_est_m NUMERIC(6, 2),
-    geom GEOMETRY(MultiPolygon, 4326),
-    quality_flag VARCHAR(32) DEFAULT 'VALID',
-    metadata JSONB DEFAULT '{}'::jsonb,
+    lake_id UUID NOT NULL REFERENCES glacial_lakes(id) ON DELETE CASCADE,
+    observation_date TIMESTAMPTZ NOT NULL,
+    sensor_name VARCHAR(64) NOT NULL, -- e.g. 'Sentinel-2A MSI L2A', 'Landsat-9 OLI-2'
+    geom GEOMETRY(Polygon, 4326) NOT NULL, -- Extracted lake water polygon (WGS84)
+    area_sqm NUMERIC(14, 2) NOT NULL, -- Planar area in m² (derived via UTM 45N EPSG:32645)
+    mean_mndwi NUMERIC(5, 3), -- Average Modified Normalized Difference Water Index [-1.0, 1.0]
+    cloud_cover_pct NUMERIC(5, 2) DEFAULT 0.00, -- Scene / chip cloud contamination percentage
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_lake_obs_lake_date ON lake_observations (lake_id, observed_at DESC);
-CREATE INDEX IF NOT EXISTS idx_lake_obs_geom ON lake_observations USING GIST (geom);
-CREATE INDEX IF NOT EXISTS idx_lake_obs_sensor ON lake_observations (sensor);
+-- Spatial GIST index on lake_observations geometry
+CREATE INDEX IF NOT EXISTS idx_lake_observations_geom ON lake_observations USING GIST (geom);
+-- Temporal & FK composite index for fast time-series retrieval
+CREATE INDEX IF NOT EXISTS idx_lake_observations_lake_date ON lake_observations (lake_id, observation_date DESC);
+CREATE INDEX IF NOT EXISTS idx_lake_observations_sensor ON lake_observations (sensor_name);
 
--- 2. Precipitation Telemetry (NASA GPM IMERG & Ground Stations)
-CREATE TABLE IF NOT EXISTS precipitation_telemetry (
+-- 3. Triggered GLOF & Flash Flood Early Warning Alerts
+CREATE TABLE IF NOT EXISTS flood_alerts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    basin_id UUID REFERENCES basins(id) ON DELETE SET NULL,
-    lake_id UUID REFERENCES lakes(id) ON DELETE SET NULL,
-    recorded_at TIMESTAMPTZ NOT NULL,
-    sensor VARCHAR(64) DEFAULT 'GPM_IMERG_V07',
-    precip_rate_mm_hr NUMERIC(6, 2) NOT NULL,
-    accumulated_24h_mm NUMERIC(7, 2) NOT NULL,
-    accumulated_72h_mm NUMERIC(7, 2) NOT NULL,
-    anomaly_pct NUMERIC(6, 2), -- Deviation from seasonal climatology
-    location GEOMETRY(Point, 4326),
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    lake_id UUID NOT NULL REFERENCES glacial_lakes(id) ON DELETE CASCADE,
+    severity alert_severity_level NOT NULL,
+    trigger_reason TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMPTZ
 );
 
-CREATE INDEX IF NOT EXISTS idx_precip_lake_time ON precipitation_telemetry (lake_id, recorded_at DESC);
-CREATE INDEX IF NOT EXISTS idx_precip_basin_time ON precipitation_telemetry (basin_id, recorded_at DESC);
-
--- 3. GLOF & Flash Flood Early Warning Alerts
-CREATE TABLE IF NOT EXISTS alerts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    alert_code VARCHAR(32) UNIQUE NOT NULL, -- e.g. 'GLOF-2026-TSHOROLPA-01'
-    lake_id UUID NOT NULL REFERENCES lakes(id) ON DELETE CASCADE,
-    basin_id UUID REFERENCES basins(id) ON DELETE SET NULL,
-    alert_level alert_level_enum NOT NULL,
-    risk_score NUMERIC(4, 3) NOT NULL,
-    headline VARCHAR(256) NOT NULL,
-    description TEXT NOT NULL,
-    triggers JSONB NOT NULL, -- { "expansion_surge_pct": 24.5, "rainfall_72h_mm": 138.4, "freeboard_loss_m": 1.2 }
-    affected_villages TEXT[] DEFAULT '{}',
-    status alert_status_enum DEFAULT 'ACTIVE',
-    dispatched_channels TEXT[] DEFAULT '{"WEBHOOK", "SMS"}',
-    issued_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    acknowledged_at TIMESTAMPTZ,
-    resolved_at TIMESTAMPTZ,
-    metadata JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_alerts_lake_id ON alerts (lake_id);
-CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts (status);
-CREATE INDEX IF NOT EXISTS idx_alerts_level ON alerts (alert_level);
-CREATE INDEX IF NOT EXISTS idx_alerts_issued ON alerts (issued_at DESC);
+-- Indexes for alert query filtering and active dispatch lookups
+CREATE INDEX IF NOT EXISTS idx_flood_alerts_lake_id ON flood_alerts (lake_id);
+CREATE INDEX IF NOT EXISTS idx_flood_alerts_severity ON flood_alerts (severity);
+CREATE INDEX IF NOT EXISTS idx_flood_alerts_created_at ON flood_alerts (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_flood_alerts_active ON flood_alerts (resolved_at) WHERE resolved_at IS NULL;

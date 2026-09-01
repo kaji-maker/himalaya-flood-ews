@@ -1,9 +1,12 @@
 -- 001_enable_postgis.sql
--- Enable PostGIS spatial extensions and UUID generation
+-- Initialize PostGIS spatial extension and UUID generation
 
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS postgis_topology;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Verify PostGIS Version
-SELECT PostGIS_Full_Version();
+-- Log PostGIS version
+DO $$
+BEGIN
+    RAISE NOTICE 'PostGIS Extension Initialized: %', (SELECT PostGIS_Version());
+END $$;
