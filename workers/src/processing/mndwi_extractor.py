@@ -7,6 +7,7 @@ import rasterio
 import rasterio.features
 import rasterio.transform
 import rasterio.crs
+import geopandas as gpd
 from shapely.geometry import shape, mapping, Polygon, MultiPolygon
 from shapely.ops import transform
 import pyproj
@@ -150,7 +151,7 @@ class MNDWIExtractor:
     ) -> Dict[str, Any]:
         """
         Full Extraction Pipeline:
-        1. Reads Green (B03) and SWIR (B11) bands.
+        1. Reads Green (B03) and SWIR (B11) bands using Rasterio / NumPy.
         2. Computes MNDWI index array.
         3. Segments water with configurable threshold (default > 0.05).
         4. Sieves small noise clusters (< min_sieve_size).
@@ -180,7 +181,7 @@ class MNDWIExtractor:
         # 4. Sieve Small Noise Pixels
         sieved_mask = self.sieve_noise(raw_water_mask)
 
-        # 5. Vectorize valid water shapes
+        # 5. Vectorize valid water shapes using rasterio.features.shapes
         features: List[Dict[str, Any]] = []
         shapes_gen = rasterio.features.shapes(
             sieved_mask.astype(np.uint8),
@@ -234,3 +235,13 @@ class MNDWIExtractor:
                 "planar_measurement_crs": self.TARGET_METRIC_CRS
             }
         }
+
+    def to_geodataframe(self, geojson_fc: Dict[str, Any]) -> gpd.GeoDataFrame:
+        """
+        Converts extracted GeoJSON FeatureCollection to a GeoPandas GeoDataFrame in EPSG:4326.
+        """
+        if not geojson_fc.get("features"):
+            return gpd.GeoDataFrame(columns=["geometry", "area_sqm", "area_sqkm"], crs=self.EXCHANGE_CRS)
+
+        gdf = gpd.GeoDataFrame.from_features(geojson_fc["features"], crs=self.EXCHANGE_CRS)
+        return gdf
