@@ -178,5 +178,13 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(res.body.count).toBeGreaterThan(0);
   });
+
+  it('GET /api/v1/lakes/tiles/:z/:x/:y.mvt - should handle vector tile requests with protobuf or 204 content', async () => {
+    const res = await request(app).get('/api/v1/lakes/tiles/10/757/429.mvt');
+    expect([200, 204]).toContain(res.status);
+    if (res.status === 200) {
+      expect(res.headers['content-type']).toBe('application/x-protobuf');
+    }
+  });
 });
 

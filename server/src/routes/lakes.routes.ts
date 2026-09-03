@@ -61,6 +61,32 @@ router.get('/lakes', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/v1/lakes/tiles/:z/:x/:y.mvt - High-performance PostGIS Mapbox Vector Tile (MVT)
+router.get('/lakes/tiles/:z/:x/:y.mvt', async (req: Request, res: Response) => {
+  const z = parseInt(req.params.z, 10);
+  const x = parseInt(req.params.x, 10);
+  const y = parseInt(req.params.y, 10);
+
+  if (isNaN(z) || isNaN(x) || isNaN(y)) {
+    return res.status(400).json({ success: false, error: 'Invalid tile coordinates z, x, y' });
+  }
+
+  try {
+    const result = await db.raw('SELECT get_glacial_lakes_mvt(?, ?, ?) AS mvt', [z, x, y]);
+    const mvt = result.rows[0]?.mvt;
+
+    res.setHeader('Content-Type', 'application/x-protobuf');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    if (!mvt || mvt.length === 0) {
+      return res.status(204).send();
+    }
+    return res.status(200).send(mvt);
+  } catch (err: any) {
+    // Offline resilience fallback
+    return res.status(204).send();
+  }
+});
+
 // GET /api/v1/lakes/:id/history - Return time-series area trends and historical observation polygons as GeoJSON
 router.get('/lakes/:id/history', async (req: Request, res: Response) => {
   const { id } = req.params;

@@ -41,6 +41,7 @@ db-migrate:
 	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/002_create_basins_and_lakes.sql
 	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/003_create_observations_and_alerts.sql
 	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/004_create_insar_and_edge_sensors.sql
+	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/005_add_utm_projected_area_and_mvt.sql
 
 simulate-drill:
 	@echo "Running Multi-Tiered GLOF Simulation Drill..."
