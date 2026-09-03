@@ -47,6 +47,10 @@ simulate-drill:
 	@echo "Running Multi-Tiered GLOF Simulation Drill..."
 	cd workers && ./venv/bin/python3 ../scripts/simulate_glof_escalation.py
 
+test-real-world:
+	@echo "Running Intensive Real-World End-to-End Validation Suite..."
+	PYTHONPATH=. workers/venv/bin/python3 scripts/test_real_world_e2e.py
+
 
 db-seed:
 	@echo "Seeding ICIMOD PDGL GeoJSON dataset..."
