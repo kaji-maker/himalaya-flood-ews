@@ -5,6 +5,7 @@ import { GlacialLake, ObservationPoint, PrecipitationPoint, TwoAxisRiskScore } f
 import { RiskBadge } from '../alerts/RiskBadge';
 import { TimeSeriesAreaChart } from '../charts/TimeSeriesAreaChart';
 import { PrecipitationChart } from '../charts/PrecipitationChart';
+import { LakeComparisonModal } from '../satellite/LakeComparisonModal';
 import {
   X,
   Mountain,
@@ -51,6 +52,7 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
   const [isDispatching, setIsDispatching] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
+  const [comparisonModalOpen, setComparisonModalOpen] = useState(false);
 
   if (!isOpen || !lake) return null;
 
@@ -247,6 +249,13 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                 <Radio className={`w-3.5 h-3.5 ${isDispatching ? 'animate-spin' : 'animate-pulse'}`} />
                 {isDispatching ? 'Transmitting...' : 'Test Emergency Broadcast'}
               </button>
+              <button
+                onClick={() => setComparisonModalOpen(true)}
+                className="col-span-2 flex items-center justify-center gap-1.5 p-2 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-semibold transition-colors"
+              >
+                <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                20-Year Satellite Timelapse & Calving Retreat (2004 — 2026)
+              </button>
             </div>
 
             {dispatchStatus && (
@@ -308,6 +317,14 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                     <span className="text-slate-200 font-bold text-[10px]">54.2° (C-Corrected)</span>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => setComparisonModalOpen(true)}
+                  className="w-full mt-2.5 py-2 px-3 bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 rounded-lg text-cyan-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                  Launch 20-Year Landsat & Sentinel-2 Comparison Slider
+                </button>
               </div>
 
               {/* Tier 1: Sentinel-1 / NISAR InSAR Moraine Baseline */}
@@ -672,6 +689,15 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
           </div>
         </div>
       )}
+
+      {/* 20-Year Multi-Temporal Satellite Comparison Modal */}
+      <LakeComparisonModal
+        lakeId={lake.id}
+        lakeName={lake.name}
+        icimodCode={lake.icimod_code}
+        isOpen={comparisonModalOpen}
+        onClose={() => setComparisonModalOpen(false)}
+      />
     </div>
   );
 };
