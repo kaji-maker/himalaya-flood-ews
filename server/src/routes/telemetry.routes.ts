@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrecipitationTelemetry } from '../types';
+import { EdgeDecoderService } from '../services/edge_decoder.service';
+import { RiskEvaluationService } from '../services/evaluation.service';
 
 const router = Router();
 
@@ -168,6 +170,81 @@ router.get('/cue-slew', (req: Request, res: Response) => {
     count: MOCK_CUE_SLEW_TASKINGS.length,
     data: MOCK_CUE_SLEW_TASKINGS,
   });
+});
+
+// POST /api/v1/telemetry/iridium-sbd - Ingest remote satellite packet (hex or raw binary)
+router.post('/iridium-sbd', async (req: Request, res: Response) => {
+  try {
+    let decoded;
+    const gorgeName = req.body?.gorge_name || 'Tama Koshi Gorge Choke Point';
+    const lakeId = req.body?.lake_id || 'PDGL_NEP_KOSHI_001';
+
+    if (Buffer.isBuffer(req.body)) {
+      decoded = EdgeDecoderService.decodeBinaryPacket(req.body, gorgeName, lakeId);
+    } else if (req.body?.data_hex) {
+      decoded = EdgeDecoderService.decodeHexString(req.body.data_hex, gorgeName, lakeId);
+    } else if (typeof req.body === 'string') {
+      decoded = EdgeDecoderService.decodeHexString(req.body, gorgeName, lakeId);
+    } else {
+      return res.status(400).json({ success: false, error: 'Expected raw binary buffer or JSON with data_hex' });
+    }
+
+    const evaluation = await RiskEvaluationService.evaluateEdgeSensorReading({
+      station_id: decoded.station_id,
+      gorge_name: decoded.gorge_name,
+      lake_id: decoded.lake_id,
+      geophone_dominant_freq_hz: decoded.geophone_dominant_freq_hz,
+      geophone_acoustic_energy_db: decoded.geophone_acoustic_energy_db,
+      water_stage_m: decoded.water_stage_m,
+      water_stage_rate_m_min: decoded.water_stage_rate_m_min,
+      tripwire_status: decoded.tripwire_status,
+    });
+
+    return res.status(201).json({
+      success: true,
+      protocol: 'IRIDIUM_SBD',
+      decoded_packet: decoded,
+      evaluation,
+    });
+  } catch (err: any) {
+    return res.status(400).json({ success: false, error: `Iridium SBD decoding failed: ${err.message}` });
+  }
+});
+
+// POST /api/v1/telemetry/lorawan - Ingest ChirpStack / TTN LoRaWAN uplink frame
+router.post('/lorawan', async (req: Request, res: Response) => {
+  try {
+    const { data, devEui, fPort, gorge_name, lake_id } = req.body;
+    if (!data) {
+      return res.status(400).json({ success: false, error: 'Missing base64 data payload in LoRaWAN frame' });
+    }
+
+    const gorge = gorge_name || 'Marsyangdi Alpine Choke Point';
+    const lake = lake_id || 'PDGL_NEP_GANDAKI_001';
+    const decoded = EdgeDecoderService.decodeBase64String(data, gorge, lake);
+
+    const evaluation = await RiskEvaluationService.evaluateEdgeSensorReading({
+      station_id: decoded.station_id,
+      gorge_name: decoded.gorge_name,
+      lake_id: decoded.lake_id,
+      geophone_dominant_freq_hz: decoded.geophone_dominant_freq_hz,
+      geophone_acoustic_energy_db: decoded.geophone_acoustic_energy_db,
+      water_stage_m: decoded.water_stage_m,
+      water_stage_rate_m_min: decoded.water_stage_rate_m_min,
+      tripwire_status: decoded.tripwire_status,
+    });
+
+    return res.status(201).json({
+      success: true,
+      protocol: 'LORAWAN_UPLINK',
+      dev_eui: devEui,
+      f_port: fPort,
+      decoded_packet: decoded,
+      evaluation,
+    });
+  } catch (err: any) {
+    return res.status(400).json({ success: false, error: `LoRaWAN frame decoding failed: ${err.message}` });
+  }
 });
 
 export default router;

@@ -1,6 +1,7 @@
 import { db, MOCK_GLACIAL_LAKES, MOCK_FLOOD_ALERTS, MOCK_INSAR_TELEMETRY, MOCK_CUE_SLEW_TASKINGS, MOCK_EDGE_SENSOR_READINGS } from './db.service';
 import { FloodAlert, AlertSeverityLevel, TwoAxisRiskScore, InSARTelemetry, CueAndSlewTaskingOrder, EdgeSensorReading, SCADAGateCommand } from '../types';
 import { MultiChannelDispatchService } from './dispatch.service';
+import { IndustrialSCADAGatewayService, SCADAGatewayDispatchResult } from './scada_gateway.service';
 
 export class RiskEvaluationService {
   /**
@@ -300,6 +301,7 @@ export class RiskEvaluationService {
     reading: EdgeSensorReading;
     alert: FloodAlert | null;
     scada_command: SCADAGateCommand | null;
+    industrial_scada_payload: SCADAGatewayDispatchResult | null;
   }> {
     const isSlurryAcoustic = reading.geophone_acoustic_energy_db >= 70.0 && reading.geophone_dominant_freq_hz >= 10.0 && reading.geophone_dominant_freq_hz <= 45.0;
     const isStageSurge = reading.water_stage_rate_m_min >= 0.50;
@@ -309,6 +311,7 @@ export class RiskEvaluationService {
     const alarmLevel = isSurge ? 'CRITICAL_SURGE' : (reading.geophone_acoustic_energy_db > 55.0 ? 'ELEVATED' : 'NORMAL');
 
     let scadaCommand: SCADAGateCommand | null = null;
+    let industrialDispatch: SCADAGatewayDispatchResult | null = null;
     let alert: FloodAlert | null = null;
 
     if (isSurge) {
@@ -345,6 +348,8 @@ export class RiskEvaluationService {
           eta_minutes: etaMinutes,
         },
       };
+
+      industrialDispatch = IndustrialSCADAGatewayService.prepareIndustrialDispatch(scadaCommand);
 
       const reason = `GLOF EMERGENCY [EDGE_SENSOR_TRIPWIRE] in ${reading.gorge_name}: Hyper-concentrated boulder slurry surge detected (${reading.geophone_acoustic_energy_db.toFixed(1)} dB at ${reading.geophone_dominant_freq_hz.toFixed(1)} Hz, +${reading.water_stage_rate_m_min.toFixed(2)} m/min stage rise) -> SCADA Spillway Gates Triggered at ${facility.name} (ETA: ${etaMinutes} min)`;
 
@@ -391,6 +396,7 @@ export class RiskEvaluationService {
       reading: recordedReading,
       alert,
       scada_command: scadaCommand,
+      industrial_scada_payload: industrialDispatch,
     };
   }
 }
