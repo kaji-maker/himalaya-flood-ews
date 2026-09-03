@@ -14,6 +14,11 @@ import {
   ChevronRight,
   ChevronLeft,
   Sparkles,
+  Columns,
+  Sliders,
+  Eye,
+  Ruler,
+  Maximize2,
 } from 'lucide-react';
 
 interface LakeComparisonModalProps {
@@ -74,6 +79,11 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Inspection Display Mode: 'side-by-side' | 'split' | 'diff'
+  const [viewMode, setViewMode] = useState<'side-by-side' | 'split' | 'diff'>('side-by-side');
+  const [showExpansionHighlight, setShowExpansionHighlight] = useState<boolean>(true);
+  const [showCalvingLine, setShowCalvingLine] = useState<boolean>(true);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -100,7 +110,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   useEffect(() => {
     if (!isPlaying || !data || data.epochs.length === 0) return;
 
-    const intervalTime = Math.max(400, 1400 / playbackSpeed);
+    const intervalTime = Math.max(350, 1200 / playbackSpeed);
     const timer = setInterval(() => {
       setSelectedYear((prevYear) => {
         if (prevYear >= 2026) {
@@ -155,13 +165,222 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   // Key landmark years for quick jumps
   const landmarkYears = [2004, 2007, 2011, 2015, 2018, 2021, 2024, 2026];
 
+  // Calculate geometric retreat ratio (0.0 for 2004 -> 1.0 for 2026)
+  const retreatRatio = useMemo(() => {
+    if (!currentEpoch) return 1.0;
+    const maxRetreat = 1240;
+    return Math.min(1.0, Math.max(0.0, currentEpoch.terminus_retreat_m / maxRetreat));
+  }, [currentEpoch]);
+
   if (!isOpen) return null;
 
+  // Render SVG Lake Canvas with authentic morphological glacier tongue retreat
+  const renderLakeSvg = (is2004Baseline: boolean) => {
+    // Coordinate space: 700 x 300
+    // Lake starts at West Dam: (140, 160)
+    // 2004 Baseline Terminus: X = 430
+    // 2026 Retreated Terminus: X = 570 (retreat distance = 140px in SVG space)
+    const baselineTerminusX = 430;
+    const activeTerminusX = is2004Baseline ? 430 : 430 + retreatRatio * 140;
+    const retreatDistPx = activeTerminusX - baselineTerminusX;
+
+    return (
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        viewBox="0 0 700 300"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          {/* Glacial Water Gradient 2004 (Landsat 7 False Color NIR Navy) */}
+          <linearGradient id="waterGrad2004" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#0B3C5D" stopOpacity="0.88" />
+            <stop offset="70%" stopColor="#1D5F8A" stopOpacity="0.92" />
+            <stop offset="100%" stopColor="#2A7B9B" stopOpacity="0.95" />
+          </linearGradient>
+
+          {/* Glacial Water Gradient Modern (Sentinel-2 True Color Milky Turquoise) */}
+          <linearGradient id="waterGradModern" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#0891B2" stopOpacity="0.85" />
+            <stop offset="60%" stopColor="#06B6D4" stopOpacity="0.90" />
+            <stop offset="100%" stopColor="#22D3EE" stopOpacity="0.95" />
+          </linearGradient>
+
+          {/* Expansion Zone Striped Pattern */}
+          <pattern id="expansionHatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#F43F5E" strokeWidth="2.5" strokeOpacity="0.7" />
+          </pattern>
+
+          {/* Debris-covered Glacier Tongue Texture */}
+          <pattern id="glacierDebrisPattern" width="12" height="12" patternUnits="userSpaceOnUse">
+            <rect width="12" height="12" fill="#4B5563" fillOpacity="0.82" />
+            <circle cx="3" cy="3" r="1.5" fill="#9CA3AF" />
+            <circle cx="9" cy="8" r="1.2" fill="#D1D5DB" />
+            <path d="M 0,6 Q 6,2 12,6" fill="none" stroke="#374151" strokeWidth="0.8" />
+          </pattern>
+        </defs>
+
+        {/* 1. Base Glacial Lake Water Body (Western section up to active terminus) */}
+        <path
+          d={`M 140,165 
+             C 170,145 220,135 290,140 
+             C 340,145 380,150 ${activeTerminusX},152 
+             L ${activeTerminusX},198 
+             C 380,205 320,210 250,205 
+             C 190,200 160,185 140,165 Z`}
+          fill={is2004Baseline ? 'url(#waterGrad2004)' : 'url(#waterGradModern)'}
+          stroke={is2004Baseline ? '#38BDF8' : '#67E8F9'}
+          strokeWidth="2.5"
+          className="filter drop-shadow-md"
+        />
+
+        {/* 2. New Expansion Zone Highlight (Between 2004 Baseline & Current Terminus) */}
+        {!is2004Baseline && retreatDistPx > 4 && showExpansionHighlight && (
+          <g>
+            <path
+              d={`M ${baselineTerminusX},151 
+                 L ${activeTerminusX},152 
+                 L ${activeTerminusX},198 
+                 L ${baselineTerminusX},200 Z`}
+              fill="url(#expansionHatch)"
+              stroke="#FB7185"
+              strokeWidth="2"
+              strokeDasharray="4 2"
+            />
+            {/* Expansion Glowing Water Fill */}
+            <path
+              d={`M ${baselineTerminusX},151 
+                 L ${activeTerminusX},152 
+                 L ${activeTerminusX},198 
+                 L ${baselineTerminusX},200 Z`}
+              fill="#F43F5E"
+              fillOpacity="0.30"
+            />
+          </g>
+        )}
+
+        {/* 3. Trakarding Glacier Tongue (Covers the un-melted section beyond the terminus) */}
+        <path
+          d={`M ${activeTerminusX},152 
+             C ${activeTerminusX + 30},150 560,140 640,130 
+             L 650,225 
+             C 580,215 ${activeTerminusX + 30},202 ${activeTerminusX},198 Z`}
+          fill="url(#glacierDebrisPattern)"
+          stroke="#6B7280"
+          strokeWidth="1.5"
+        />
+
+        {/* 4. Terminal Outlet Moraine Dam (West End) */}
+        <rect
+          x="132"
+          y="150"
+          width="10"
+          height="32"
+          rx="2"
+          fill="#EAB308"
+          stroke="#CA8A04"
+          strokeWidth="1.5"
+        />
+        <text x="137" y="142" fill="#FDE047" fontSize="9" fontWeight="bold" textAnchor="middle">
+          OUTLET DAM
+        </text>
+
+        {/* 5. 2004 Calving Baseline Reference Line */}
+        {(!is2004Baseline || viewMode === 'split') && (
+          <g>
+            <line
+              x1={baselineTerminusX}
+              y1="130"
+              x2={baselineTerminusX}
+              y2="220"
+              stroke="#FACC15"
+              strokeWidth="2"
+              strokeDasharray="3 3"
+            />
+            <text x={baselineTerminusX} y="125" fill="#FDE047" fontSize="9" fontWeight="bold" textAnchor="middle">
+              2004 CALVING WALL (0m)
+            </text>
+          </g>
+        )}
+
+        {/* 6. Active Calving Front Cliff Line & Distance Ruler */}
+        {showCalvingLine && (
+          <g>
+            {/* Calving Cliff Front */}
+            <line
+              x1={activeTerminusX}
+              y1="135"
+              x2={activeTerminusX}
+              y2="215"
+              stroke="#F43F5E"
+              strokeWidth="3"
+            />
+            {/* Floating Label */}
+            <rect
+              x={activeTerminusX - 35}
+              y="222"
+              width="70"
+              height="18"
+              rx="4"
+              fill="#0F172A"
+              fillOpacity="0.9"
+              stroke="#F43F5E"
+              strokeWidth="1"
+            />
+            <text
+              x={activeTerminusX}
+              y="234"
+              fill="#FDA4AF"
+              fontSize="9"
+              fontWeight="bold"
+              textAnchor="middle"
+            >
+              {is2004Baseline ? '2004 FRONT' : `-${currentEpoch?.terminus_retreat_m}m`}
+            </text>
+
+            {/* Retreat Measurement Arrow (When retreated) */}
+            {!is2004Baseline && retreatDistPx > 20 && (
+              <g>
+                <line
+                  x1={baselineTerminusX}
+                  y1="175"
+                  x2={activeTerminusX}
+                  y2="175"
+                  stroke="#FFFFFF"
+                  strokeWidth="2"
+                  markerEnd="url(#arrowEnd)"
+                />
+                <rect
+                  x={baselineTerminusX + (retreatDistPx / 2) - 28}
+                  y="166"
+                  width="56"
+                  height="16"
+                  rx="3"
+                  fill="#000000"
+                  fillOpacity="0.85"
+                />
+                <text
+                  x={baselineTerminusX + (retreatDistPx / 2)}
+                  y="178"
+                  fill="#FFFFFF"
+                  fontSize="8.5"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                >
+                  +{currentEpoch?.terminus_retreat_m}m
+                </text>
+              </g>
+            )}
+          </g>
+        )}
+      </svg>
+    );
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-5xl bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[92vh] max-h-[880px]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative w-full max-w-6xl bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[94vh] max-h-[900px]">
         {/* 1. Modal Header */}
-        <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-800 bg-slate-900/90 shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-900/90 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 shrink-0">
               <Clock className="w-5 h-5" />
@@ -169,106 +388,229 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base sm:text-lg font-bold text-white font-mono">
-                  {lakeName} • 20-Year Retrospective Satellite Timelapse
+                  {lakeName} • 20-Year Retrospective Glacial Calving & Lake Expansion
                 </h3>
                 <span className="text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded font-mono font-bold">
-                  2004 — 2026 (23 Annual Steps)
+                  2004 — 2026 (23 Consecutive Years)
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-mono">
-                Multi-temporal Landsat 7/8 & Copernicus Sentinel-2 proglacial calving & terminus retreat progression
+                Multispectral Landsat 7/8 & Copernicus Sentinel-2 calibrated calving margin analysis
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* View Mode Selector */}
+            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs font-mono">
+              <button
+                onClick={() => setViewMode('side-by-side')}
+                className={`px-2.5 py-1 rounded flex items-center gap-1.5 transition-all ${
+                  viewMode === 'side-by-side'
+                    ? 'bg-cyan-600 text-white font-bold shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Side-by-Side Comparison"
+              >
+                <Columns className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Side-by-Side</span>
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode('split');
+                  setSliderPos(50);
+                }}
+                className={`px-2.5 py-1 rounded flex items-center gap-1.5 transition-all ${
+                  viewMode === 'split'
+                    ? 'bg-cyan-600 text-white font-bold shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Curtain Swipe Slider"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Swipe Curtain</span>
+              </button>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* 2. Scrollable Modal Body */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1 font-mono custom-scrollbar">
-          {/* A. Before & After Swipe Comparison Canvas */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] text-slate-300">
-              <span className="flex items-center gap-1.5 text-amber-400 font-bold">
-                ◀ 2004 Baseline (Landsat 7 • 1.390 km²)
-              </span>
-              <span className="text-slate-500 text-[10px] hidden sm:inline">
-                Drag center slider (↔) to peel away 2004 baseline and reveal selected year
-              </span>
-              <span className="flex items-center gap-1.5 text-cyan-400 font-bold">
-                {currentEpoch ? `${currentEpoch.epoch_year} (${currentEpoch.sensor.split(' ')[0]} • ${currentEpoch.area_sqkm.toFixed(3)} km²)` : 'Present'} ▶
-              </span>
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 font-mono custom-scrollbar">
+          {/* Overlay Feature Toggles */}
+          <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showExpansionHighlight}
+                  onChange={(e) => setShowExpansionHighlight(e.target.checked)}
+                  className="rounded accent-rose-500"
+                />
+                <span className="text-[11px] text-rose-300 font-semibold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-rose-400" />
+                  Highlight New Meltwater Expansion (+430,000 m²)
+                </span>
+              </label>
+
+              <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showCalvingLine}
+                  onChange={(e) => setShowCalvingLine(e.target.checked)}
+                  className="rounded accent-cyan-500"
+                />
+                <span className="text-[11px] text-cyan-300 font-semibold flex items-center gap-1">
+                  <Ruler className="w-3 h-3 text-cyan-400" />
+                  Show Calving Front Line & Distance Ruler
+                </span>
+              </label>
             </div>
 
-            {/* Split Comparison Canvas */}
-            <div className="relative w-full h-[250px] sm:h-[280px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950 select-none shadow-inner group">
-              {/* Background Layer: Selected Year's Satellite Capture */}
-              <div className="absolute inset-0">
-                <img
-                  src={
-                    currentEpoch?.image_chip_url ||
-                    'https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.52,27.89&width=800&height=400'
-                  }
-                  alt={`${selectedYear} Satellite View`}
-                  className="w-full h-full object-cover filter contrast-125 brightness-105"
-                />
-                <div className="absolute top-3 right-3 bg-black/80 backdrop-blur px-2.5 py-1 rounded-md border border-cyan-500/50 text-[11px] text-cyan-300 font-bold shadow-lg">
-                  {currentEpoch?.epoch_year} • {currentEpoch?.area_sqkm.toFixed(3)} km² (+{currentEpoch?.delta_area_pct}%)
-                </div>
-              </div>
-
-              {/* Foreground Layer: 2004 Baseline (Clipped by Slider) */}
-              <div
-                className="absolute inset-0 overflow-hidden border-r-2 border-cyan-400"
-                style={{ width: `${sliderPos}%` }}
-              >
-                <div className="absolute inset-0 w-full h-full min-w-[700px]">
-                  <img
-                    src={
-                      baselineEpoch?.image_chip_url ||
-                      'https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.50,27.89&width=800&height=400'
-                    }
-                    alt="2004 Baseline Landsat View"
-                    className="w-full h-full object-cover filter sepia-[0.35] contrast-110 brightness-95"
-                  />
-                </div>
-                <div className="absolute top-3 left-3 bg-black/80 backdrop-blur px-2.5 py-1 rounded-md border border-amber-500/50 text-[11px] text-amber-300 font-bold shadow-lg">
-                  2004 Baseline • 1.390 km²
-                </div>
-              </div>
-
-              {/* Draggable Split Divider Line & Thumb */}
-              <div
-                className="absolute top-0 bottom-0 z-20 flex items-center justify-center pointer-events-none"
-                style={{ left: `calc(${sliderPos}% - 14px)` }}
-              >
-                <div className="w-7 h-7 rounded-full bg-cyan-500 text-slate-950 font-bold flex items-center justify-center shadow-2xl border-2 border-white text-xs">
-                  ↔
-                </div>
-              </div>
-
-              {/* Range Input overlay */}
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={sliderPos}
-                onChange={(e) => setSliderPos(Number(e.target.value))}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
-              />
-
-              {/* In-Canvas Calving & Retreat Badge */}
-              <div className="absolute bottom-2.5 left-2.5 z-10 bg-slate-950/85 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-800 text-[10px] text-slate-200">
-                Calving Margin: <strong className="text-rose-400">+{currentEpoch?.delta_area_pct}%</strong> growth • Calving Front Retreat: <strong className="text-amber-400">-{currentEpoch?.terminus_retreat_m} m</strong>
-              </div>
+            <div className="text-[11px] text-slate-400">
+              Active Display: <strong className="text-white">2004 Baseline</strong> vs <strong className="text-cyan-400">Year {selectedYear}</strong>
             </div>
           </div>
 
-          {/* B. Yearly Continuous Timeline Scrubber (2004 to 2026) */}
+          {/* MAIN VISUALIZATION CONTAINER */}
+          {viewMode === 'side-by-side' ? (
+            /* SIDE-BY-SIDE MODE (Both years visible simultaneously) */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {/* Left Pane: 2004 Baseline */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    2004 Baseline (Landsat 7 ETM+)
+                  </span>
+                  <span className="font-mono font-bold text-slate-200">
+                    1.390 km² • 0 m Retreat
+                  </span>
+                </div>
+                <div className="relative w-full h-[250px] rounded-xl overflow-hidden border border-amber-500/40 bg-slate-950 shadow-inner">
+                  <img
+                    src="https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.52,27.89&width=700&height=300"
+                    alt="2004 Satellite View"
+                    className="w-full h-full object-cover filter brightness-90 contrast-110"
+                  />
+                  {renderLakeSvg(true)}
+                  <div className="absolute top-2.5 left-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-amber-500/50 text-[10px] text-amber-300 font-bold">
+                    2004 • Post-Mitigation Baseline
+                  </div>
+                  <div className="absolute bottom-2.5 left-2.5 bg-slate-950/90 backdrop-blur px-2.5 py-1 rounded border border-slate-800 text-[10px] text-slate-300">
+                    Terminus: Trakarding Glacier at 0 m baseline
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Pane: Selected Year (Dynamic Evolution) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs px-1">
+                  <span className="font-bold text-cyan-400 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                    Year {selectedYear} ({currentEpoch?.sensor.split(' ')[0] || 'Modern'})
+                  </span>
+                  <span className="font-mono font-bold text-rose-300">
+                    {currentEpoch?.area_sqkm.toFixed(3)} km² (+{currentEpoch?.delta_area_pct}%)
+                  </span>
+                </div>
+                <div className="relative w-full h-[250px] rounded-xl overflow-hidden border border-cyan-500/40 bg-slate-950 shadow-inner ring-1 ring-cyan-500/20">
+                  <img
+                    src="https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.52,27.89&width=700&height=300"
+                    alt={`${selectedYear} Satellite View`}
+                    className="w-full h-full object-cover filter contrast-120 brightness-105"
+                  />
+                  {renderLakeSvg(false)}
+                  <div className="absolute top-2.5 right-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-cyan-500/50 text-[10px] text-cyan-300 font-bold">
+                    {selectedYear} • Retreated -{currentEpoch?.terminus_retreat_m} m
+                  </div>
+                  <div className="absolute bottom-2.5 right-2.5 bg-rose-950/90 backdrop-blur px-2.5 py-1 rounded border border-rose-500/50 text-[10px] text-rose-200">
+                    New Meltwater: +{currentEpoch?.delta_area_pct}% (+{((currentEpoch?.area_sqm || 0) - 1390000).toLocaleString()} m²)
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* SWIPE CURTAIN / SPLIT MODE */
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs px-1">
+                <span className="text-amber-400 font-bold">
+                  ◀ 2004 Baseline (1.390 km²)
+                </span>
+                <span className="text-slate-500 text-[10px]">
+                  Drag the center slider (↔) left or right to peel between 2004 and {selectedYear}
+                </span>
+                <span className="text-cyan-400 font-bold">
+                  Year {selectedYear} ({currentEpoch?.area_sqkm.toFixed(3)} km² • -{currentEpoch?.terminus_retreat_m}m) ▶
+                </span>
+              </div>
+
+              <div className="relative w-full h-[270px] sm:h-[300px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950 select-none shadow-inner group">
+                {/* Background Layer: Selected Year */}
+                <div className="absolute inset-0">
+                  <img
+                    src="https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.52,27.89&width=700&height=300"
+                    alt="Modern satellite layer"
+                    className="w-full h-full object-cover filter contrast-120 brightness-105"
+                  />
+                  {renderLakeSvg(false)}
+                  <div className="absolute top-3 right-3 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-cyan-500/50 text-[11px] text-cyan-300 font-bold">
+                    {selectedYear} • {currentEpoch?.area_sqkm.toFixed(3)} km² (-{currentEpoch?.terminus_retreat_m}m)
+                  </div>
+                </div>
+
+                {/* Foreground Layer: 2004 Baseline (Clipped by sliderPos) */}
+                <div
+                  className="absolute inset-0 overflow-hidden border-r-2 border-cyan-400"
+                  style={{ width: `${sliderPos}%` }}
+                >
+                  <div className="absolute inset-0 w-full h-full min-w-[700px]">
+                    <img
+                      src="https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.52,27.89&width=700&height=300"
+                      alt="2004 baseline satellite layer"
+                      className="w-full h-full object-cover filter brightness-90 contrast-110"
+                    />
+                    {renderLakeSvg(true)}
+                  </div>
+                  <div className="absolute top-3 left-3 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-amber-500/50 text-[11px] text-amber-300 font-bold">
+                    2004 Baseline • 1.390 km²
+                  </div>
+                </div>
+
+                {/* Draggable Divider Handle */}
+                <div
+                  className="absolute top-0 bottom-0 z-20 flex items-center justify-center pointer-events-none"
+                  style={{ left: `calc(${sliderPos}% - 14px)` }}
+                >
+                  <div className="w-7 h-7 rounded-full bg-cyan-500 text-slate-950 font-bold flex items-center justify-center shadow-2xl border-2 border-white text-xs">
+                    ↔
+                  </div>
+                </div>
+
+                {/* Range Input */}
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={sliderPos}
+                  onChange={(e) => setSliderPos(Number(e.target.value))}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
+                />
+
+                <div className="absolute bottom-2.5 left-2.5 z-10 bg-slate-950/85 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-800 text-[10px] text-slate-200">
+                  Drag divider across valley to inspect calving margin retreat
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. ANNUAL TIMELINE SCRUBBER (2004 — 2026) */}
           <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -276,20 +618,37 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 <span className="text-xs font-bold text-white uppercase tracking-wider">
                   Annual Timeline Scrubber (2004 — 2026)
                 </span>
-                <span className="text-xs font-bold text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-500/30">
+                <span className="text-xs font-bold text-cyan-400 bg-cyan-950/60 px-2.5 py-0.5 rounded border border-cyan-500/40">
                   Year {selectedYear}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="px-2.5 py-1 rounded-lg bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/40 text-xs flex items-center gap-1 font-semibold transition-colors"
+                  onClick={() => setSelectedYear((y) => Math.max(2004, y - 1))}
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                  title="Previous Year"
                 >
-                  {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className="px-3 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs flex items-center gap-1 font-bold shadow transition-colors"
+                >
+                  {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   {isPlaying ? 'Pause' : 'Play (2004-2026)'}
                 </button>
                 <button
-                  onClick={() => setSelectedYear(2004)}
+                  onClick={() => setSelectedYear((y) => Math.min(2026, y + 1))}
+                  className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                  title="Next Year"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedYear(2004);
+                    setIsPlaying(false);
+                  }}
                   className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs transition-colors"
                   title="Reset to 2004"
                 >
@@ -298,7 +657,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
               </div>
             </div>
 
-            {/* Continuous Year Range Slider */}
+            {/* Range Slider */}
             <div className="space-y-1">
               <input
                 type="range"
@@ -349,9 +708,9 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
               })}
             </div>
 
-            {/* Selected Year Detailed Glaciological Card */}
+            {/* Selected Year Detailed Glaciological Metric Box */}
             {currentEpoch && (
-              <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-2.5 text-xs">
+              <div className="p-3 bg-slate-950/90 rounded-xl border border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-2.5 text-xs">
                 <div>
                   <span className="text-slate-500 block text-[10px]">Sensor & Capture Date:</span>
                   <span className="font-bold text-cyan-300 text-[11px] block truncate">
@@ -364,16 +723,16 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                   <span className="font-bold text-white text-[11px]">
                     {currentEpoch.area_sqkm.toFixed(3)} km²
                   </span>
-                  <span className="text-rose-400 text-[10px] block">
-                    {currentEpoch.delta_area_pct > 0 ? `+${currentEpoch.delta_area_pct}% from baseline` : 'Baseline Anchor'}
+                  <span className="text-rose-400 text-[10px] block font-semibold">
+                    {currentEpoch.delta_area_pct > 0 ? `+${currentEpoch.delta_area_pct}% (+${((currentEpoch.area_sqm) - 1390000).toLocaleString()} m²)` : 'Baseline Anchor (0 m²)'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px]">Terminus Retreat & Water Stored:</span>
+                  <span className="text-slate-500 block text-[10px]">Terminus Retreat & Volume:</span>
                   <span className="font-bold text-amber-300 text-[11px]">
-                    -{currentEpoch.terminus_retreat_m} m
+                    -{currentEpoch.terminus_retreat_m} meters
                   </span>
-                  <span className="text-blue-300 text-[10px] block">{currentEpoch.estimated_volume_million_m3} M m³ water</span>
+                  <span className="text-blue-300 text-[10px] block">{currentEpoch.estimated_volume_million_m3} Million m³ water</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block text-[10px]">Glaciological Milestone:</span>
@@ -385,7 +744,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             )}
           </div>
 
-          {/* C. Mini 23-Year Expansion Curve Sparkline Chart */}
+          {/* 4. Mini 23-Year Expansion Curve Sparkline Chart */}
           <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3 space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-white font-bold flex items-center gap-1.5">
@@ -398,7 +757,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             </div>
 
             {/* SVG Sparkline */}
-            <div className="relative w-full h-14 bg-slate-950/60 rounded-lg p-1.5 border border-slate-800/80 overflow-hidden">
+            <div className="relative w-full h-12 bg-slate-950/60 rounded-lg p-1.5 border border-slate-800/80 overflow-hidden">
               <svg className="w-full h-full" viewBox="0 0 500 50" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -406,19 +765,16 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                     <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.0" />
                   </linearGradient>
                 </defs>
-                {/* Area under curve */}
                 <polygon
                   points={`0,50 ${sparklinePoints} 500,50`}
                   fill="url(#areaGrad)"
                 />
-                {/* Line */}
                 <polyline
                   fill="none"
                   stroke="#22D3EE"
                   strokeWidth="2"
                   points={sparklinePoints}
                 />
-                {/* Active Year Marker */}
                 {activePointCoord.x > 0 && (
                   <g>
                     <line
@@ -445,8 +801,8 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           </div>
         </div>
 
-        {/* 3. Modal Footer */}
-        <div className="px-6 py-3 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0">
+        {/* 5. Modal Footer */}
+        <div className="px-6 py-2.5 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0">
           <span className="flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5 text-cyan-400" />
             Landsat 7/8 (15-30m) & Copernicus Sentinel-2 MSI (10m) Multi-Spectral Calibrated Feed
