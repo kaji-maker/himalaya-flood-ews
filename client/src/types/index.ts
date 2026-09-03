@@ -77,4 +77,5 @@ export interface MapLayerState {
   insarDeformation?: boolean;
   edgeSensors?: boolean;
   cueSlewFootprint?: boolean;
+  communitySirens?: boolean;
 }

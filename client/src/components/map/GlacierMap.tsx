@@ -5,7 +5,7 @@ import { GlacialLake, MapLayerState, DownstreamImpact } from '@/types';
 import { LayerControl } from './LayerControl';
 import { FloodWaveSimulator } from './FloodWaveSimulator';
 import { RiskBadge } from '../alerts/RiskBadge';
-import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio } from 'lucide-react';
+import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell } from 'lucide-react';
 
 interface GlacierMapProps {
   lakes: GlacialLake[];
@@ -54,6 +54,60 @@ const GORGE_EDGE_STATIONS = [
     stage_rate: '+0.02 m/min',
     status: 'NORMAL',
     coupled_facility: 'Dudh Koshi Storage Dam',
+  },
+];
+
+// High-Risk Village Solar Siren Towers & CDMC Emergency Networks
+const COMMUNITY_SIREN_TOWERS = [
+  {
+    id: 'SIREN-ROL-01',
+    name: 'Na Village Siren Tower (120 dB)',
+    village: 'Na Village (ना गाउँ)',
+    coords: [86.460, 27.840] as [number, number],
+    db: 120,
+    status: 'STANDBY',
+    focal_contact: 'Dawa Sherpa (+977-9841234567)',
+    frequency_mhz: 154.600,
+  },
+  {
+    id: 'SIREN-ROL-02',
+    name: 'Bedding Village Siren Tower (120 dB)',
+    village: 'Bedding Village (बेदिङ)',
+    coords: [86.420, 27.820] as [number, number],
+    db: 120,
+    status: 'STANDBY',
+    focal_contact: 'Pasang Nuru (+977-9847654321)',
+    frequency_mhz: 154.600,
+  },
+  {
+    id: 'SIREN-TAK-03',
+    name: 'Gongar Khola Siren Tower (120 dB)',
+    village: 'Gongar Khola / Lamabagar',
+    coords: [86.220, 27.700] as [number, number],
+    db: 120,
+    status: 'STANDBY',
+    focal_contact: 'Bikram Thapa (+977-9851122334)',
+    frequency_mhz: 154.625,
+  },
+  {
+    id: 'SIREN-IMJ-01',
+    name: 'Dingboche Siren Tower (120 dB)',
+    village: 'Dingboche (दिङबोचे)',
+    coords: [86.83, 27.89] as [number, number],
+    db: 120,
+    status: 'STANDBY',
+    focal_contact: 'Ang Tshering (+977-9842233445)',
+    frequency_mhz: 154.575,
+  },
+  {
+    id: 'SIREN-MAR-01',
+    name: 'Syange Siren Tower (120 dB)',
+    village: 'Syange (स्याङ्गे)',
+    coords: [84.42, 28.38] as [number, number],
+    db: 120,
+    status: 'STANDBY',
+    focal_contact: 'Ram Krishna Gurung (+977-9846677889)',
+    frequency_mhz: 154.650,
   },
 ];
 
@@ -191,6 +245,7 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
     insarDeformation: true,
     cueSlewFootprint: true,
     edgeSensors: true,
+    communitySirens: true,
   });
 
   const [hoveredLake, setHoveredLake] = useState<GlacialLake | null>(null);
@@ -528,6 +583,33 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
                 <div className="text-slate-300">Geophone: {station.geophone_db} dB (10-45 Hz)</div>
                 <div className="text-slate-300">Stage Rate: {station.stage_rate}</div>
                 <div className="text-amber-300">Coupled SCADA: {station.coupled_facility}</div>
+              </div>
+            </div>
+          );
+        })}
+
+      {/* 4. Village Solar Siren Towers & CDMC Emergency Networks */}
+      {layers.communitySirens &&
+        COMMUNITY_SIREN_TOWERS.map((siren) => {
+          const coords = getCanvasCoords(siren.coords[0], siren.coords[1]);
+
+          return (
+            <div
+              key={siren.id}
+              className="absolute z-19 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: coords.x, top: coords.y }}
+            >
+              <div className="w-3 h-3 rounded-full bg-violet-500/40 animate-pulse absolute -inset-0.5" />
+              <div className="p-1 rounded-md border shadow-lg flex items-center gap-1 font-mono text-[9px] bg-slate-900/95 border-violet-500/70 text-violet-200">
+                <Bell className="w-3 h-3 text-violet-400" />
+                <span className="font-bold">{siren.village}</span>
+                <span className="text-[8px] bg-violet-950/60 text-violet-300 px-1 rounded">{siren.db} dB</span>
+              </div>
+              <div className="absolute left-1/2 -translate-x-1/2 top-6 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/95 border border-slate-700 p-2 rounded text-[10px] font-mono text-white whitespace-nowrap shadow-xl pointer-events-none z-30">
+                <div className="font-bold text-violet-300">{siren.name}</div>
+                <div className="text-slate-300">Acoustic SPL: {siren.db} dB • {siren.frequency_mhz} MHz RF</div>
+                <div className="text-slate-300">CDMC Contact: {siren.focal_contact}</div>
+                <div className="text-emerald-400 font-semibold">Status: {siren.status} (Solar Autonomous)</div>
               </div>
             </div>
           );

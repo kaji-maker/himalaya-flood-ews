@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Layers, Droplet, Mountain, CloudRain, ShieldAlert, Globe, Waves, Activity, Cpu, Target } from 'lucide-react';
+import { Layers, Droplet, Mountain, CloudRain, ShieldAlert, Globe, Waves, Activity, Cpu, Target, Bell } from 'lucide-react';
 import { MapLayerState } from '@/types';
 
 interface LayerControlProps {
@@ -16,6 +16,12 @@ export const LayerControl: React.FC<LayerControlProps> = ({ layers, onToggleLaye
       label: 'GLOF Inundation Swath',
       icon: <Waves className="w-4 h-4 text-rose-400" />,
       desc: 'Breach Surge Corridor & Village Arrival Times',
+    },
+    {
+      key: 'communitySirens',
+      label: 'Village Sirens & SMS',
+      icon: <Bell className="w-4 h-4 text-violet-400" />,
+      desc: '120 dB Solar Towers & CDMC Contacts',
     },
     {
       key: 'insarDeformation',
