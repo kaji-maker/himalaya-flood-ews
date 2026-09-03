@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { MultiChannelDispatchService } from '../services/dispatch.service';
+import { CommunityEWSService } from '../services/community_ews.service';
 import { FloodAlert } from '../types';
 
 const router = Router();
@@ -30,6 +31,68 @@ router.post('/test', async (req: Request, res: Response) => {
     message: `Emergency broadcast transmitted to ${dispatchResults.length} channels`,
     alert: mockAlert,
     dispatch_results: dispatchResults,
+  });
+});
+
+/**
+ * GET /api/v1/dispatch/communities
+ * List monitored downstream valley settlements, CDMC focal points, and siren towers.
+ */
+router.get('/communities', (req: Request, res: Response) => {
+  const { basin } = req.query;
+  const villages = CommunityEWSService.getVillages(basin as string);
+  return res.json({
+    success: true,
+    count: villages.length,
+    data: villages,
+  });
+});
+
+/**
+ * POST /api/v1/dispatch/community-sms
+ * Broadcast localized multi-lingual emergency bulletins (Nepali, Sherpa, English) via NTC / Ncell.
+ */
+router.post('/community-sms', (req: Request, res: Response) => {
+  const { lake_name, valley, severity, target_basin } = req.body;
+  if (!lake_name) {
+    return res.status(400).json({ success: false, error: 'Missing required lake_name parameter' });
+  }
+
+  const dispatches = CommunityEWSService.broadcastSMS({
+    lake_name,
+    valley,
+    severity,
+    target_basin,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: `Multi-lingual emergency bulletins dispatched to ${dispatches.length} community contacts`,
+    count: dispatches.length,
+    data: dispatches,
+  });
+});
+
+/**
+ * POST /api/v1/dispatch/sirens/trigger
+ * Actuate remote solar siren towers with 120 dB acoustic pattern and xenon strobe beacon.
+ */
+router.post('/sirens/trigger', (req: Request, res: Response) => {
+  const { siren_tower_id, pattern, duration_seconds } = req.body;
+  if (!siren_tower_id) {
+    return res.status(400).json({ success: false, error: 'Missing required siren_tower_id' });
+  }
+
+  const result = CommunityEWSService.triggerSiren({
+    siren_tower_id,
+    pattern,
+    duration_seconds,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: `RF siren trigger packet dispatched to ${result.siren_tower_id} (${result.village_name})`,
+    data: result,
   });
 });
 
