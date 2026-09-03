@@ -129,4 +129,54 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     expect(res.text).toContain('<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">');
     expect(res.text).toContain('<event>Glacial Lake Outburst Flood (GLOF)</event>');
   });
+
+  it('POST /api/v1/telemetry/insar - should ingest InSAR moraine displacement and trigger Cue-and-Slew tasking', async () => {
+    const payload = {
+      lake_id: 'l1111111-1111-1111-1111-111111111111',
+      mean_los_velocity_mm_year: -28.5,
+      max_subsidence_mm_year: -38.2, // Critical collapse subsidence
+      mean_coherence: 0.38,          // Coherence loss
+    };
+
+    const res = await request(app).post('/api/v1/telemetry/insar').send(payload);
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.telemetry.deformation_rating).toBe('CRITICAL_DESTABILIZATION');
+    expect(res.body.data.tasking_order).not.toBeNull();
+    expect(res.body.data.tasking_order.priority).toBe('IMMEDIATE_INTERVENTION');
+    expect(res.body.data.tasking_order.target_sensor).toBe('SkySat-Submeter');
+  });
+
+  it('POST /api/v1/telemetry/edge-sensors - should detect slurry surge and actuate SCADA spillway gates', async () => {
+    const payload = {
+      station_id: 'st-gorge-tamakoshi-01',
+      gorge_name: 'Upper Rolwaling Gorge',
+      lake_id: 'l1111111-1111-1111-1111-111111111111',
+      geophone_dominant_freq_hz: 24.0,     // Debris flow boulder roll band
+      geophone_acoustic_energy_db: 82.5,   // Extreme acoustic energy > 70 dB
+      water_stage_m: 5.6,
+      water_stage_rate_m_min: 0.75,        // Flash wave rise rate > 0.5 m/min
+      tripwire_status: 'INTACT',
+    };
+
+    const res = await request(app).post('/api/v1/telemetry/edge-sensors').send(payload);
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.reading.is_slurry_surge_detected).toBe(true);
+    expect(res.body.data.reading.alarm_level).toBe('CRITICAL_SURGE');
+    expect(res.body.data.scada_command).not.toBeNull();
+    expect(res.body.data.scada_command.action).toBe('EMERGENCY_FULL_OPEN');
+    expect(res.body.data.scada_command.facility_name).toContain('Upper Tama Koshi');
+    expect(res.body.data.alert).not.toBeNull();
+    expect(res.body.data.alert.severity).toBe('EMERGENCY');
+  });
+
+  it('GET /api/v1/telemetry/cue-slew - should return active Cue-and-Slew high-resolution optical tasking orders', async () => {
+    const res = await request(app).get('/api/v1/telemetry/cue-slew');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.count).toBeGreaterThan(0);
+  });
 });
+

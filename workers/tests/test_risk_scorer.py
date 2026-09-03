@@ -124,3 +124,48 @@ def test_normal_baseline_no_alert():
 
     alert = GLOFRiskScorer.evaluate_lake_risk(input_data)
     assert alert is None
+
+
+def test_insar_baseline_subsidence_triggers_alert_and_cue_slew():
+    """Tier 1 & 2: InSAR moraine crest subsidence triggers WARNING and automated Slew tasking"""
+    input_data = LakeMetricsInput(
+        lake_id="l-tsho-rolpa",
+        lake_name="Tsho Rolpa",
+        current_area_sqm=1540000.0,
+        baseline_30d_area_sqm=1540000.0,
+        baseline_1yr_area_sqm=1520000.0,
+        precip_48h_mm=10.0,
+        moraine_slope_deg=28.0,
+        insar_los_velocity_mm_yr=-22.5,  # Active moraine creep
+        insar_coherence=0.75
+    )
+
+    alert = GLOFRiskScorer.evaluate_lake_risk(input_data)
+    assert alert is not None
+    assert alert.severity in ["WARNING", "EMERGENCY"]
+    assert "InSAR moraine creep" in alert.trigger_reason
+    assert alert.slew_tasking_order is not None
+    assert alert.slew_tasking_order.priority in ["PRIORITY", "IMMEDIATE_INTERVENTION"]
+
+
+def test_edge_sensor_slurry_surge_triggers_immediate_scada_actuation():
+    """Tier 3: In-situ riverbed geophone + stage surge triggers EMERGENCY and direct SCADA spillway command"""
+    input_data = LakeMetricsInput(
+        lake_id="l-tsho-rolpa",
+        lake_name="Tsho Rolpa",
+        current_area_sqm=1540000.0,
+        baseline_30d_area_sqm=1540000.0,
+        precip_48h_mm=15.0,
+        geophone_acoustic_energy_db=84.0,  # Hyper-concentrated slurry acoustic energy
+        geophone_dominant_freq_hz=22.0,
+        water_stage_m=5.2,
+        water_stage_surge_rate_m_min=0.85   # Flash wave stage rise > 0.5 m/min
+    )
+
+    alert = GLOFRiskScorer.evaluate_lake_risk(input_data)
+    assert alert is not None
+    assert alert.severity == "EMERGENCY"
+    assert alert.scada_actuation is not None
+    assert alert.scada_actuation.action == "EMERGENCY_FULL_OPEN"
+    assert "Upper Tamakoshi" in alert.scada_actuation.facility_name
+

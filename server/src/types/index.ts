@@ -42,6 +42,70 @@ export interface LakeObservation {
   created_at?: string;
 }
 
+export interface InSARPoint {
+  point_id: string;
+  lat: number;
+  lon: number;
+  los_velocity_mm_year: number;
+  coherence: number;
+  is_anomaly: boolean;
+}
+
+export interface InSARTelemetry {
+  id: string;
+  lake_id: string;
+  recorded_at: string;
+  mean_los_velocity_mm_year: number;
+  max_subsidence_mm_year: number;
+  mean_coherence: number;
+  deformation_rating: 'STABLE' | 'MODERATE_CREEP' | 'CRITICAL_DESTABILIZATION';
+  points: InSARPoint[];
+}
+
+export interface CueAndSlewTaskingOrder {
+  tasking_id: string;
+  lake_id: string;
+  lake_name: string;
+  priority: 'STANDARD' | 'PRIORITY' | 'IMMEDIATE_INTERVENTION';
+  target_sensor: 'SkySat-Submeter' | 'WorldView-3' | 'Sentinel-2-Targeted' | 'PlanetScope';
+  target_gsd_meters: number;
+  bbox: [number, number, number, number];
+  reasons: Array<{
+    source: string;
+    severity: string;
+    description: string;
+    observed_value: number;
+  }>;
+  required_cv_analyses: string[];
+  status: 'TASKED' | 'ACQUIRED' | 'PROCESSED' | 'FAILED';
+  created_at: string;
+}
+
+export interface SCADAGateCommand {
+  facility_id: string;
+  facility_name: string;
+  action: 'EMERGENCY_FULL_OPEN' | 'HOLD' | 'STAGE_MONITORING';
+  target_spillway_gates: string[];
+  estimated_arrival_minutes: number;
+  command_payload: Record<string, any>;
+}
+
+export interface EdgeSensorReading {
+  id?: string;
+  station_id: string;
+  gorge_name: string;
+  lake_id: string;
+  recorded_at: string;
+  geophone_dominant_freq_hz: number;
+  geophone_acoustic_energy_db: number;
+  water_stage_m: number;
+  water_stage_rate_m_min: number;
+  tripwire_status: 'INTACT' | 'TRIPPED';
+  is_slurry_surge_detected?: boolean;
+  alarm_level?: 'NORMAL' | 'ELEVATED' | 'CRITICAL_SURGE';
+  scada_actuation?: SCADAGateCommand | null;
+}
+
 export interface FloodAlert {
   id: string;
   lake_id: string;
@@ -51,6 +115,8 @@ export interface FloodAlert {
   created_at: string;
   resolved_at?: string | null;
   two_axis_score?: TwoAxisRiskScore;
+  slew_tasking_order?: CueAndSlewTaskingOrder | null;
+  scada_actuation?: SCADAGateCommand | null;
 }
 
 export interface PrecipitationTelemetry {
@@ -65,3 +131,4 @@ export interface PrecipitationTelemetry {
   anomaly_pct?: number;
   location?: { type: 'Point'; coordinates: [number, number] };
 }
+

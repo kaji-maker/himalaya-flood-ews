@@ -25,6 +25,8 @@ import {
   Send,
   CheckCircle,
   Activity,
+  Target,
+  Cpu,
 } from 'lucide-react';
 
 interface LakeDetailDrawerProps {
@@ -76,9 +78,15 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
       ? 'TRIGGERED_TRANSIENT_WARNING'
       : 'DORMANT_STABLE');
 
-  // InSAR Moraine Creep Rate
+  // Multi-Tiered Sensor Fusion Telemetry
   const insarVelocityMmYr = isCritical ? -28.4 : isWatch ? -14.2 : -4.5;
   const insarRating = isCritical ? 'CRITICAL_DESTABILIZATION' : isWatch ? 'ACTIVE_CREEP' : 'STABLE';
+  const isCueTasked = isCritical || isWatch;
+  const targetSensor = isCritical ? 'SkySat-Submeter' : 'WorldView-3';
+  const targetGsd = isCritical ? '0.50m GSD' : '0.31m GSD';
+  const geophoneDb = isCritical ? 79.5 : isWatch ? 58.4 : 36.2;
+  const stageRate = isCritical ? '+0.68 m/min' : isWatch ? '+0.18 m/min' : '+0.02 m/min';
+  const scadaFacility = lake?.basin_name === 'Gandaki' ? 'Marsyangdi Hydro (69 MW)' : 'Upper Tamakoshi (456 MW)';
 
   // Handle Multi-Channel Broadcast Trigger
   const handleTestBroadcast = async () => {
@@ -250,35 +258,139 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
 
           {/* Drawer Body Content */}
           <div className="p-6 space-y-6 flex-1">
-            {/* 1. Sentinel-1 InSAR Moraine Creep & Subsidence Telemetry */}
-            <div className="bg-slate-900/70 border border-emerald-500/30 rounded-xl p-4 shadow-xl font-mono">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-emerald-400" />
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                    Sentinel-1 InSAR Moraine Subsidence (SBAS)
-                  </h4>
-                </div>
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded border ${
-                    insarRating === 'CRITICAL_DESTABILIZATION'
-                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                  }`}
-                >
-                  {insarRating.replace(/_/g, ' ')}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
-                  <span className="text-slate-500 block text-[10px]">LOS Creep Velocity:</span>
-                  <span className={insarVelocityMmYr <= -15.0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
-                    {insarVelocityMmYr} mm/year
+            {/* Multi-Tiered Multi-Sensor Early Warning Architecture */}
+            <div className="space-y-3">
+              {/* Tier 1: Sentinel-1 / NISAR InSAR Moraine Baseline */}
+              <div className="bg-slate-900/70 border border-emerald-500/30 rounded-xl p-4 shadow-xl font-mono">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-emerald-400" />
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider text-emerald-400 font-bold block">Tier 1 • All-Weather Radar Baseline</span>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Sentinel-1 / NISAR InSAR Moraine Creep
+                      </h4>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded border ${
+                      insarRating === 'CRITICAL_DESTABILIZATION'
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    }`}
+                  >
+                    {insarRating.replace(/_/g, ' ')}
                   </span>
                 </div>
-                <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
-                  <span className="text-slate-500 block text-[10px]">Interferometric Coherence:</span>
-                  <span className="text-slate-200 font-bold">γ = 0.88 (High)</span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[10px]">LOS Creep Velocity:</span>
+                    <span className={insarVelocityMmYr <= -15.0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
+                      {insarVelocityMmYr} mm/year
+                    </span>
+                  </div>
+                  <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[10px]">Interferometric Coherence:</span>
+                    <span className="text-slate-200 font-bold">γ = 0.88 (High)</span>
+                  </div>
+                </div>
+                <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-800/80 pt-1.5">
+                  <span>Monsoon Cloud Penetration: <strong className="text-emerald-300">100% (C-Band Radar)</strong></span>
+                  <span>Baseline Type: <strong>SBAS Multi-temporal</strong></span>
+                </div>
+              </div>
+
+              {/* Tier 2: Automated "Cue-and-Slew" Optical Tasking */}
+              <div className="bg-slate-900/70 border border-indigo-500/30 rounded-xl p-4 shadow-xl font-mono">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-indigo-400" />
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider text-indigo-400 font-bold block">Tier 2 • Orbital Cue-and-Slew Tasking</span>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Targeted Sub-Meter Optical Tasking
+                      </h4>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded border ${
+                      isCueTasked
+                        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 animate-pulse'
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    {isCueTasked ? 'AUTOTASKED SLEW' : 'STANDBY (NO CUE)'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[10px]">Targeted Sensor:</span>
+                    <span className="text-indigo-300 font-bold">{targetSensor}</span>
+                  </div>
+                  <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[10px]">Target Resolution:</span>
+                    <span className="text-indigo-300 font-bold">{targetGsd}</span>
+                  </div>
+                </div>
+                <div className="mt-2 p-2 bg-indigo-950/40 rounded border border-indigo-500/20 text-[10px] text-slate-300">
+                  <span className="text-indigo-400 font-bold block mb-0.5">Automated CV Change-Detection Checklist:</span>
+                  <ul className="list-disc list-inside space-y-0.5 text-slate-400">
+                    <li>Shear crack aperture widening & crevasse rotation</li>
+                    <li>Moraine piping outflow & thermal erosion channels</li>
+                  </ul>
+                  <span className="text-slate-500 text-[9px] mt-1 block">
+                    Avoids 2,500 km blanket optical scans • 98% reduced compute & data licensing footprint
+                  </span>
+                </div>
+              </div>
+
+              {/* Tier 3: In-Situ Gorge Edge Ground Network & SCADA Tripwires */}
+              <div className="bg-slate-900/70 border border-amber-500/30 rounded-xl p-4 shadow-xl font-mono">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-amber-400" />
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider text-amber-400 font-bold block">Tier 3 • Last-Mile Ground Defense</span>
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Gorge Sensors & Hydropower SCADA
+                      </h4>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded border ${
+                      isCritical
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        : isWatch
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    }`}
+                  >
+                    {isCritical ? 'SCADA TRIPPED' : isWatch ? 'ELEVATED FLOW' : 'NORMAL IN-SITU'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[10px]">Riverbed Geophone Energy:</span>
+                    <span className={geophoneDb >= 70 ? 'text-rose-400 font-bold' : 'text-slate-200 font-bold'}>
+                      {geophoneDb} dB (10-45 Hz)
+                    </span>
+                    <span className="text-[9px] text-slate-500 block">
+                      {geophoneDb >= 70 ? '⚠️ Slurry bedload signature' : 'Clear water streamflow'}
+                    </span>
+                  </div>
+                  <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[10px]">Ultrasonic Stage Rate:</span>
+                    <span className={isCritical ? 'text-rose-400 font-bold' : 'text-slate-200 font-bold'}>
+                      {stageRate}
+                    </span>
+                    <span className="text-[9px] text-slate-500 block">
+                      Non-contact radar gauge
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2 p-2 bg-slate-950/60 rounded border border-slate-800 text-[10px] flex items-center justify-between">
+                  <span className="text-slate-400">Coupled Hydropower Plant:</span>
+                  <span className="text-amber-300 font-bold">{scadaFacility}</span>
                 </div>
               </div>
             </div>

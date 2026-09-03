@@ -51,10 +51,10 @@ router.post('/observation', async (req: Request, res: Response) => {
 
   try {
     // 1. Resolve actual lake_id if ICIMOD code was passed
-    const lake = await db('glacial_lakes')
-      .where({ id: lake_id })
-      .orWhere({ icimod_code: lake_id })
-      .first();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lake_id);
+    const lake = await (isUuid
+      ? db('glacial_lakes').where({ id: lake_id }).orWhere({ icimod_code: lake_id }).first()
+      : db('glacial_lakes').where({ icimod_code: lake_id }).first());
 
     const actualLakeId = lake ? lake.id : lake_id;
 

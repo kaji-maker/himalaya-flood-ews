@@ -3,6 +3,9 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 
+from .cue_and_slew import CueAndSlewCoordinator, SlewTaskingOrder
+from ..processing.edge_sensor_processor import EdgeSensorProcessor, EdgeSensorReading, SCADAGateAction
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,6 +26,17 @@ class LakeMetricsInput(BaseModel):
     lake_volume_mcm: float = 50.0
     freeboard_m: float = 15.0
 
+    # Multi-Tiered Cue-and-Slew (Tier 1 & 2) & Edge Ground Sensor (Tier 3) fields
+    insar_los_velocity_mm_yr: Optional[float] = None
+    insar_coherence: Optional[float] = None
+    geophone_acoustic_energy_db: Optional[float] = None
+    geophone_dominant_freq_hz: Optional[float] = None
+    water_stage_m: Optional[float] = None
+    water_stage_surge_rate_m_min: Optional[float] = None
+    tripwire_status: Optional[str] = None
+    centroid: Optional[List[float]] = None  # [lon, lat]
+    bbox: Optional[List[float]] = None      # [min_lon, min_lat, max_lon, max_lat]
+
 
 class TwoAxisRiskScore(BaseModel):
     susceptibility_score: float = Field(..., ge=0.0, le=1.0, description="Static geomorphic fragility index S in [0, 1]")
@@ -38,16 +52,23 @@ class FloodAlertPayload(BaseModel):
     created_at: str
     resolved_at: Optional[str] = None
     two_axis_score: TwoAxisRiskScore
+    slew_tasking_order: Optional[SlewTaskingOrder] = None
+    scada_actuation: Optional[SCADAGateAction] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class GLOFRiskScorer:
     """
-    Two-Axis GLOF Risk & Susceptibility Evaluation Engine for HimalayaFlood-EWS.
-    Implements the scientific paradigm from Kahn et al. (2026, arXiv:2608.12422):
-    1. Static Susceptibility (S): How short is the fuse? (moraine slope, volume, ruggedness, freeboard).
-    2. Dynamic Triggering (T): Is the fuse lit? (antecedent weather, MNDWI expansion, dam deformation).
-    3. Combined Hazard (H = S * T).
+    Two-Axis GLOF Risk & Multi-Tiered Sensor Fusion Evaluation Engine.
+    
+    Implements:
+    1. Static Susceptibility (S): Moraine slope, lake volume, ruggedness, freeboard.
+    2. Dynamic Triggering (T): Antecedent precipitation, MNDWI expansion,
+       Sentinel-1 InSAR moraine deformation/coherence, and in-situ gorge edge sensors.
+    3. Multi-Tiered Cue-and-Slew Tasking: Wide-area SAR/weather cues generate targeted
+       sub-meter optical slew tasking orders instead of costly daily blanket scanning.
+    4. Edge Ground Sensor Tripwires: Real-time riverbed geophone acoustic energy and
+       ultrasonic stage rise trigger instant downstream hydropower SCADA gate actuation.
     """
 
     THRESHOLD_WARNING_GROWTH_14D_PCT = 15.0
@@ -55,6 +76,10 @@ class GLOFRiskScorer:
     THRESHOLD_EMERGENCY_GROWTH_PCT = 30.0
     THRESHOLD_ADVISORY_GROWTH_1YR_PCT = 8.0
     THRESHOLD_ADVISORY_PRECIP_48H_MM = 25.0
+
+    # InSAR thresholds
+    THRESHOLD_INSAR_CREEP_WARNING_MM_YR = -15.0
+    THRESHOLD_INSAR_SUBSIDENCE_CRITICAL_MM_YR = -35.0
 
     @classmethod
     def calculate_growth_percentage(cls, current: float, baseline: Optional[float]) -> float:
@@ -84,16 +109,36 @@ class GLOFRiskScorer:
         growth_14d_pct: float = 0.0,
         growth_30d_pct: float = 0.0,
         precip_48h_mm: float = 0.0,
-        is_dam_anomaly: bool = False
+        is_dam_anomaly: bool = False,
+        insar_velocity_mm_yr: Optional[float] = None,
+        insar_coherence: Optional[float] = None,
+        is_edge_surge: bool = False
     ) -> float:
-        if is_dam_anomaly:
+        if is_edge_surge or is_dam_anomaly:
             return 1.0
 
         f_rain = min(1.0, max(0.0, precip_48h_mm / 70.0))
         eff_growth = max(growth_14d_pct * 1.5, growth_30d_pct)
         f_growth = min(1.0, max(0.0, eff_growth / 30.0))
 
-        t = max(f_rain, f_growth) * 0.7 + (f_rain * f_growth) * 0.3
+        # InSAR deformation factor
+        f_insar = 0.0
+        if insar_velocity_mm_yr is not None and insar_velocity_mm_yr < 0:
+            f_insar = min(1.0, max(0.0, abs(insar_velocity_mm_yr) / 35.0))
+
+        # InSAR coherence loss factor
+        f_coherence = 0.0
+        if insar_coherence is not None and insar_coherence < 0.60:
+            f_coherence = min(1.0, max(0.0, (0.60 - insar_coherence) / 0.35))
+
+        f_radar = max(f_insar, f_coherence)
+
+        if f_radar > 0:
+            # Multi-sensor radar + optical + precipitation blend
+            t = max(f_rain, f_growth, f_radar) * 0.7 + ((f_rain + f_growth + f_radar) / 3.0) * 0.3
+        else:
+            t = max(f_rain, f_growth) * 0.7 + (f_rain * f_growth) * 0.3
+
         return round(min(1.0, max(0.0, t)), 3)
 
     @classmethod
@@ -112,6 +157,30 @@ class GLOFRiskScorer:
 
         is_dam_anomaly = data.sudden_dam_anomaly_detected or (data.dam_distortion_ratio < 0.70 or data.dam_distortion_ratio > 1.35)
 
+        # Tier 3: Edge Ground Sensor Check (Riverbed Geophone, Ultrasonic Stage, Tripwire)
+        is_edge_surge = False
+        edge_scada_action: Optional[SCADAGateAction] = None
+
+        if (
+            (data.geophone_acoustic_energy_db is not None and data.geophone_acoustic_energy_db >= 70.0) or
+            (data.water_stage_surge_rate_m_min is not None and data.water_stage_surge_rate_m_min >= 0.50) or
+            (data.tripwire_status and data.tripwire_status.upper() == "TRIPPED")
+        ):
+            is_edge_surge = True
+            edge_reading = EdgeSensorReading(
+                station_id=f"gorge-station-{data.lake_id}",
+                gorge_name=f"{data.lake_name} Outlet Gorge",
+                lake_id=data.lake_id,
+                geophone_dominant_freq_hz=data.geophone_dominant_freq_hz or 25.0,
+                geophone_acoustic_energy_db=data.geophone_acoustic_energy_db or 75.0,
+                water_stage_m=data.water_stage_m or 4.2,
+                water_stage_rate_m_min=data.water_stage_surge_rate_m_min or 0.65,
+                tripwire_status=data.tripwire_status or "TRIPPED"
+            )
+            eval_result = EdgeSensorProcessor.evaluate_telemetry(edge_reading)
+            edge_scada_action = eval_result.scada_command
+            triggers.extend(eval_result.detection_reasons)
+
         s_score = cls.calculate_susceptibility_score(
             moraine_slope_deg=data.moraine_slope_deg,
             terrain_ruggedness_m=data.terrain_ruggedness_m,
@@ -122,11 +191,24 @@ class GLOFRiskScorer:
             growth_14d_pct=growth_14d_pct,
             growth_30d_pct=growth_30d_pct,
             precip_48h_mm=data.precip_48h_mm,
-            is_dam_anomaly=is_dam_anomaly
+            is_dam_anomaly=is_dam_anomaly,
+            insar_velocity_mm_yr=data.insar_los_velocity_mm_yr,
+            insar_coherence=data.insar_coherence,
+            is_edge_surge=is_edge_surge
         )
         h_index = round(s_score * t_score, 3)
 
-        # Record granular cause indicators
+        # Record InSAR triggers
+        if data.insar_los_velocity_mm_yr is not None:
+            if data.insar_los_velocity_mm_yr <= cls.THRESHOLD_INSAR_SUBSIDENCE_CRITICAL_MM_YR:
+                triggers.append(f"Severe InSAR moraine crest subsidence: {data.insar_los_velocity_mm_yr:.1f} mm/yr")
+            elif data.insar_los_velocity_mm_yr <= cls.THRESHOLD_INSAR_CREEP_WARNING_MM_YR:
+                triggers.append(f"Active InSAR moraine creep: {data.insar_los_velocity_mm_yr:.1f} mm/yr")
+
+        if data.insar_coherence is not None and data.insar_coherence < 0.45:
+            triggers.append(f"InSAR coherence loss: gamma={data.insar_coherence:.2f} (rapid rock/ice surface decorrelation)")
+
+        # Record standard indicators
         if data.precip_48h_mm > cls.THRESHOLD_WARNING_PRECIP_48H_MM:
             triggers.append(f"Heavy antecedent precipitation: {data.precip_48h_mm:.1f} mm in 48 hours")
         if growth_14d_pct > cls.THRESHOLD_WARNING_GROWTH_14D_PCT:
@@ -136,22 +218,46 @@ class GLOFRiskScorer:
         if is_dam_anomaly:
             triggers.append(f"Sudden moraine dam geometry instability detected (distortion ratio: {data.dam_distortion_ratio:.2f})")
 
+        # Tier 2: Evaluate Automated Cue-and-Slew Tasking
+        centroid = data.centroid or [86.475, 27.868]
+        bbox = data.bbox or [86.45, 27.85, 86.50, 27.89]
+        slew_tasking: Optional[SlewTaskingOrder] = CueAndSlewCoordinator.evaluate_cues(
+            lake_id=data.lake_id,
+            lake_name=data.lake_name,
+            centroid=centroid,
+            bbox=bbox,
+            insar_velocity_mm_yr=data.insar_los_velocity_mm_yr,
+            insar_coherence=data.insar_coherence,
+            precip_48h_mm=data.precip_48h_mm
+        )
+
         # Quadrant Classification & Severity Mapping
         severity: Optional[str] = None
         quadrant: str = "DORMANT_STABLE"
 
-        # EMERGENCY Rule
-        if is_dam_anomaly or growth_30d_pct > cls.THRESHOLD_EMERGENCY_GROWTH_PCT or (s_score >= 0.60 and t_score >= 0.60):
+        # EMERGENCY Rule (Instant edge surge, dam collapse, catastrophic growth, severe InSAR subsidence, or dual trigger)
+        if (
+            is_edge_surge or
+            is_dam_anomaly or
+            growth_30d_pct > cls.THRESHOLD_EMERGENCY_GROWTH_PCT or
+            (data.insar_los_velocity_mm_yr is not None and data.insar_los_velocity_mm_yr <= cls.THRESHOLD_INSAR_SUBSIDENCE_CRITICAL_MM_YR) or
+            (s_score >= 0.60 and t_score >= 0.60)
+        ):
             severity = "EMERGENCY"
             quadrant = "CRITICAL_DUAL_TRIGGER"
-            if s_score >= 0.60 and t_score >= 0.60:
+            if s_score >= 0.60 and t_score >= 0.60 and not is_edge_surge:
                 triggers.append(f"Dual-axis hazard convergence: S={s_score:.2f}, T={t_score:.2f}, H={h_index:.2f}")
 
         # WARNING Rule
-        elif (growth_14d_pct > cls.THRESHOLD_WARNING_GROWTH_14D_PCT) or (data.precip_48h_mm > cls.THRESHOLD_WARNING_PRECIP_48H_MM) or (t_score >= 0.55):
+        elif (
+            (growth_14d_pct > cls.THRESHOLD_WARNING_GROWTH_14D_PCT) or
+            (data.precip_48h_mm > cls.THRESHOLD_WARNING_PRECIP_48H_MM) or
+            (data.insar_los_velocity_mm_yr is not None and data.insar_los_velocity_mm_yr <= cls.THRESHOLD_INSAR_CREEP_WARNING_MM_YR) or
+            (t_score >= 0.55)
+        ):
             severity = "WARNING"
             quadrant = "TRIGGERED_TRANSIENT_WARNING"
-            if t_score >= 0.55 and not any("Heavy antecedent" in tr for tr in triggers):
+            if t_score >= 0.55 and not any("Heavy antecedent" in tr for tr in triggers) and not any("InSAR" in tr for tr in triggers):
                 triggers.append(f"High trigger urgency window (T={t_score:.2f})")
 
         # ADVISORY Rule
@@ -184,6 +290,8 @@ class GLOFRiskScorer:
             created_at=now_iso,
             resolved_at=None,
             two_axis_score=two_axis,
+            slew_tasking_order=slew_tasking,
+            scada_actuation=edge_scada_action,
             metadata={
                 "lake_name": data.lake_name,
                 "current_area_sqm": data.current_area_sqm,
@@ -194,9 +302,15 @@ class GLOFRiskScorer:
                 "growth_14d_pct": growth_14d_pct,
                 "growth_30d_pct": growth_30d_pct,
                 "precip_48h_mm": data.precip_48h_mm,
+                "insar_los_velocity_mm_yr": data.insar_los_velocity_mm_yr,
+                "insar_coherence": data.insar_coherence,
+                "geophone_acoustic_energy_db": data.geophone_acoustic_energy_db,
+                "water_stage_surge_rate_m_min": data.water_stage_surge_rate_m_min,
+                "scada_actuation_required": edge_scada_action is not None,
+                "cue_and_slew_tasked": slew_tasking is not None,
                 "individual_triggers": triggers
             }
         )
 
-        logger.warning(f"🚨 [TWO-AXIS SCORER] {severity} [{quadrant}] for {data.lake_name}: S={s_score:.2f}, T={t_score:.2f} -> {combined_reason}")
+        logger.warning(f"🚨 [MULTI-TIER EVALUATION] {severity} [{quadrant}] for {data.lake_name}: S={s_score:.2f}, T={t_score:.2f} -> {combined_reason}")
         return alert_payload

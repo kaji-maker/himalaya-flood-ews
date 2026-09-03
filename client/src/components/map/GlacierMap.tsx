@@ -5,7 +5,7 @@ import { GlacialLake, MapLayerState, DownstreamImpact } from '@/types';
 import { LayerControl } from './LayerControl';
 import { FloodWaveSimulator } from './FloodWaveSimulator';
 import { RiskBadge } from '../alerts/RiskBadge';
-import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame } from 'lucide-react';
+import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio } from 'lucide-react';
 
 interface GlacierMapProps {
   lakes: GlacialLake[];
@@ -13,6 +13,49 @@ interface GlacierMapProps {
   onSelectLake: (lake: GlacialLake) => void;
   basinName?: string;
 }
+
+// Sentinel-1 InSAR Moraine Creep Hotspots (SBAS Multi-temporal LOS velocities)
+const INSAR_CREEP_HOTSPOTS = [
+  { id: 'insar-tsho', lake_id: 'l-tsho-rolpa', name: 'Tsho Rolpa Terminal Moraine', coords: [86.472, 27.865] as [number, number], velocity_mm_yr: -28.4, rating: 'CRITICAL_SUBSIDENCE' },
+  { id: 'insar-imja', lake_id: 'l-imja-tsho', name: 'Imja Lateral Moraine Ridge', coords: [86.920, 27.905] as [number, number], velocity_mm_yr: -14.2, rating: 'MODERATE_CREEP' },
+  { id: 'insar-thulagi', lake_id: 'l-thulagi', name: 'Thulagi Dam Crest', coords: [84.530, 28.515] as [number, number], velocity_mm_yr: -16.8, rating: 'MODERATE_CREEP' },
+];
+
+// Active Cue-and-Slew Orbital Tasking Footprints (SkySat / WorldView-3 sub-meter sweeps)
+const CUE_SLEW_FOOTPRINTS = [
+  {
+    id: 'slew-tsho',
+    lake_id: 'l-tsho-rolpa',
+    name: 'Tsho Rolpa Catchment Tasking Footprint',
+    sensor: 'SkySat-Submeter (0.50m GSD)',
+    bbox: [86.45, 27.85, 86.50, 27.89] as [number, number, number, number],
+    priority: 'IMMEDIATE_INTERVENTION',
+  },
+];
+
+// In-Situ Riverbed Geophones, Ultrasonic Gauges & Coupled SCADA Barrages
+const GORGE_EDGE_STATIONS = [
+  {
+    id: 'st-tamakoshi',
+    name: 'Upper Rolwaling Gorge Station',
+    coords: [86.38, 27.80] as [number, number],
+    lake_id: 'l-tsho-rolpa',
+    geophone_db: 84.5,
+    stage_rate: '+0.82 m/min',
+    status: 'CRITICAL_SURGE',
+    coupled_facility: 'Upper Tamakoshi (456 MW)',
+  },
+  {
+    id: 'st-dudhkoshi',
+    name: 'Dingboche Gorge Tripwire Station',
+    coords: [86.82, 27.86] as [number, number],
+    lake_id: 'l-imja-tsho',
+    geophone_db: 36.2,
+    stage_rate: '+0.02 m/min',
+    status: 'NORMAL',
+    coupled_facility: 'Dudh Koshi Storage Dam',
+  },
+];
 
 // Pre-computed GLOF Breach & River Gorge Swath Corridors for high-risk lakes
 const GLOF_INUNDATION_CORRIDORS: Record<
@@ -145,6 +188,9 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
     gpmPrecipitation: true,
     pdglHighRisk: true,
     satelliteBase: true,
+    insarDeformation: true,
+    cueSlewFootprint: true,
+    edgeSensors: true,
   });
 
   const [hoveredLake, setHoveredLake] = useState<GlacialLake | null>(null);
@@ -383,6 +429,105 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
                 <span className="text-[9px] opacity-75">
                   ({isHit ? `+${settlement.peak_stage_rise_m}m` : `${settlement.travel_time_minutes}m`})
                 </span>
+              </div>
+            </div>
+          );
+        })}
+
+      {/* 1. Automated Cue-and-Slew Tasked Optical Footprints */}
+      {layers.cueSlewFootprint &&
+        CUE_SLEW_FOOTPRINTS.map((footprint) => {
+          const p1 = getCanvasCoords(footprint.bbox[0], footprint.bbox[3]);
+          const p2 = getCanvasCoords(footprint.bbox[2], footprint.bbox[1]);
+          const width = Math.abs(p2.numX - p1.numX);
+          const height = Math.abs(p2.numY - p1.numY);
+
+          return (
+            <div
+              key={footprint.id}
+              className="absolute z-10 pointer-events-none border-2 border-indigo-400/80 border-dashed bg-indigo-500/10 rounded-lg shadow-lg"
+              style={{
+                left: `${p1.numX}%`,
+                top: `${p1.numY}%`,
+                width: `${Math.max(width, 4.5)}%`,
+                height: `${Math.max(height, 4.5)}%`,
+              }}
+            >
+              <div className="absolute -top-5 left-0 bg-indigo-950/95 border border-indigo-500/60 px-1.5 py-0.5 rounded text-[9px] font-mono text-indigo-200 flex items-center gap-1 shadow-lg whitespace-nowrap">
+                <Target className="w-3 h-3 text-indigo-400" />
+                <span>{footprint.sensor} Tasked</span>
+              </div>
+            </div>
+          );
+        })}
+
+      {/* 2. Sentinel-1 InSAR Moraine Creep Hotspots */}
+      {layers.insarDeformation &&
+        INSAR_CREEP_HOTSPOTS.map((hotspot) => {
+          const coords = getCanvasCoords(hotspot.coords[0], hotspot.coords[1]);
+          const isCritical = hotspot.velocity_mm_yr <= -20.0;
+
+          return (
+            <div
+              key={hotspot.id}
+              className="absolute z-15 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: coords.x, top: coords.y }}
+            >
+              <div
+                className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow-lg flex items-center justify-center animate-ping absolute -inset-0.5 ${
+                  isCritical ? 'bg-rose-500/50' : 'bg-amber-500/50'
+                }`}
+              />
+              <div
+                className={`relative w-4 h-4 rounded-full border border-white shadow-lg flex items-center justify-center text-[8px] font-mono font-bold text-white ${
+                  isCritical ? 'bg-rose-600' : 'bg-amber-600'
+                }`}
+              >
+                <Activity className="w-2.5 h-2.5" />
+              </div>
+              <div className="absolute left-1/2 -translate-x-1/2 top-5 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/95 border border-slate-700 px-2 py-1 rounded text-[10px] font-mono text-white whitespace-nowrap shadow-xl pointer-events-none z-30">
+                <div className="font-bold flex items-center gap-1">
+                  <Activity className="w-3 h-3 text-emerald-400" />
+                  {hotspot.name}
+                </div>
+                <div className="text-rose-400 font-bold">InSAR LOS: {hotspot.velocity_mm_yr} mm/yr</div>
+                <div className="text-slate-400 text-[9px]">{hotspot.rating}</div>
+              </div>
+            </div>
+          );
+        })}
+
+      {/* 3. In-Situ Gorge Sensors & Coupled Hydropower SCADA */}
+      {layers.edgeSensors &&
+        GORGE_EDGE_STATIONS.map((station) => {
+          const coords = getCanvasCoords(station.coords[0], station.coords[1]);
+          const isSurge = station.status === 'CRITICAL_SURGE';
+
+          return (
+            <div
+              key={station.id}
+              className="absolute z-18 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: coords.x, top: coords.y }}
+            >
+              {isSurge && (
+                <div className="w-4 h-4 rounded-full bg-rose-500/60 animate-ping absolute -inset-1" />
+              )}
+              <div
+                className={`p-1 rounded-md border shadow-lg flex items-center gap-1 font-mono text-[9px] ${
+                  isSurge
+                    ? 'bg-rose-950/95 border-rose-500 text-rose-200'
+                    : 'bg-slate-900/95 border-amber-500/70 text-amber-200'
+                }`}
+              >
+                <Cpu className="w-3 h-3 text-amber-400" />
+                <span className="font-bold">{station.name}</span>
+                <span className="text-[8px] bg-black/40 px-1 rounded">{station.geophone_db} dB</span>
+              </div>
+              <div className="absolute left-1/2 -translate-x-1/2 top-6 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/95 border border-slate-700 p-2 rounded text-[10px] font-mono text-white whitespace-nowrap shadow-xl pointer-events-none z-30">
+                <div className="font-bold">{station.name}</div>
+                <div className="text-slate-300">Geophone: {station.geophone_db} dB (10-45 Hz)</div>
+                <div className="text-slate-300">Stage Rate: {station.stage_rate}</div>
+                <div className="text-amber-300">Coupled SCADA: {station.coupled_facility}</div>
               </div>
             </div>
           );

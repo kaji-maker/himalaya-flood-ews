@@ -54,3 +54,20 @@ def test_run_ingestion_cycle():
         results = daemon.run_ingestion_cycle(lakes=subset_lakes)
         assert len(results) == 2
         assert mock_post.call_count == 2
+
+
+def test_run_multi_tier_cycle():
+    daemon = IngestionDaemon(api_base_url="http://localhost:4000/api/v1")
+    subset_lakes = PRIORITY_LAKES[:1]
+
+    with patch("httpx.Client.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {"success": True, "data": {}}
+        mock_post.return_value = mock_response
+
+        results = daemon.run_multi_tier_cycle(lakes=subset_lakes)
+        assert len(results["optical_observations"]) == 1
+        assert len(results["insar_records"]) == 1
+        assert len(results["edge_sensor_records"]) == 1
+

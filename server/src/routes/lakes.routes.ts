@@ -67,10 +67,10 @@ router.get('/lakes/:id/history', async (req: Request, res: Response) => {
 
   try {
     // 1. Fetch lake record
-    const lake = await db('glacial_lakes')
-      .where({ id })
-      .orWhere({ icimod_code: id })
-      .first();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const lake = await (isUuid
+      ? db('glacial_lakes').where({ id }).orWhere({ icimod_code: id }).first()
+      : db('glacial_lakes').where({ icimod_code: id }).first());
 
     const actualLakeId = lake ? lake.id : id;
 

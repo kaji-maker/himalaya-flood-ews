@@ -79,4 +79,96 @@ router.post('/precipitation', (req: Request, res: Response) => {
   return res.status(201).json({ success: true, data: newRecord });
 });
 
+// GET /api/v1/telemetry/insar - Query Sentinel-1 InSAR moraine deformation telemetry
+router.get('/insar', (req: Request, res: Response) => {
+  const { lake_id } = req.query;
+  const { MOCK_INSAR_TELEMETRY } = require('../services/db.service');
+
+  let results = [...MOCK_INSAR_TELEMETRY];
+  if (lake_id) {
+    results = results.filter((r: any) => r.lake_id === lake_id);
+  }
+
+  return res.json({
+    success: true,
+    count: results.length,
+    data: results,
+  });
+});
+
+// POST /api/v1/telemetry/insar - Ingest InSAR deformation record & evaluate cue-and-slew tasking
+router.post('/insar', async (req: Request, res: Response) => {
+  const { lake_id, mean_los_velocity_mm_year, max_subsidence_mm_year, mean_coherence } = req.body;
+  if (!lake_id || mean_los_velocity_mm_year === undefined || max_subsidence_mm_year === undefined) {
+    return res.status(400).json({ success: false, error: 'Missing required InSAR deformation metrics' });
+  }
+
+  const { RiskEvaluationService } = require('../services/evaluation.service');
+  const result = await RiskEvaluationService.evaluateInSARBaseline(
+    lake_id,
+    Number(mean_los_velocity_mm_year),
+    Number(max_subsidence_mm_year),
+    Number(mean_coherence || 0.80)
+  );
+
+  return res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+// GET /api/v1/telemetry/edge-sensors - Query live riverbed geophone & ultrasonic water stage telemetry
+router.get('/edge-sensors', (req: Request, res: Response) => {
+  const { lake_id } = req.query;
+  const { MOCK_EDGE_SENSOR_READINGS } = require('../services/db.service');
+
+  let results = [...MOCK_EDGE_SENSOR_READINGS];
+  if (lake_id) {
+    results = results.filter((r: any) => r.lake_id === lake_id);
+  }
+
+  return res.json({
+    success: true,
+    count: results.length,
+    data: results,
+  });
+});
+
+// POST /api/v1/telemetry/edge-sensors - Ingest in-situ edge telemetry; triggers instant SCADA gate actuation if surge detected
+router.post('/edge-sensors', async (req: Request, res: Response) => {
+  const { station_id, gorge_name, lake_id, geophone_dominant_freq_hz, geophone_acoustic_energy_db, water_stage_m, water_stage_rate_m_min, tripwire_status } = req.body;
+
+  if (!station_id || !lake_id || geophone_acoustic_energy_db === undefined || water_stage_m === undefined) {
+    return res.status(400).json({ success: false, error: 'Missing required edge sensor measurements' });
+  }
+
+  const { RiskEvaluationService } = require('../services/evaluation.service');
+  const result = await RiskEvaluationService.evaluateEdgeSensorReading({
+    station_id,
+    gorge_name: gorge_name || 'Upper Gorge Choke Point',
+    lake_id,
+    geophone_dominant_freq_hz: Number(geophone_dominant_freq_hz || 20.0),
+    geophone_acoustic_energy_db: Number(geophone_acoustic_energy_db),
+    water_stage_m: Number(water_stage_m),
+    water_stage_rate_m_min: Number(water_stage_rate_m_min || 0.0),
+    tripwire_status: tripwire_status || 'INTACT',
+  });
+
+  return res.status(201).json({
+    success: true,
+    data: result,
+  });
+});
+
+// GET /api/v1/telemetry/cue-slew - List active Cue-and-Slew high-resolution optical tasking orders
+router.get('/cue-slew', (req: Request, res: Response) => {
+  const { MOCK_CUE_SLEW_TASKINGS } = require('../services/db.service');
+  return res.json({
+    success: true,
+    count: MOCK_CUE_SLEW_TASKINGS.length,
+    data: MOCK_CUE_SLEW_TASKINGS,
+  });
+});
+
 export default router;
+

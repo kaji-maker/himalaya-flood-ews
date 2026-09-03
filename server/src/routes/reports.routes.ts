@@ -12,7 +12,10 @@ router.get('/lakes/:id/report', async (req: Request, res: Response) => {
 
   let lake: any = null;
   try {
-    lake = await db('glacial_lakes').where({ id }).orWhere({ icimod_code: id }).first();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    lake = await (isUuid
+      ? db('glacial_lakes').where({ id }).orWhere({ icimod_code: id }).first()
+      : db('glacial_lakes').where({ icimod_code: id }).first());
   } catch (e) {
     lake = MOCK_GLACIAL_LAKES.find((l) => l.id === id || l.icimod_code === id);
   }

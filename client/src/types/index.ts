@@ -74,4 +74,7 @@ export interface MapLayerState {
   pdglHighRisk: boolean;
   satelliteBase: boolean;
   inundationSwath: boolean;
+  insarDeformation?: boolean;
+  edgeSensors?: boolean;
+  cueSlewFootprint?: boolean;
 }

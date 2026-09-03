@@ -40,6 +40,22 @@ class WorkerConfig(BaseSettings):
         default=300,
         description="Telemetry polling frequency in seconds"
     )
+    CDSE_AUTH_URL: str = Field(
+        default="https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
+        description="Copernicus Data Space Ecosystem (CDSE) Keycloak Token URL"
+    )
+    CDSE_ODATA_URL: str = Field(
+        default="https://catalogue.dataspace.copernicus.eu/odata/v1",
+        description="Copernicus Data Space Ecosystem (CDSE) OData catalog"
+    )
+    CDSE_CLIENT_ID: str = Field(
+        default="",
+        description="CDSE Client ID for official European Space Agency feeds"
+    )
+    CDSE_CLIENT_SECRET: str = Field(
+        default="",
+        description="CDSE Client Secret"
+    )
 
     class Config:
         env_file = ".env"
