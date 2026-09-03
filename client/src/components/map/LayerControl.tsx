@@ -18,6 +18,12 @@ export const LayerControl: React.FC<LayerControlProps> = ({ layers, onToggleLaye
       desc: 'Breach Surge Corridor & Village Arrival Times',
     },
     {
+      key: 'satelliteBase',
+      label: 'Real Satellite Imagery',
+      icon: <Globe className="w-4 h-4 text-cyan-400" />,
+      desc: 'Copernicus Sentinel-2 & Esri Satellite Ortho',
+    },
+    {
       key: 'communitySirens',
       label: 'Village Sirens & SMS',
       icon: <Bell className="w-4 h-4 text-violet-400" />,

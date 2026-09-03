@@ -5,7 +5,7 @@ import { GlacialLake, MapLayerState, DownstreamImpact } from '@/types';
 import { LayerControl } from './LayerControl';
 import { FloodWaveSimulator } from './FloodWaveSimulator';
 import { RiskBadge } from '../alerts/RiskBadge';
-import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell } from 'lucide-react';
+import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell, Globe } from 'lucide-react';
 
 interface GlacierMapProps {
   lakes: GlacialLake[];
@@ -327,6 +327,31 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
     <div className="relative w-full h-[620px] bg-slate-950 rounded-2xl overflow-hidden border border-himalaya-border shadow-2xl">
       {/* 3D Himalayan Terrain Mesh Background */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#0B1323] to-[#040810]">
+        {/* Real Satellite Orthoimagery Basemap (Copernicus Sentinel-2 / Esri High-Res) */}
+        {layers.satelliteBase && (
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden flex opacity-70 mix-blend-screen contrast-125 brightness-105">
+            <img
+              src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/7/53/91"
+              alt="Western Himalaya Satellite Ortho"
+              className="w-1/3 h-full object-cover"
+            />
+            <img
+              src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/7/53/92"
+              alt="Central Himalaya Satellite Ortho"
+              className="w-1/3 h-full object-cover"
+            />
+            <img
+              src="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/7/53/93"
+              alt="Eastern Himalaya / Everest Satellite Ortho"
+              className="w-1/3 h-full object-cover"
+            />
+            <div className="absolute bottom-2 left-3 z-10 px-2.5 py-1 rounded-md bg-slate-950/80 backdrop-blur border border-slate-700/80 text-[10px] font-mono text-cyan-300 flex items-center gap-1.5 shadow-lg">
+              <Globe className="w-3 h-3 text-cyan-400" />
+              <span>Copernicus Sentinel-2 & Esri World Imagery (Maxar 10m)</span>
+            </div>
+          </div>
+        )}
+
         {/* Topographic 3D Elevation Ridges */}
         {layers.terrain3d && (
           <svg className="w-full h-full opacity-40 pointer-events-none" viewBox="0 0 1000 600" preserveAspectRatio="none">
