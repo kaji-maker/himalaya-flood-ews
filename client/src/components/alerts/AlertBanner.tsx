@@ -17,6 +17,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
   onSelectLakeById,
 }) => {
   const [mounted, setMounted] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -47,9 +48,39 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
     );
   }
 
+  const displayedAlerts = showAll ? activeAlerts : activeAlerts.slice(0, 2);
+
   return (
     <div className="space-y-3">
-      {activeAlerts.map((alert) => {
+      {activeAlerts.length > 2 && (
+        <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 px-4 py-2 rounded-xl text-xs font-mono text-slate-300">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+            <span className="font-semibold text-rose-300">
+              {activeAlerts.length} Active GLOF Warnings in System
+            </span>
+            <span className="text-slate-500">
+              (Showing {displayedAlerts.length} most recent)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 transition-colors"
+            >
+              {showAll ? 'Collapse' : `View All (${activeAlerts.length})`}
+            </button>
+            <button
+              onClick={() => activeAlerts.forEach((a) => onAcknowledge(a.id))}
+              className="text-xs px-2.5 py-1 rounded bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 transition-colors"
+            >
+              Acknowledge All ({activeAlerts.length})
+            </button>
+          </div>
+        </div>
+      )}
+
+      {displayedAlerts.map((alert) => {
         const isEmergency = alert.severity === 'EMERGENCY';
 
         return (
