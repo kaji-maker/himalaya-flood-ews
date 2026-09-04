@@ -1176,8 +1176,15 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 </div>
                 <div className="relative w-full h-[280px] sm:h-[320px] rounded-xl overflow-hidden border border-amber-500/40 bg-slate-950 shadow-inner">
                   <img
+                    key={baselineChipUrl}
                     src={baselineChipUrl}
                     alt="2004 Satellite View"
+                    onError={(e) => {
+                      if (data?.bbox) {
+                        const [minLon, minLat, maxLon, maxLat] = data.bbox;
+                        (e.target as HTMLImageElement).src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
+                      }
+                    }}
                     className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(true)}`}
                   />
                   {renderLakeSvg(true)}
@@ -1203,8 +1210,15 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 </div>
                 <div className="relative w-full h-[280px] sm:h-[320px] rounded-xl overflow-hidden border border-cyan-500/40 bg-slate-950 shadow-inner ring-1 ring-cyan-500/20">
                   <img
+                    key={currentChipUrl}
                     src={currentChipUrl}
                     alt={`${selectedYear} Satellite View`}
+                    onError={(e) => {
+                      if (data?.bbox) {
+                        const [minLon, minLat, maxLon, maxLat] = data.bbox;
+                        (e.target as HTMLImageElement).src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
+                      }
+                    }}
                     className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(false)}`}
                   />
                   {renderLakeSvg(false)}
@@ -1240,8 +1254,15 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 {/* Background Layer: Selected Year */}
                 <div className="absolute inset-0">
                   <img
+                    key={`split-cur-${currentChipUrl}`}
                     src={currentChipUrl}
                     alt="Modern satellite layer"
+                    onError={(e) => {
+                      if (data?.bbox) {
+                        const [minLon, minLat, maxLon, maxLat] = data.bbox;
+                        (e.target as HTMLImageElement).src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
+                      }
+                    }}
                     className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(false)}`}
                   />
                   {renderLakeSvg(false)}
@@ -1257,8 +1278,15 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 >
                   <div className="absolute inset-0 w-full h-full min-w-[800px]">
                     <img
+                      key={`split-base-${baselineChipUrl}`}
                       src={baselineChipUrl}
                       alt="2004 baseline satellite layer"
+                      onError={(e) => {
+                        if (data?.bbox) {
+                          const [minLon, minLat, maxLon, maxLat] = data.bbox;
+                          (e.target as HTMLImageElement).src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
+                        }
+                      }}
                       className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(true)}`}
                     />
                     {renderLakeSvg(true)}

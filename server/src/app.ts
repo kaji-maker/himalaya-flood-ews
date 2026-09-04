@@ -1,3 +1,4 @@
+import path from 'path';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -18,9 +19,10 @@ export const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Security & Middleware
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '15mb' }));
+app.use('/imagery', express.static(path.join(__dirname, '../../client/public/imagery')));
 
 // OpenAPI 3.0 Specification
 const openApiSpec = {

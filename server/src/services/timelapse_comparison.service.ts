@@ -753,6 +753,16 @@ export class TimelapseComparisonService {
     // High-resolution calibrated satellite chip from ESRI World Imagery export (CORS enabled, 800x450 resolution)
     const arcGisChipUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bMinLon},${bMinLat},${bMaxLon},${bMaxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
 
+    const PRESET_CODES = new Set([
+      'PDGL_NEP_KOSHI_007',
+      'PDGL_NEP_KOSHI_001',
+      'PDGL_NEP_KOSHI_002',
+      'PDGL_NEP_KOSHI_003',
+      'PDGL_NEP_GANDAKI_002',
+      'PDGL_NEP_GANDAKI_001',
+      'PDGL_IND_SIKKIM_001',
+    ]);
+
     const epochs: HistoricalEpochData[] = Object.keys(fullMilestones).map((yearStr) => {
       const year = Number(yearStr);
       const m = fullMilestones[year];
@@ -770,6 +780,13 @@ export class TimelapseComparisonService {
       const captureDay = (15 + (year % 12)).toString().padStart(2, '0');
       const eastExtension = ((year - 2004) / 22) * 0.020;
 
+      // Multi-temporal epoch image URL: calibrated local archive or dynamic EOX Sentinel-2 WMS
+      const epochChipUrl = PRESET_CODES.has(lake.icimod_code)
+        ? `/imagery/timelapse/${lake.icimod_code}/${year}.jpg`
+        : year >= 2018 && year <= 2025
+        ? `https://tiles.maps.eox.at/wms?service=wms&request=getmap&version=1.1.1&layers=s2cloudless-${year}&styles=&format=image/png&srs=epsg:4326&bbox=${bMinLon},${bMinLat},${bMaxLon},${bMaxLat}&width=800&height=450`
+        : arcGisChipUrl;
+
       return {
         epoch_year: year,
         capture_date: `${year}-${captureMonth}-${captureDay}`,
@@ -782,7 +799,7 @@ export class TimelapseComparisonService {
         estimated_volume_million_m3: m.vol,
         glaciological_note: m.note,
         false_color_infrared_active: true,
-        image_chip_url: arcGisChipUrl,
+        image_chip_url: epochChipUrl,
         polygon_coords: [
           [lon - 0.015, lat - 0.008],
           [lon + 0.005 + eastExtension, lat - 0.005],
