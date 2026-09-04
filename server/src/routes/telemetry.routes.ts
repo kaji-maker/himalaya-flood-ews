@@ -4,6 +4,7 @@ import { EdgeDecoderService } from '../services/edge_decoder.service';
 import { RiskEvaluationService } from '../services/evaluation.service';
 import { SeismicTriggerService } from '../services/seismic_trigger.service';
 import { GpmPrecipitationService } from '../services/gpm_precipitation.service';
+import { CueSlewTaskingService } from '../services/cue_slew_tasking.service';
 
 const router = Router();
 
@@ -165,12 +166,73 @@ router.post('/edge-sensors', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/telemetry/cue-slew - List active Cue-and-Slew high-resolution optical tasking orders
-router.get('/cue-slew', (req: Request, res: Response) => {
-  const { MOCK_CUE_SLEW_TASKINGS } = require('../services/db.service');
+router.get('/cue-slew', (_req: Request, res: Response) => {
+  const orders = CueSlewTaskingService.getAllOrders();
+  const fleet = CueSlewTaskingService.getConstellationFleet();
   return res.json({
     success: true,
-    count: MOCK_CUE_SLEW_TASKINGS.length,
-    data: MOCK_CUE_SLEW_TASKINGS,
+    count: orders.length,
+    data: orders,
+    fleet,
+  });
+});
+
+// GET /api/v1/telemetry/cue-slew/constellations - List high-resolution satellite constellations
+router.get('/cue-slew/constellations', (_req: Request, res: Response) => {
+  const fleet = CueSlewTaskingService.getConstellationFleet();
+  return res.json({
+    success: true,
+    count: fleet.length,
+    data: fleet,
+  });
+});
+
+// POST /api/v1/telemetry/cue-slew/order - Create rapid automated or on-demand tasking order
+router.post('/cue-slew/order', (req: Request, res: Response) => {
+  const { lake_id, icimod_code, lake_name, category, severity, description, trigger_value, trigger_unit, sensor, bbox } = req.body;
+  if (!lake_id || !icimod_code || !lake_name) {
+    return res.status(400).json({ success: false, error: 'lake_id, icimod_code, and lake_name are required' });
+  }
+
+  const order = CueSlewTaskingService.createOrder({
+    lake_id,
+    icimod_code,
+    lake_name,
+    category: category || 'INSAR_SUBSIDENCE',
+    severity: severity || 'WARNING',
+    description: description || 'Operator-commanded rapid optical tasking requisition',
+    trigger_value: trigger_value || -25.0,
+    trigger_unit: trigger_unit || 'mm/yr',
+    sensor,
+    bbox,
+  });
+
+  return res.status(201).json({
+    success: true,
+    data: order,
+  });
+});
+
+// GET /api/v1/telemetry/cue-slew/:id - Get specific Cue-and-Slew order
+router.get('/cue-slew/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const order = CueSlewTaskingService.getOrderById(id);
+  if (!order) {
+    return res.status(404).json({ success: false, error: 'Tasking order not found' });
+  }
+  return res.json({
+    success: true,
+    data: order,
+  });
+});
+
+// GET /api/v1/telemetry/insar-deformation/:lakeId - Get Sentinel-1 InSAR SBAS deformation history
+router.get('/insar-deformation/:lakeId', (req: Request, res: Response) => {
+  const { lakeId } = req.params;
+  const insarData = CueSlewTaskingService.getLakeInSarDeformation(lakeId);
+  return res.json({
+    success: true,
+    data: insarData,
   });
 });
 

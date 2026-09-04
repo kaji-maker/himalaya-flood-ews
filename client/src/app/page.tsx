@@ -8,6 +8,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { RiskBadge } from '@/components/alerts/RiskBadge';
 import { EnvironmentalTriggerHub } from '@/components/environmental/EnvironmentalTriggerHub';
 import { LakeComparisonModal } from '@/components/satellite/LakeComparisonModal';
+import { CueSlewTaskingConsole } from '@/components/satellite/CueSlewTaskingConsole';
 import { GlacialLake, FloodAlert, ObservationPoint, PrecipitationPoint } from '@/types';
 import {
   ShieldAlert,
@@ -19,6 +20,7 @@ import {
   Filter,
   ExternalLink,
   Clock,
+  Satellite,
 } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
@@ -230,6 +232,7 @@ export default function DashboardPage() {
     name: 'Tsho Rolpa Glacial Lake',
     code: 'PDGL_NEP_KOSHI_001',
   });
+  const [isCueSlewModalOpen, setIsCueSlewModalOpen] = useState<boolean>(false);
 
   // Fetch live lakes and alerts from PostGIS API
   useEffect(() => {
@@ -399,6 +402,16 @@ export default function DashboardPage() {
               <span>20-Yr Satellite Comparison</span>
             </button>
 
+            {/* Autonomous Satellite Tasking & InSAR Button */}
+            <button
+              onClick={() => setIsCueSlewModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-950/40 transition-all hover:border-indigo-400"
+              title="Autonomous High-Resolution Satellite Tasking (SkySat 0.5m) & InSAR Moraine Console"
+            >
+              <Satellite className="w-3.5 h-3.5 text-indigo-400" />
+              <span>SkySat Tasking & InSAR</span>
+            </button>
+
             {/* Basin Filter Buttons */}
             <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 p-1 rounded-xl">
               {['ALL', 'KOSHI', 'GANDAKI', 'KARNALI', 'MAHAKALI'].map((b) => (
@@ -543,6 +556,13 @@ export default function DashboardPage() {
         icimodCode={comparisonLakeTarget.code}
         isOpen={isComparisonModalOpen}
         onClose={() => setIsComparisonModalOpen(false)}
+      />
+
+      {/* 7. Autonomous High-Resolution Satellite Tasking & InSAR Console */}
+      <CueSlewTaskingConsole
+        isOpen={isCueSlewModalOpen}
+        onClose={() => setIsCueSlewModalOpen(false)}
+        defaultLakeCode={selectedLake?.icimod_code || 'PDGL_NEP_KOSHI_001'}
       />
     </div>
   );
