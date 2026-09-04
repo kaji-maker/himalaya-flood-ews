@@ -303,7 +303,13 @@ export default function DashboardPage() {
   };
 
   const handleSelectLakeById = (lakeId: string) => {
-    const found = lakes.find((l) => l.id === lakeId || l.icimod_code === lakeId);
+    const found = lakes.find(
+      (l) =>
+        l.id === lakeId ||
+        l.icimod_code === lakeId ||
+        l.name.toLowerCase() === lakeId.toLowerCase() ||
+        lakeId.toLowerCase().includes(l.name.toLowerCase())
+    ) || lakes[0];
     if (found) {
       handleSelectLake(found);
     }

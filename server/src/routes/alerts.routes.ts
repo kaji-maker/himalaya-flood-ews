@@ -51,6 +51,40 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/v1/alerts/active - Query active unresolved flood alerts
+router.get('/active', async (req: Request, res: Response) => {
+  try {
+    const alerts = await db('flood_alerts as f')
+      .join('glacial_lakes as g', 'f.lake_id', 'g.id')
+      .leftJoin('river_basins as b', 'g.basin_id', 'b.id')
+      .select(
+        'f.id',
+        'f.lake_id',
+        'g.name as lake_name',
+        db.raw("COALESCE(b.name, 'Koshi') as basin_name"),
+        'f.severity',
+        'f.trigger_reason',
+        'f.created_at',
+        'f.resolved_at'
+      )
+      .whereNull('f.resolved_at')
+      .orderBy('f.created_at', 'desc');
+
+    return res.json({ success: true, count: alerts.length, data: alerts });
+  } catch (e) {
+    const active = alertsMemoryStore
+      .filter((a) => !a.resolved_at)
+      .map((a) => {
+        const lake = MOCK_GLACIAL_LAKES.find((l) => l.id === a.lake_id || l.icimod_code === a.lake_id || l.name === a.lake_id);
+        return {
+          ...a,
+          basin_name: a.basin_name || (lake ? (lake as any).basin_name : 'Koshi') || 'Koshi',
+        };
+      });
+    return res.json({ success: true, count: active.length, data: active });
+  }
+});
+
 // POST /api/v1/alerts - Trigger/insert new flood alert
 router.post('/', async (req: Request, res: Response) => {
   const { lake_id, severity, trigger_reason } = req.body;
