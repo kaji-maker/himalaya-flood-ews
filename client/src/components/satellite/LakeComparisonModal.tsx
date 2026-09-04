@@ -16,10 +16,63 @@ import {
   Sparkles,
   Columns,
   Sliders,
-  Eye,
   Ruler,
-  Maximize2,
+  AlertTriangle,
 } from 'lucide-react';
+
+export interface TimelapsePresetLake {
+  code: string;
+  name: string;
+  basin: string;
+  region: string;
+  elevation: string;
+  tag: string;
+  isBreached?: boolean;
+}
+
+export const TIMELAPSE_PRESET_LAKES: TimelapsePresetLake[] = [
+  {
+    code: 'PDGL_NEP_KOSHI_001',
+    name: 'Tsho Rolpa',
+    basin: 'Tama Koshi',
+    region: 'Rolwaling Himal, Nepal',
+    elevation: '4,580m',
+    tag: 'High Hazard Anchor',
+  },
+  {
+    code: 'PDGL_NEP_KOSHI_002',
+    name: 'Imja Tsho',
+    basin: 'Dudh Koshi',
+    region: 'Everest Khumbu, Nepal',
+    elevation: '5,010m',
+    tag: 'Canal Lowered 2016',
+  },
+  {
+    code: 'PDGL_NEP_KOSHI_003',
+    name: 'Lower Barun',
+    basin: 'Barun / Arun',
+    region: 'Makalu-Barun, Nepal',
+    elevation: '4,570m',
+    tag: '+197% Rapid Expansion',
+  },
+  {
+    code: 'PDGL_NEP_GANDAKI_001',
+    name: 'Thulagi Lake',
+    basin: 'Marsyangdi',
+    region: 'Manaslu Arc, Nepal',
+    elevation: '4,040m',
+    tag: 'Steep Moraine Watch',
+  },
+  {
+    code: 'PDGL_IND_SIKKIM_001',
+    name: 'South Lhonak',
+    basin: 'Teesta Basin',
+    region: 'Sikkim Himalaya',
+    elevation: '5,200m',
+    tag: 'Oct 2023 GLOF Breach',
+    isBreached: true,
+  },
+];
 
 interface LakeComparisonModalProps {
   lakeId: string;
@@ -48,8 +101,11 @@ interface ComparisonData {
   lake_id: string;
   lake_name: string;
   icimod_code: string;
+  basin?: string;
+  elevation_m?: number;
   coordinates: [number, number];
   study_period: string;
+  glacier_name?: string;
   net_summary: {
     initial_area_sqm_2004: number;
     current_area_sqm_2026: number;
@@ -72,6 +128,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const [activeLakeCode, setActiveLakeCode] = useState<string>(icimodCode || lakeId || 'PDGL_NEP_KOSHI_001');
   const [data, setData] = useState<ComparisonData | null>(null);
   const [sliderPos, setSliderPos] = useState<number>(50); // Split swipe slider (0 to 100%)
   const [selectedYear, setSelectedYear] = useState<number>(2026);
@@ -79,18 +136,28 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Inspection Display Mode: 'side-by-side' | 'split' | 'diff'
-  const [viewMode, setViewMode] = useState<'side-by-side' | 'split' | 'diff'>('side-by-side');
+  // Inspection Display Mode: 'side-by-side' | 'split'
+  const [viewMode, setViewMode] = useState<'side-by-side' | 'split'>('side-by-side');
   const [showExpansionHighlight, setShowExpansionHighlight] = useState<boolean>(true);
   const [showCalvingLine, setShowCalvingLine] = useState<boolean>(true);
 
+  // Sync active lake when props change
+  useEffect(() => {
+    if (icimodCode) {
+      setActiveLakeCode(icimodCode);
+    } else if (lakeId) {
+      setActiveLakeCode(lakeId);
+    }
+  }, [icimodCode, lakeId]);
+
+  // Fetch comparison data for current active lake
   useEffect(() => {
     if (!isOpen) return;
 
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/lakes/${icimodCode || lakeId}/timelapse-comparison`);
+        const res = await fetch(`${API_BASE}/lakes/${activeLakeCode}/timelapse-comparison`);
         if (res.ok) {
           const json = await res.json();
           setData(json);
@@ -104,9 +171,9 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
     };
 
     fetchData();
-  }, [isOpen, lakeId, icimodCode]);
+  }, [isOpen, activeLakeCode]);
 
-  // Automated playback through the 23 consecutive years (2004 to 2026)
+  // Automated playback through consecutive years (2004 to 2026)
   useEffect(() => {
     if (!isPlaying || !data || data.epochs.length === 0) return;
 
@@ -124,64 +191,74 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   }, [isPlaying, data, playbackSpeed]);
 
   const baselineEpoch = useMemo(() => {
-    return data?.epochs.find((e) => e.epoch_year === 2004) || null;
+    return data?.epochs.find((e) => e.epoch_year === 2004) || data?.epochs[0] || null;
   }, [data]);
 
   const currentEpoch = useMemo(() => {
     return data?.epochs.find((e) => e.epoch_year === selectedYear) || data?.epochs[data.epochs.length - 1] || null;
   }, [data, selectedYear]);
 
-  // Mini Sparkline Path Calculation across 23 years
-  const sparklinePoints = useMemo(() => {
-    if (!data || data.epochs.length === 0) return '';
-    const minArea = 1.35;
-    const maxArea = 1.85;
+  // Dynamic Sparkline Path Calculation across 23 years based on each lake's area bounds
+  const { minArea, maxArea, sparklinePoints, activePointCoord } = useMemo(() => {
+    if (!data || data.epochs.length === 0) {
+      return { minArea: 0, maxArea: 1, sparklinePoints: '', activePointCoord: { x: 0, y: 0 } };
+    }
+    const areas = data.epochs.map((e) => e.area_sqkm);
+    const rawMin = Math.min(...areas);
+    const rawMax = Math.max(...areas);
+    const span = Math.max(0.04, rawMax - rawMin);
+    const min = Math.max(0, rawMin - span * 0.1);
+    const max = rawMax + span * 0.1;
     const w = 500;
     const h = 50;
 
-    return data.epochs
+    const points = data.epochs
       .map((ep, idx) => {
         const x = (idx / (data.epochs.length - 1)) * w;
-        const y = h - ((ep.area_sqkm - minArea) / (maxArea - minArea)) * h;
+        const y = h - ((ep.area_sqkm - min) / (max - min)) * h;
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(' ');
-  }, [data]);
 
-  // Active Year point for the sparkline marker
-  const activePointCoord = useMemo(() => {
-    if (!data || !currentEpoch) return { x: 0, y: 0 };
-    const idx = data.epochs.findIndex((e) => e.epoch_year === currentEpoch.epoch_year);
-    if (idx === -1) return { x: 0, y: 0 };
-    const minArea = 1.35;
-    const maxArea = 1.85;
-    const w = 500;
-    const h = 50;
-    const x = (idx / (data.epochs.length - 1)) * w;
-    const y = h - ((currentEpoch.area_sqkm - minArea) / (maxArea - minArea)) * h;
-    return { x, y };
+    let activeCoord = { x: 0, y: 0 };
+    if (currentEpoch) {
+      const idx = data.epochs.findIndex((e) => e.epoch_year === currentEpoch.epoch_year);
+      if (idx !== -1) {
+        const x = (idx / (data.epochs.length - 1)) * w;
+        const y = h - ((currentEpoch.area_sqkm - min) / (max - min)) * h;
+        activeCoord = { x, y };
+      }
+    }
+
+    return { minArea: min, maxArea: max, sparklinePoints: points, activePointCoord: activeCoord };
   }, [data, currentEpoch]);
 
   // Key landmark years for quick jumps
-  const landmarkYears = [2004, 2007, 2011, 2015, 2018, 2021, 2024, 2026];
+  const landmarkYears = [2004, 2007, 2011, 2015, 2018, 2021, 2023, 2026];
 
-  // Calculate geometric retreat ratio (0.0 for 2004 -> 1.0 for 2026)
+  // Calculate geometric retreat ratio (0.0 for 2004 -> 1.0 for max retreat)
   const retreatRatio = useMemo(() => {
-    if (!currentEpoch) return 1.0;
-    const maxRetreat = 1240;
+    if (!currentEpoch || !data) return 1.0;
+    const maxRetreat = Math.max(100, data.net_summary?.total_glacier_terminus_retreat_m || 1240);
     return Math.min(1.0, Math.max(0.0, currentEpoch.terminus_retreat_m / maxRetreat));
-  }, [currentEpoch]);
+  }, [currentEpoch, data]);
 
   if (!isOpen) return null;
+
+  const initialAreaSqm = data?.net_summary?.initial_area_sqm_2004 || 1390000;
+  const initialAreaSqkm = (initialAreaSqm / 1e6).toFixed(3);
+  const currentAreaSqm = currentEpoch?.area_sqm || 0;
+  const deltaSqm = currentAreaSqm - initialAreaSqm;
+  const isSouthLhonakBreach = data?.icimod_code === 'PDGL_IND_SIKKIM_001' && selectedYear >= 2023;
 
   // Render SVG Lake Canvas with authentic morphological glacier tongue retreat
   const renderLakeSvg = (is2004Baseline: boolean) => {
     // Coordinate space: 700 x 300
-    // Lake starts at West Dam: (140, 160)
-    // 2004 Baseline Terminus: X = 430
-    // 2026 Retreated Terminus: X = 570 (retreat distance = 140px in SVG space)
-    const baselineTerminusX = 430;
-    const activeTerminusX = is2004Baseline ? 430 : 430 + retreatRatio * 140;
+    // Lake starts at Outlet Dam: (140, 160)
+    // Baseline Terminus: X = 410
+    // Retreated Terminus: X = 410 + retreatRatio * 160
+    const baselineTerminusX = 410;
+    const activeTerminusX = is2004Baseline ? 410 : 410 + retreatRatio * 160;
     const retreatDistPx = activeTerminusX - baselineTerminusX;
 
     return (
@@ -203,6 +280,13 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             <stop offset="0%" stopColor="#0891B2" stopOpacity="0.85" />
             <stop offset="60%" stopColor="#06B6D4" stopOpacity="0.90" />
             <stop offset="100%" stopColor="#22D3EE" stopOpacity="0.95" />
+          </linearGradient>
+
+          {/* Post-Breach Drained Lake Water Gradient (South Lhonak) */}
+          <linearGradient id="waterGradBreached" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#450A0A" stopOpacity="0.88" />
+            <stop offset="70%" stopColor="#7F1D1D" stopOpacity="0.92" />
+            <stop offset="100%" stopColor="#991B1B" stopOpacity="0.95" />
           </linearGradient>
 
           {/* Expansion Zone Striped Pattern */}
@@ -227,14 +311,20 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
              L ${activeTerminusX},198 
              C 380,205 320,210 250,205 
              C 190,200 160,185 140,165 Z`}
-          fill={is2004Baseline ? 'url(#waterGrad2004)' : 'url(#waterGradModern)'}
-          stroke={is2004Baseline ? '#38BDF8' : '#67E8F9'}
+          fill={
+            isSouthLhonakBreach && !is2004Baseline
+              ? 'url(#waterGradBreached)'
+              : is2004Baseline
+              ? 'url(#waterGrad2004)'
+              : 'url(#waterGradModern)'
+          }
+          stroke={isSouthLhonakBreach && !is2004Baseline ? '#EF4444' : is2004Baseline ? '#38BDF8' : '#67E8F9'}
           strokeWidth="2.5"
           className="filter drop-shadow-md"
         />
 
         {/* 2. New Expansion Zone Highlight (Between 2004 Baseline & Current Terminus) */}
-        {!is2004Baseline && retreatDistPx > 4 && showExpansionHighlight && (
+        {!is2004Baseline && retreatDistPx > 4 && showExpansionHighlight && !isSouthLhonakBreach && (
           <g>
             <path
               d={`M ${baselineTerminusX},151 
@@ -258,7 +348,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           </g>
         )}
 
-        {/* 3. Trakarding Glacier Tongue (Covers the un-melted section beyond the terminus) */}
+        {/* 3. Upstream Glacier Tongue */}
         <path
           d={`M ${activeTerminusX},152 
              C ${activeTerminusX + 30},150 560,140 640,130 
@@ -268,6 +358,9 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           stroke="#6B7280"
           strokeWidth="1.5"
         />
+        <text x="560" y="195" fill="#E2E8F0" fontSize="9" fontWeight="bold" textAnchor="middle">
+          {data?.glacier_name || 'Glacier Tongue'}
+        </text>
 
         {/* 4. Terminal Outlet Moraine Dam (West End) */}
         <rect
@@ -276,15 +369,26 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           width="10"
           height="32"
           rx="2"
-          fill="#EAB308"
-          stroke="#CA8A04"
+          fill={isSouthLhonakBreach && !is2004Baseline ? '#EF4444' : '#EAB308'}
+          stroke={isSouthLhonakBreach && !is2004Baseline ? '#B91C1C' : '#CA8A04'}
           strokeWidth="1.5"
         />
-        <text x="137" y="142" fill="#FDE047" fontSize="9" fontWeight="bold" textAnchor="middle">
-          OUTLET DAM
+        <text x="137" y="142" fill={isSouthLhonakBreach && !is2004Baseline ? '#FCA5A5' : '#FDE047'} fontSize="9" fontWeight="bold" textAnchor="middle">
+          {data?.icimod_code === 'PDGL_NEP_KOSHI_002' ? 'ENGINEERED CANAL' : 'OUTLET DAM'}
         </text>
 
-        {/* 5. 2004 Calving Baseline Reference Line */}
+        {/* 5. Special South Lhonak Oct 2023 Breach Channel */}
+        {isSouthLhonakBreach && !is2004Baseline && (
+          <g>
+            <line x1="110" y1="165" x2="160" y2="165" stroke="#EF4444" strokeWidth="6" strokeDasharray="4 2" />
+            <rect x="70" y="190" width="135" height="20" rx="4" fill="#450A0A" stroke="#EF4444" strokeWidth="1" />
+            <text x="137" y="204" fill="#FCA5A5" fontSize="8.5" fontWeight="bold" textAnchor="middle">
+              OCT 2023 BREACH GORGE
+            </text>
+          </g>
+        )}
+
+        {/* 6. 2004 Calving Baseline Reference Line */}
         {(!is2004Baseline || viewMode === 'split') && (
           <g>
             <line
@@ -302,28 +406,26 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           </g>
         )}
 
-        {/* 6. Active Calving Front Cliff Line & Distance Ruler */}
+        {/* 7. Active Calving Front Cliff Line & Distance Ruler */}
         {showCalvingLine && (
           <g>
-            {/* Calving Cliff Front */}
             <line
               x1={activeTerminusX}
               y1="135"
               x2={activeTerminusX}
               y2="215"
-              stroke="#F43F5E"
+              stroke={isSouthLhonakBreach && !is2004Baseline ? '#EF4444' : '#F43F5E'}
               strokeWidth="3"
             />
-            {/* Floating Label */}
             <rect
-              x={activeTerminusX - 35}
+              x={activeTerminusX - 38}
               y="222"
-              width="70"
+              width="76"
               height="18"
               rx="4"
               fill="#0F172A"
               fillOpacity="0.9"
-              stroke="#F43F5E"
+              stroke={isSouthLhonakBreach && !is2004Baseline ? '#EF4444' : '#F43F5E'}
               strokeWidth="1"
             />
             <text
@@ -337,7 +439,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
               {is2004Baseline ? '2004 FRONT' : `-${currentEpoch?.terminus_retreat_m}m`}
             </text>
 
-            {/* Retreat Measurement Arrow (When retreated) */}
+            {/* Retreat Measurement Arrow */}
             {!is2004Baseline && retreatDistPx > 20 && (
               <g>
                 <line
@@ -347,12 +449,11 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                   y2="175"
                   stroke="#FFFFFF"
                   strokeWidth="2"
-                  markerEnd="url(#arrowEnd)"
                 />
                 <rect
-                  x={baselineTerminusX + (retreatDistPx / 2) - 28}
+                  x={baselineTerminusX + (retreatDistPx / 2) - 32}
                   y="166"
-                  width="56"
+                  width="64"
                   height="16"
                   rx="3"
                   fill="#000000"
@@ -376,9 +477,12 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
     );
   };
 
+  const currentChipUrl = currentEpoch?.image_chip_url;
+  const baselineChipUrl = baselineEpoch?.image_chip_url || currentChipUrl;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-6xl bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[94vh] max-h-[900px]">
+      <div className="relative w-full max-w-6xl bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[95vh] max-h-[920px]">
         {/* 1. Modal Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-900/90 shrink-0">
           <div className="flex items-center gap-3">
@@ -388,11 +492,16 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base sm:text-lg font-bold text-white font-mono">
-                  {lakeName} • 20-Year Retrospective Glacial Calving & Lake Expansion
+                  {data?.lake_name || lakeName} • 20-Year Retrospective Glacial Calving & Expansion
                 </h3>
                 <span className="text-[10px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded font-mono font-bold">
                   2004 — 2026 (23 Consecutive Years)
                 </span>
+                {data?.elevation_m && (
+                  <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">
+                    Elev: {data.elevation_m}m
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-400 font-mono">
                 Multispectral Landsat 7/8 & Copernicus Sentinel-2 calibrated calving margin analysis
@@ -441,9 +550,50 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           </div>
         </div>
 
-        {/* 2. Scrollable Modal Body */}
+        {/* 2. Lake Preset Switcher Bar (Pan-Himalayan Scope) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 px-5 pt-2.5 bg-slate-900/60 border-b border-slate-800/80 custom-scrollbar shrink-0">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 shrink-0 mr-1">
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            Glacial Lake Presets:
+          </span>
+          {TIMELAPSE_PRESET_LAKES.map((l) => {
+            const isActive = (data?.icimod_code === l.code) || (activeLakeCode === l.code);
+            return (
+              <button
+                key={l.code}
+                onClick={() => {
+                  setActiveLakeCode(l.code);
+                  setSelectedYear(2026);
+                  setIsPlaying(false);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium flex items-center gap-2 transition-all shrink-0 ${
+                  isActive
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/60 shadow-lg shadow-cyan-950 ring-1 ring-cyan-400/40'
+                    : 'bg-slate-950/70 text-slate-400 border border-slate-800 hover:text-white hover:border-slate-700 hover:bg-slate-900'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-cyan-400 animate-pulse' : 'bg-slate-500'}`} />
+                <span className="font-bold">{l.name}</span>
+                <span className="text-[10px] text-slate-400 hidden sm:inline">({l.basin})</span>
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                    l.isBreached
+                      ? 'bg-rose-950/90 text-rose-300 border border-rose-500/50'
+                      : isActive
+                      ? 'bg-cyan-950 text-cyan-300'
+                      : 'bg-slate-800 text-slate-300'
+                  }`}
+                >
+                  {l.tag}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 3. Scrollable Modal Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 font-mono custom-scrollbar">
-          {/* Overlay Feature Toggles */}
+          {/* Overlay Feature Toggles & Active State */}
           <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer select-none">
@@ -455,7 +605,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 />
                 <span className="text-[11px] text-rose-300 font-semibold flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-rose-400" />
-                  Highlight New Meltwater Expansion (+430,000 m²)
+                  Highlight New Meltwater Expansion ({data?.net_summary?.net_expansion_sqm ? (data.net_summary.net_expansion_sqm > 0 ? '+' : '') + data.net_summary.net_expansion_sqm.toLocaleString() + ' m²' : '+430,000 m²'})
                 </span>
               </label>
 
@@ -474,13 +624,13 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             </div>
 
             <div className="text-[11px] text-slate-400">
-              Active Display: <strong className="text-white">2004 Baseline</strong> vs <strong className="text-cyan-400">Year {selectedYear}</strong>
+              Active Display: <strong className="text-white">2004 Baseline ({initialAreaSqkm} km²)</strong> vs <strong className="text-cyan-400">Year {selectedYear} ({currentEpoch?.area_sqkm.toFixed(3)} km²)</strong>
             </div>
           </div>
 
           {/* MAIN VISUALIZATION CONTAINER */}
           {viewMode === 'side-by-side' ? (
-            /* SIDE-BY-SIDE MODE (Both years visible simultaneously) */
+            /* SIDE-BY-SIDE MODE */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {/* Left Pane: 2004 Baseline */}
               <div className="space-y-1.5">
@@ -490,21 +640,21 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                     2004 Baseline (Landsat 7 ETM+)
                   </span>
                   <span className="font-mono font-bold text-slate-200">
-                    1.390 km² • 0 m Retreat
+                    {initialAreaSqkm} km² • 0 m Retreat
                   </span>
                 </div>
                 <div className="relative w-full h-[250px] rounded-xl overflow-hidden border border-amber-500/40 bg-slate-950 shadow-inner">
                   <img
-                    src="https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.52,27.89&width=700&height=300"
+                    src={baselineChipUrl}
                     alt="2004 Satellite View"
                     className="w-full h-full object-cover filter brightness-90 contrast-110"
                   />
                   {renderLakeSvg(true)}
                   <div className="absolute top-2.5 left-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-amber-500/50 text-[10px] text-amber-300 font-bold">
-                    2004 • Post-Mitigation Baseline
+                    2004 • Baseline Anchor ({initialAreaSqkm} km²)
                   </div>
                   <div className="absolute bottom-2.5 left-2.5 bg-slate-950/90 backdrop-blur px-2.5 py-1 rounded border border-slate-800 text-[10px] text-slate-300">
-                    Terminus: Trakarding Glacier at 0 m baseline
+                    Terminus: {data?.glacier_name || 'Glacier Tongue'} at 0 m baseline
                   </div>
                 </div>
               </div>
@@ -517,12 +667,12 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                     Year {selectedYear} ({currentEpoch?.sensor.split(' ')[0] || 'Modern'})
                   </span>
                   <span className="font-mono font-bold text-rose-300">
-                    {currentEpoch?.area_sqkm.toFixed(3)} km² (+{currentEpoch?.delta_area_pct}%)
+                    {currentEpoch?.area_sqkm.toFixed(3)} km² ({currentEpoch?.delta_area_pct && currentEpoch.delta_area_pct > 0 ? `+${currentEpoch.delta_area_pct}%` : `${currentEpoch?.delta_area_pct || 0}%`})
                   </span>
                 </div>
                 <div className="relative w-full h-[250px] rounded-xl overflow-hidden border border-cyan-500/40 bg-slate-950 shadow-inner ring-1 ring-cyan-500/20">
                   <img
-                    src="https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.52,27.89&width=700&height=300"
+                    src={currentChipUrl}
                     alt={`${selectedYear} Satellite View`}
                     className="w-full h-full object-cover filter contrast-120 brightness-105"
                   />
@@ -530,8 +680,12 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                   <div className="absolute top-2.5 right-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-cyan-500/50 text-[10px] text-cyan-300 font-bold">
                     {selectedYear} • Retreated -{currentEpoch?.terminus_retreat_m} m
                   </div>
-                  <div className="absolute bottom-2.5 right-2.5 bg-rose-950/90 backdrop-blur px-2.5 py-1 rounded border border-rose-500/50 text-[10px] text-rose-200">
-                    New Meltwater: +{currentEpoch?.delta_area_pct}% (+{((currentEpoch?.area_sqm || 0) - 1390000).toLocaleString()} m²)
+                  <div className="absolute bottom-2.5 right-2.5 bg-slate-950/90 backdrop-blur px-2.5 py-1 rounded border border-slate-800 text-[10px] text-slate-200">
+                    {deltaSqm >= 0 ? (
+                      <span className="text-rose-300">New Meltwater: +{currentEpoch?.delta_area_pct}% (+{deltaSqm.toLocaleString()} m²)</span>
+                    ) : (
+                      <span className="text-amber-400 font-bold">Post-Breach Drainage: {currentEpoch?.delta_area_pct}% ({deltaSqm.toLocaleString()} m²)</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -541,7 +695,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-xs px-1">
                 <span className="text-amber-400 font-bold">
-                  ◀ 2004 Baseline (1.390 km²)
+                  ◀ 2004 Baseline ({initialAreaSqkm} km²)
                 </span>
                 <span className="text-slate-500 text-[10px]">
                   Drag the center slider (↔) left or right to peel between 2004 and {selectedYear}
@@ -555,7 +709,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 {/* Background Layer: Selected Year */}
                 <div className="absolute inset-0">
                   <img
-                    src="https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.52,27.89&width=700&height=300"
+                    src={currentChipUrl}
                     alt="Modern satellite layer"
                     className="w-full h-full object-cover filter contrast-120 brightness-105"
                   />
@@ -572,14 +726,14 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 >
                   <div className="absolute inset-0 w-full h-full min-w-[700px]">
                     <img
-                      src="https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.43,27.84,86.52,27.89&width=700&height=300"
+                      src={baselineChipUrl}
                       alt="2004 baseline satellite layer"
                       className="w-full h-full object-cover filter brightness-90 contrast-110"
                     />
                     {renderLakeSvg(true)}
                   </div>
                   <div className="absolute top-3 left-3 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-amber-500/50 text-[11px] text-amber-300 font-bold">
-                    2004 Baseline • 1.390 km²
+                    2004 Baseline • {initialAreaSqkm} km²
                   </div>
                 </div>
 
@@ -610,9 +764,9 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             </div>
           )}
 
-          {/* 3. ANNUAL TIMELINE SCRUBBER (2004 — 2026) */}
+          {/* 4. ANNUAL TIMELINE SCRUBBER (2004 — 2026) */}
           <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-cyan-400" />
                 <span className="text-xs font-bold text-white uppercase tracking-wider">
@@ -621,6 +775,12 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 <span className="text-xs font-bold text-cyan-400 bg-cyan-950/60 px-2.5 py-0.5 rounded border border-cyan-500/40">
                   Year {selectedYear}
                 </span>
+                {isSouthLhonakBreach && (
+                  <span className="text-xs font-bold text-rose-300 bg-rose-950/90 px-2.5 py-0.5 rounded border border-rose-500/60 flex items-center gap-1 animate-pulse">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                    POST-OCTOBER 2023 GLOF BREACH STATE
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -676,7 +836,8 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 <span>2008</span>
                 <span>2012</span>
                 <span>2015 (Gorkha Eq)</span>
-                <span>2020 (Rapid Calving)</span>
+                <span>2020</span>
+                <span>2023 (Sikkim Breach)</span>
                 <span className="text-cyan-400 font-bold">2026 (Present)</span>
               </div>
             </div>
@@ -719,12 +880,16 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                   <span className="text-slate-400 text-[10px]">{currentEpoch.capture_date} ({currentEpoch.resolution_m}m)</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[10px]">Area Expansion:</span>
+                  <span className="text-slate-500 block text-[10px]">Area Expansion / Delta:</span>
                   <span className="font-bold text-white text-[11px]">
                     {currentEpoch.area_sqkm.toFixed(3)} km²
                   </span>
                   <span className="text-rose-400 text-[10px] block font-semibold">
-                    {currentEpoch.delta_area_pct > 0 ? `+${currentEpoch.delta_area_pct}% (+${((currentEpoch.area_sqm) - 1390000).toLocaleString()} m²)` : 'Baseline Anchor (0 m²)'}
+                    {currentEpoch.delta_area_pct > 0
+                      ? `+${currentEpoch.delta_area_pct}% (+${deltaSqm.toLocaleString()} m²)`
+                      : currentEpoch.delta_area_pct < 0
+                      ? `${currentEpoch.delta_area_pct}% (${deltaSqm.toLocaleString()} m²)`
+                      : 'Baseline Anchor (0 m²)'}
                   </span>
                 </div>
                 <div>
@@ -744,15 +909,15 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             )}
           </div>
 
-          {/* 4. Mini 23-Year Expansion Curve Sparkline Chart */}
+          {/* 5. Dynamic 23-Year Expansion Curve Sparkline Chart */}
           <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3 space-y-2">
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-xs flex-wrap gap-1">
               <span className="text-white font-bold flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-                23-Year Lake Surface Growth Curve (1.390 km² ➔ 1.820 km²)
+                23-Year Surface Growth Curve ({initialAreaSqkm} km² ➔ {((data?.net_summary?.current_area_sqm_2026 || currentAreaSqm) / 1e6).toFixed(3)} km²)
               </span>
               <span className="text-[10px] text-slate-400">
-                Rate: +19,545 m²/yr • Net Volume Added: +35.8M m³
+                Rate: +{(data?.net_summary?.annual_expansion_rate_sqm_year || 0).toLocaleString()} m²/yr • Net Volume Delta: {data?.net_summary?.net_volume_added_million_m3 && data.net_summary.net_volume_added_million_m3 > 0 ? `+${data.net_summary.net_volume_added_million_m3}` : `${data?.net_summary?.net_volume_added_million_m3 || 0}`}M m³
               </span>
             </div>
 
@@ -801,11 +966,11 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           </div>
         </div>
 
-        {/* 5. Modal Footer */}
-        <div className="px-6 py-2.5 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0">
+        {/* 6. Modal Footer */}
+        <div className="px-6 py-2.5 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0 flex-wrap gap-2">
           <span className="flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5 text-cyan-400" />
-            Landsat 7/8 (15-30m) & Copernicus Sentinel-2 MSI (10m) Multi-Spectral Calibrated Feed
+            Landsat 7/8 (15-30m) & Copernicus Sentinel-2 MSI (10m) Multi-Spectral Calibrated Feed • Drivers: {data?.net_summary?.primary_driver || 'Climate warming'}
           </span>
           <button
             onClick={onClose}

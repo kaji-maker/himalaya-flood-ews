@@ -7,6 +7,7 @@ import { LakeDetailDrawer } from '@/components/drawer/LakeDetailDrawer';
 import { StatCard } from '@/components/ui/StatCard';
 import { RiskBadge } from '@/components/alerts/RiskBadge';
 import { EnvironmentalTriggerHub } from '@/components/environmental/EnvironmentalTriggerHub';
+import { LakeComparisonModal } from '@/components/satellite/LakeComparisonModal';
 import { GlacialLake, FloodAlert, ObservationPoint, PrecipitationPoint } from '@/types';
 import {
   ShieldAlert,
@@ -17,6 +18,7 @@ import {
   Search,
   Filter,
   ExternalLink,
+  Clock,
 } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
@@ -222,6 +224,12 @@ export default function DashboardPage() {
   const [lakeObservations, setLakeObservations] = useState<ObservationPoint[]>(MOCK_OBSERVATIONS);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [basinFilter, setBasinFilter] = useState<string>('ALL');
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState<boolean>(false);
+  const [comparisonLakeTarget, setComparisonLakeTarget] = useState<{ id: string; name: string; code?: string }>({
+    id: 'l-tsho-rolpa',
+    name: 'Tsho Rolpa Glacial Lake',
+    code: 'PDGL_NEP_KOSHI_001',
+  });
 
   // Fetch live lakes and alerts from PostGIS API
   useEffect(() => {
@@ -375,21 +383,38 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Basin Filter Buttons */}
-          <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 p-1 rounded-xl">
-            {['ALL', 'KOSHI', 'GANDAKI', 'KARNALI', 'MAHAKALI'].map((b) => (
-              <button
-                key={b}
-                onClick={() => setBasinFilter(b)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
-                  basinFilter === b
-                    ? 'bg-blue-600 text-white shadow'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                {b}
-              </button>
-            ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 20-Year Retrospective Launch Button */}
+            <button
+              onClick={() => {
+                if (selectedLake) {
+                  setComparisonLakeTarget({ id: selectedLake.id, name: selectedLake.name, code: selectedLake.icimod_code });
+                }
+                setIsComparisonModalOpen(true);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-950/40 transition-all hover:border-cyan-400"
+              title="Open Pan-Himalayan 20-Year Multi-Lake Satellite Comparison (2004-2026)"
+            >
+              <Clock className="w-3.5 h-3.5 text-cyan-400" />
+              <span>20-Yr Satellite Comparison</span>
+            </button>
+
+            {/* Basin Filter Buttons */}
+            <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 p-1 rounded-xl">
+              {['ALL', 'KOSHI', 'GANDAKI', 'KARNALI', 'MAHAKALI'].map((b) => (
+                <button
+                  key={b}
+                  onClick={() => setBasinFilter(b)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
+                    basinFilter === b
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {b}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -470,15 +495,29 @@ export default function DashboardPage() {
                       <RiskBadge level={lake.danger_level} size="sm" />
                     </td>
                     <td className="py-3 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectLake(lake);
-                        }}
-                        className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-sky-400 hover:text-white rounded border border-blue-500/40 text-[11px] font-mono transition-colors"
-                      >
-                        Inspect Drawer →
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setComparisonLakeTarget({ id: lake.id, name: lake.name, code: lake.icimod_code });
+                            setIsComparisonModalOpen(true);
+                          }}
+                          className="px-2 py-1 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 rounded border border-cyan-500/40 text-[11px] font-mono transition-colors flex items-center gap-1"
+                          title="20-Year Satellite Comparison (2004-2026)"
+                        >
+                          <Clock className="w-3 h-3 text-cyan-400" />
+                          <span>20-Yr Timelapse</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectLake(lake);
+                          }}
+                          className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-sky-400 hover:text-white rounded border border-blue-500/40 text-[11px] font-mono transition-colors"
+                        >
+                          Drawer →
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -495,6 +534,15 @@ export default function DashboardPage() {
         onClose={() => setIsDrawerOpen(false)}
         observations={lakeObservations}
         precipitationData={MOCK_PRECIPITATION}
+      />
+
+      {/* 6. 20-Year Pan-Himalayan Satellite Comparison Modal */}
+      <LakeComparisonModal
+        lakeId={comparisonLakeTarget.id}
+        lakeName={comparisonLakeTarget.name}
+        icimodCode={comparisonLakeTarget.code}
+        isOpen={isComparisonModalOpen}
+        onClose={() => setIsComparisonModalOpen(false)}
       />
     </div>
   );

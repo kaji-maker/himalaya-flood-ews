@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db, MOCK_BASINS, MOCK_GLACIAL_LAKES } from '../services/db.service';
+import { TimelapseComparisonService } from '../services/timelapse_comparison.service';
 
 const router = Router();
 
@@ -291,119 +292,49 @@ router.get('/lakes/:id/satellite-imagery', async (req: Request, res: Response) =
 });
 
 /**
+ * GET /api/v1/lakes/timelapse-lakes
+ * List all Himalayan glacial lakes configured with 20-year multi-temporal satellite comparison
+ */
+router.get('/lakes/timelapse-lakes', (_req: Request, res: Response) => {
+  const lakes = TimelapseComparisonService.getAvailableLakes();
+  return res.json({ success: true, count: lakes.length, data: lakes });
+});
+
+/**
  * GET /api/v1/lakes/:id/timelapse-comparison
  * 20-Year Retrospective Multi-Temporal Satellite Comparison (Landsat 7/8 & Sentinel-2 from 2004 to 2026)
  */
 router.get('/lakes/:id/timelapse-comparison', async (req: Request, res: Response) => {
   const { id } = req.params;
 
+  let lookupKey = id;
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-  let lake: any = null;
-  try {
-    lake = await (isUuid
-      ? db('glacial_lakes').where({ id }).orWhere({ icimod_code: id }).first()
-      : db('glacial_lakes').where({ icimod_code: id }).first());
-  } catch (e) {}
-
-  if (!lake) {
-    lake = MOCK_GLACIAL_LAKES.find((l) => l.id === id || l.icimod_code === id) || {
-      id,
-      name: 'Tsho Rolpa',
-      icimod_code: 'PDGL_NEP_KOSHI_001',
-      centroid: { coordinates: [86.475, 27.868] },
-    };
+  if (isUuid) {
+    try {
+      const dbLake = await db('glacial_lakes').where({ id }).first();
+      if (dbLake?.icimod_code) {
+        lookupKey = dbLake.icimod_code;
+      }
+    } catch (e) {
+      const mockLake = MOCK_GLACIAL_LAKES.find((l) => l.id === id);
+      if (mockLake?.icimod_code) {
+        lookupKey = mockLake.icimod_code;
+      }
+    }
   }
 
-  const lon = lake.centroid?.coordinates ? lake.centroid.coordinates[0] : 86.475;
-  const lat = lake.centroid?.coordinates ? lake.centroid.coordinates[1] : 27.868;
-
-  // 20-Year Consecutive Yearly Satellite Epochs (2004 to 2026 - 23 Yearly Intervals)
-  const yearlyMilestones: Record<number, { note: string; retreat: number; area: number; vol: number }> = {
-    2004: { note: 'Post-mitigation canal completion; ice-cored moraine relatively stable.', retreat: 0, area: 1.390, vol: 78.4 },
-    2005: { note: 'Initial eastward tongue incision detected by Landsat 7.', retreat: 50, area: 1.408, vol: 79.8 },
-    2006: { note: 'Thermal erosion expands supraglacial melt ponds.', retreat: 110, area: 1.425, vol: 81.1 },
-    2007: { note: 'Supraglacial ponds coalesce into main proglacial body.', retreat: 170, area: 1.446, vol: 82.5 },
-    2008: { note: 'Accelerated summer monsoon melt runoff expands calving margin.', retreat: 220, area: 1.465, vol: 83.8 },
-    2009: { note: 'Continuous calving along the subaqueous ice cliff.', retreat: 280, area: 1.485, vol: 85.1 },
-    2010: { note: 'Terminal moraine seepage monitored by field piezometers.', retreat: 340, area: 1.505, vol: 86.8 },
-    2011: { note: 'Trakarding glacier surface velocity slows as tongue thins.', retreat: 410, area: 1.528, vol: 88.5 },
-    2012: { note: 'Lateral moraine slumping into lake basin recorded.', retreat: 490, area: 1.550, vol: 90.1 },
-    2013: { note: 'Landsat 8 operational; 15m panchromatic sharpening deployed.', retreat: 560, area: 1.575, vol: 91.9 },
-    2014: { note: 'Glacier calving front height reaches 35 meters above waterline.', retreat: 610, area: 1.598, vol: 93.3 },
-    2015: { note: 'Post-Gorkha Earthquake (Mw 7.8) survey; terminal moraine inspected.', retreat: 650, area: 1.620, vol: 94.6 },
-    2016: { note: 'Copernicus Sentinel-2A begins 10m high-frequency multi-spectral coverage.', retreat: 710, area: 1.642, vol: 96.2 },
-    2017: { note: 'Sentinel-2B launched; 5-day revisit cycle established.', retreat: 780, area: 1.665, vol: 98.4 },
-    2018: { note: 'Calving cliff detachment event creates localized displacement waves.', retreat: 850, area: 1.688, vol: 100.5 },
-    2019: { note: 'Expanding calving embayment extends 900m upstream.', retreat: 920, area: 1.710, vol: 102.4 },
-    2020: { note: 'Subaqueous thermal thermo-erosion causes deep calving along the ice cliff.', retreat: 980, area: 1.730, vol: 104.2 },
-    2021: { note: 'Internal drainage conduit collapse documented on glacier tongue.', retreat: 1030, area: 1.750, vol: 106.1 },
-    2022: { note: 'InSAR SBAS demonstrates terminal moraine creep of -24 mm/yr.', retreat: 1090, area: 1.770, vol: 108.5 },
-    2023: { note: 'Monsoon heavy rain triggers small debris avalanche into southern shore.', retreat: 1140, area: 1.788, vol: 110.8 },
-    2024: { note: 'Surface area approaches 1.80 km²; upstream hazard classified as high.', retreat: 1190, area: 1.805, vol: 112.6 },
-    2025: { note: 'Continuous radar coherence monitoring with automated cue-and-slew.', retreat: 1215, area: 1.812, vol: 113.4 },
-    2026: { note: 'Present-day high-risk configuration. Lake volume exceeds 114M m³.', retreat: 1240, area: 1.820, vol: 114.2 },
-  };
-
-  const epochs = Object.keys(yearlyMilestones).map((yearStr) => {
-    const year = Number(yearStr);
-    const m = yearlyMilestones[year];
-    const sensor = year < 2013
-      ? 'Landsat 7 ETM+'
-      : year < 2016
-      ? 'Landsat 8 OLI'
-      : year % 2 === 0
-      ? 'Sentinel-2A MSI'
-      : 'Sentinel-2B MSI';
-    const resolution = year < 2013 ? 30.0 : year < 2016 ? 15.0 : 10.0;
-    const baseArea = 1.390;
-    const deltaPct = Number((((m.area - baseArea) / baseArea) * 100).toFixed(1));
-    const captureMonth = (year % 2 === 0) ? '10' : '11';
-    const captureDay = (15 + (year % 12)).toString().padStart(2, '0');
-    const eastExtension = ((year - 2004) / 22) * 0.020;
-
-    return {
-      epoch_year: year,
-      capture_date: `${year}-${captureMonth}-${captureDay}`,
-      sensor,
-      resolution_m: resolution,
-      area_sqm: Math.round(m.area * 1e6),
-      area_sqkm: m.area,
-      delta_area_pct: deltaPct,
-      terminus_retreat_m: m.retreat,
-      estimated_volume_million_m3: m.vol,
-      glaciological_note: m.note,
-      false_color_infrared_active: true,
-      image_chip_url: `https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=${lon - 0.045},${lat - 0.025},${lon + 0.025 + eastExtension},${lat + 0.025}&width=600&height=350`,
-      polygon_coords: [
-        [lon - 0.015, lat - 0.008],
-        [lon + 0.005 + eastExtension, lat - 0.005],
-        [lon + 0.012 + eastExtension, lat + 0.003],
-        [lon + 0.005, lat + 0.008],
-        [lon - 0.018, lat + 0.005],
-        [lon - 0.015, lat - 0.008],
-      ],
-    };
-  });
-
-  return res.json({
-    success: true,
-    lake_id: lake.id,
-    icimod_code: lake.icimod_code,
-    lake_name: lake.name,
-    coordinates: [lon, lat],
-    study_period: '2004 - 2026 (22 Years)',
-    net_summary: {
-      initial_area_sqm_2004: 1390000.0,
-      current_area_sqm_2026: 1820000.0,
-      net_expansion_sqm: 430000.0,
-      net_expansion_pct: 30.9,
-      annual_expansion_rate_sqm_year: 19545.5,
-      total_glacier_terminus_retreat_m: 1240,
-      net_volume_added_million_m3: 35.8,
-      primary_driver: 'Proglacial calving & supraglacial melt under warming climate',
-    },
-    epochs,
-  });
+  try {
+    const comparison = TimelapseComparisonService.getLakeComparison(lookupKey);
+    return res.json({
+      success: true,
+      ...comparison,
+    });
+  } catch (err: any) {
+    return res.status(404).json({
+      success: false,
+      error: err.message || 'Lake not found for timelapse comparison',
+    });
+  }
 });
 
 export default router;

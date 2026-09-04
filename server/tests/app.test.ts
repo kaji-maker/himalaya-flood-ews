@@ -186,5 +186,38 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
       expect(res.headers['content-type']).toBe('application/x-protobuf');
     }
   });
+
+  it('GET /api/v1/lakes/timelapse-lakes - should list all 5 available 20-year comparison glacial lakes', async () => {
+    const res = await request(app).get('/api/v1/lakes/timelapse-lakes');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.count).toBe(5);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    const codes = res.body.data.map((l: any) => l.icimod_code);
+    expect(codes).toContain('PDGL_NEP_KOSHI_001'); // Tsho Rolpa
+    expect(codes).toContain('PDGL_NEP_KOSHI_002'); // Imja Tsho
+    expect(codes).toContain('PDGL_NEP_KOSHI_003'); // Lower Barun
+    expect(codes).toContain('PDGL_NEP_GANDAKI_001'); // Thulagi
+    expect(codes).toContain('PDGL_IND_SIKKIM_001'); // South Lhonak
+  });
+
+  it('GET /api/v1/lakes/:id/timelapse-comparison - should return 22-year data for Lower Barun and South Lhonak', async () => {
+    // Lower Barun (Makalu)
+    const barunRes = await request(app).get('/api/v1/lakes/PDGL_NEP_KOSHI_003/timelapse-comparison');
+    expect(barunRes.status).toBe(200);
+    expect(barunRes.body.success).toBe(true);
+    expect(barunRes.body.lake_name).toContain('Lower Barun');
+    expect(barunRes.body.epochs.length).toBe(23);
+    expect(barunRes.body.net_summary.total_glacier_terminus_retreat_m).toBe(2450);
+
+    // South Lhonak (Sikkim Arc with post-2023 breach)
+    const lhonakRes = await request(app).get('/api/v1/lakes/PDGL_IND_SIKKIM_001/timelapse-comparison');
+    expect(lhonakRes.status).toBe(200);
+    expect(lhonakRes.body.success).toBe(true);
+    expect(lhonakRes.body.lake_name).toContain('South Lhonak');
+    expect(lhonakRes.body.epochs.length).toBe(23);
+    const epoch2023 = lhonakRes.body.epochs.find((e: any) => e.epoch_year === 2023);
+    expect(epoch2023.glaciological_note).toContain('CATASTROPHIC GLOF BREACH');
+  });
 });
 
