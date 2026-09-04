@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { GlacialLake, MapLayerState, DownstreamImpact } from '@/types';
 import { LayerControl } from './LayerControl';
 import { FloodWaveSimulator } from './FloodWaveSimulator';
@@ -323,6 +323,58 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
   const waveLat = p0Lat + (p1Lat - p0Lat) * segFraction;
   const waveCoords = getCanvasCoords(waveLon, waveLat);
 
+  // Compute 2D Dynamic Hydrodynamic Flood Wave Polygon (Gorge Left & Right Banks)
+  const dynamicInundation = useMemo(() => {
+    const subPoints: [number, number][] = [];
+    for (let i = 0; i <= currentSegIdx; i++) {
+      subPoints.push(corridorCoords[i]);
+    }
+    subPoints.push([waveLon, waveLat]);
+
+    if (subPoints.length < 2) return { polygonPath: '', thalwegSurgePath: '', waveHeadX: 0, waveHeadY: 0 };
+
+    // Convert to SVG space (numX * 10, numY * 6)
+    const pts = subPoints.map(([lon, lat]) => {
+      const c = getCanvasCoords(lon, lat);
+      return { x: c.numX * 10, y: c.numY * 6 };
+    });
+
+    const leftBank: { x: number; y: number }[] = [];
+    const rightBank: { x: number; y: number }[] = [];
+
+    for (let i = 0; i < pts.length; i++) {
+      let nx = 0;
+      let ny = 0;
+      if (i < pts.length - 1) {
+        const dx = pts[i + 1].x - pts[i].x;
+        const dy = pts[i + 1].y - pts[i].y;
+        const len = Math.hypot(dx, dy) || 1;
+        nx = -dy / len;
+        ny = dx / len;
+      } else if (i > 0) {
+        const dx = pts[i].x - pts[i - 1].x;
+        const dy = pts[i].y - pts[i - 1].y;
+        const len = Math.hypot(dx, dy) || 1;
+        nx = -dy / len;
+        ny = dx / len;
+      }
+
+      // Gorge width in SVG space varies (8px in canyon up to 18px in floodplains)
+      const halfWidth = 8 + (i / pts.length) * 10;
+      leftBank.push({ x: pts[i].x + nx * halfWidth, y: pts[i].y + ny * halfWidth });
+      rightBank.push({ x: pts[i].x - nx * halfWidth, y: pts[i].y - ny * halfWidth });
+    }
+
+    const leftStr = leftBank.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    const rightStr = rightBank.reverse().map((p) => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    const polygonPath = `${leftStr} ${rightStr} Z`;
+
+    const thalwegSurgePath = pts.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    const waveHead = pts[pts.length - 1];
+
+    return { polygonPath, thalwegSurgePath, waveHeadX: waveHead.x, waveHeadY: waveHead.y };
+  }, [corridorCoords, currentSegIdx, waveLon, waveLat]);
+
   return (
     <div className="relative w-full h-[620px] bg-slate-950 rounded-2xl overflow-hidden border border-himalaya-border shadow-2xl">
       {/* 3D Himalayan Terrain Mesh Background */}
@@ -385,17 +437,26 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
         )}
       </div>
 
-      {/* SVG Inundation Flow Path & Swath Corridors */}
+      {/* SVG 2D Dynamic Inundation Swath & Physical Flood Wave Engine */}
       {layers.inundationSwath && (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 1000 600" preserveAspectRatio="none">
           <defs>
             <linearGradient id="surgeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#F43F5E" stopOpacity="0.8" />
-              <stop offset="50%" stopColor="#FB923C" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#38BDF8" stopOpacity="0.4" />
+              <stop offset="0%" stopColor="#F43F5E" stopOpacity="0.85" />
+              <stop offset="50%" stopColor="#FB923C" stopOpacity="0.70" />
+              <stop offset="100%" stopColor="#38BDF8" stopOpacity="0.50" />
             </linearGradient>
+            <linearGradient id="activeFlood2DGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#991B1B" stopOpacity="0.75" />
+              <stop offset="40%" stopColor="#E11D48" stopOpacity="0.85" />
+              <stop offset="85%" stopColor="#F43F5E" stopOpacity="0.90" />
+              <stop offset="100%" stopColor="#FDE047" stopOpacity="0.95" />
+            </linearGradient>
+            <pattern id="floodTurbulenceHatch" width="6" height="6" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#FFFFFF" strokeWidth="1.2" strokeOpacity="0.30" />
+            </pattern>
             <filter id="surgeGlow">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feGaussianBlur stdDeviation="4" result="coloredBlur" />
               <feMerge>
                 <feMergeNode in="coloredBlur" />
                 <feMergeNode in="SourceGraphic" />
@@ -403,7 +464,7 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
             </filter>
           </defs>
 
-          {/* Render Thalweg Flowlines for all active corridors */}
+          {/* 1. Static Maximum Potential Breach Inundation Corridor Guide */}
           {activeCorridors.map((corridor, cIdx) => {
             const pathData = corridor.corridor_coords
               .map(([lon, lat], i) => {
@@ -414,39 +475,58 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
 
             return (
               <g key={cIdx}>
-                {/* Outer Inundation Swath Buffer */}
+                {/* Maximum potential flood extent buffer */}
                 <path
                   d={pathData}
                   fill="none"
                   stroke="#F43F5E"
-                  strokeWidth="24"
-                  strokeOpacity="0.18"
+                  strokeWidth="20"
+                  strokeOpacity="0.12"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  strokeDasharray="6 6"
                 />
-                {/* Secondary Inundation Swath Buffer */}
                 <path
                   d={pathData}
                   fill="none"
-                  stroke="#FB923C"
-                  strokeWidth="12"
+                  stroke="#64748B"
+                  strokeWidth="1.5"
                   strokeOpacity="0.35"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                {/* Central Thalweg Surge Line */}
-                <path
-                  d={pathData}
-                  fill="none"
-                  stroke="url(#surgeGradient)"
-                  strokeWidth="3"
-                  filter="url(#surgeGlow)"
-                  strokeDasharray="4 6"
-                  className="animate-pulse"
+                  strokeDasharray="3 5"
                 />
               </g>
             );
           })}
+
+          {/* 2. TRUE 2D DYNAMIC ACTIVE FLOOD INUNDATION POLYGON */}
+          {dynamicInundation.polygonPath && (
+            <g>
+              {/* Dynamic 2D Active Water Swath */}
+              <path
+                d={dynamicInundation.polygonPath}
+                fill="url(#activeFlood2DGrad)"
+                stroke="#FDA4AF"
+                strokeWidth="2"
+                filter="url(#surgeGlow)"
+              />
+              {/* Debris / Turbulent Water Texture Overlay */}
+              <path
+                d={dynamicInundation.polygonPath}
+                fill="url(#floodTurbulenceHatch)"
+                fillOpacity="0.4"
+              />
+              {/* Animated Central Surge Thalweg Velocity Line */}
+              <path
+                d={dynamicInundation.thalwegSurgePath}
+                fill="none"
+                stroke="#FFFFFF"
+                strokeWidth="3"
+                strokeDasharray="6 8"
+                className="animate-pulse"
+                strokeLinecap="round"
+              />
+            </g>
+          )}
         </svg>
       )}
 
