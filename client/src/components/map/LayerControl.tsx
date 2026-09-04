@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Layers, Droplet, Mountain, CloudRain, ShieldAlert, Globe, Waves, Activity, Cpu, Target, Bell, ShieldCheck, Zap } from 'lucide-react';
+import { Layers, Droplet, Mountain, CloudRain, ShieldAlert, Globe, Waves, Activity, Cpu, Target, Bell, ShieldCheck, Zap, Radio, History } from 'lucide-react';
 import { MapLayerState } from '@/types';
 
 interface LayerControlProps {
@@ -11,6 +11,24 @@ interface LayerControlProps {
 
 export const LayerControl: React.FC<LayerControlProps> = ({ layers, onToggleLayer }) => {
   const layerButtons: { key: keyof MapLayerState; label: string; icon: React.ReactNode; desc: string }[] = [
+    {
+      key: 'hydropowerCascades',
+      label: 'Hydropower Cascades (3 GW)',
+      icon: <Zap className="w-4 h-4 text-amber-400" />,
+      desc: 'Downstream Barrages & Radial Spillway Gates',
+    },
+    {
+      key: 'historicalGlofs',
+      label: 'Historical GLOF Breaches',
+      icon: <History className="w-4 h-4 text-orange-400" />,
+      desc: '10 Landmark Himalayan Disasters (1981-2024)',
+    },
+    {
+      key: 'dhmStations',
+      label: 'Real DHM Gauging Stations',
+      icon: <Radio className="w-4 h-4 text-sky-400" />,
+      desc: 'DHM Real-Time Stage Radar & Flow Telemetry',
+    },
     {
       key: 'seismicShakemap',
       label: 'USGS Seismic Arc & ShakeMap',

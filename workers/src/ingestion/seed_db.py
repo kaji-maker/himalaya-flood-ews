@@ -66,15 +66,6 @@ SAMPLE_LAKES_DATA = [
         "danger_level": "HIGH"
     },
     {
-        "icimod_code": "PDGL_NEP_GANDAKI_001",
-        "name": "Thulagi Lake",
-        "basin_name": "Gandaki",
-        "lon": 84.532,
-        "lat": 28.517,
-        "initial_area_sqm": 940000.0,
-        "danger_level": "HIGH"
-    },
-    {
         "icimod_code": "PDGL_NEP_KOSHI_003",
         "name": "Lower Barun Lake",
         "basin_name": "Koshi",
@@ -84,13 +75,85 @@ SAMPLE_LAKES_DATA = [
         "danger_level": "HIGH"
     },
     {
+        "icimod_code": "PDGL_NEP_KOSHI_004",
+        "name": "Lumding Tsho",
+        "basin_name": "Koshi",
+        "lon": 86.612,
+        "lat": 27.765,
+        "initial_area_sqm": 1050000.0,
+        "danger_level": "HIGH"
+    },
+    {
+        "icimod_code": "PDGL_NEP_KOSHI_005",
+        "name": "Chamlang Tsho (Hongu-2)",
+        "basin_name": "Koshi",
+        "lon": 86.974,
+        "lat": 27.782,
+        "initial_area_sqm": 910000.0,
+        "danger_level": "HIGH"
+    },
+    {
+        "icimod_code": "PDGL_NEP_KOSHI_006",
+        "name": "Dig Tsho (1985 Breach)",
+        "basin_name": "Koshi",
+        "lon": 86.584,
+        "lat": 27.876,
+        "initial_area_sqm": 680000.0,
+        "danger_level": "MEDIUM"
+    },
+    {
+        "icimod_code": "PDGL_NEP_KOSHI_007",
+        "name": "Galong Co / Cirenmaco (Poiqu Transboundary)",
+        "basin_name": "Koshi",
+        "lon": 85.996,
+        "lat": 28.084,
+        "initial_area_sqm": 1580000.0,
+        "danger_level": "CRITICAL"
+    },
+    {
+        "icimod_code": "PDGL_NEP_GANDAKI_001",
+        "name": "Thulagi Lake",
+        "basin_name": "Gandaki",
+        "lon": 84.532,
+        "lat": 28.517,
+        "initial_area_sqm": 940000.0,
+        "danger_level": "HIGH"
+    },
+    {
+        "icimod_code": "PDGL_NEP_GANDAKI_002",
+        "name": "Birendra Lake (Manaslu)",
+        "basin_name": "Gandaki",
+        "lon": 84.638,
+        "lat": 28.563,
+        "initial_area_sqm": 350000.0,
+        "danger_level": "CRITICAL"
+    },
+    {
+        "icimod_code": "PDGL_NEP_GANDAKI_003",
+        "name": "Kaldang Lake (Langtang)",
+        "basin_name": "Gandaki",
+        "lon": 85.485,
+        "lat": 28.215,
+        "initial_area_sqm": 590000.0,
+        "danger_level": "MEDIUM"
+    },
+    {
         "icimod_code": "PDGL_NEP_KARNALI_001",
         "name": "Karnali High-Alpine Glacial Lake",
         "basin_name": "Karnali",
         "lon": 82.342,
         "lat": 29.893,
         "initial_area_sqm": 680000.0,
-        "danger_level": "MEDIUM"
+        "danger_level": "LOW"
+    },
+    {
+        "icimod_code": "PDGL_NEP_KARNALI_002",
+        "name": "Rara Headwater Glacial Lake",
+        "basin_name": "Karnali",
+        "lon": 82.115,
+        "lat": 29.542,
+        "initial_area_sqm": 510000.0,
+        "danger_level": "LOW"
     },
     {
         "icimod_code": "PDGL_NEP_MAHAKALI_001",
@@ -100,8 +163,18 @@ SAMPLE_LAKES_DATA = [
         "lat": 29.980,
         "initial_area_sqm": 420000.0,
         "danger_level": "LOW"
+    },
+    {
+        "icimod_code": "PDGL_IND_SIKKIM_001",
+        "name": "South Lhonak Lake (2023 Benchmark)",
+        "basin_name": "Koshi",
+        "lon": 88.196,
+        "lat": 27.912,
+        "initial_area_sqm": 810000.0,
+        "danger_level": "CRITICAL"
     }
 ]
+
 
 
 def seed_database():

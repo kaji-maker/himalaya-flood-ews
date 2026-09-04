@@ -5,6 +5,9 @@ import { Header } from '@/components/ui/Header';
 export const metadata: Metadata = {
   title: 'Himalaya Flood & GLOF Early Warning System',
   description: 'Near-real-time satellite geospatial monitoring and early warning for Himalayan glacial lake outburst floods.',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

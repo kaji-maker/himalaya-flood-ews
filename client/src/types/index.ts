@@ -80,6 +80,9 @@ export interface MapLayerState {
   communitySirens?: boolean;
   verticalSafeHavens?: boolean;
   seismicShakemap?: boolean;
+  hydropowerCascades?: boolean;
+  dhmStations?: boolean;
+  historicalGlofs?: boolean;
 }
 
 export interface VerticalSafeHaven {
@@ -143,4 +146,61 @@ export interface LiveGpmPrecipitationTelemetry {
   surge_status: 'NORMAL' | 'ELEVATED' | 'EXTREME_PORE_PRESSURE_SURGE';
 }
 
+export interface HydropowerPlantCascade {
+  id: string;
+  name: string;
+  operator: string;
+  capacity_mw: number;
+  river: string;
+  basin: string;
+  coordinates: [number, number]; // [lon, lat]
+  headpond_volume_m3: number;
+  upstream_threat_lake_id: string;
+  upstream_threat_lake_name: string;
+  lead_time_minutes: number;
+  scada_ip: string;
+  scada_protocol: 'IEC 60870-5-104' | 'Modbus-TCP' | 'DNP3';
+  radial_gates_count: number;
+  drawdown_buffer_m: number;
+  interlock_status: 'MONITORING' | 'PRE_DRAWDOWN' | 'FULL_SPILLWAY_DISCHARGE' | 'TRIPPED';
+  last_tripped_at?: string | null;
+  last_command_hex?: string | null;
+}
+
+export interface DHMHydrometricStation {
+  id: string;
+  station_number: number;
+  name: string;
+  river: string;
+  basin: string;
+  elevation_m: number;
+  coordinates: [number, number]; // [lon, lat]
+  sensor_type: 'RADAR_STAGE' | 'ULTRASONIC_SURGE' | 'PRESSURE_TRANSDUCER';
+  current_stage_m: number;
+  warning_stage_m: number;
+  danger_stage_m: number;
+  current_discharge_cms: number;
+  status: 'NORMAL' | 'WATCH' | 'CRITICAL_SURGE';
+  telemetry_source: 'DHM_TELEMETRIC_NETWORK' | 'GOES_SATELLITE';
+  last_updated: string;
+}
+
+export interface HistoricalGLOFRecord {
+  id: string;
+  event_name: string;
+  lake_or_glacier: string;
+  basin: string;
+  river: string;
+  country_region: string;
+  event_date: string;
+  year: number;
+  coordinates: [number, number]; // [lon, lat]
+  trigger_mechanism: 'ICE_AVALANCHE' | 'MORAINE_COLLAPSE' | 'PIPING_FAILURE' | 'EXTREME_CLOUDBURST' | 'ROCK_ICE_DETACHMENT' | 'EARTHQUAKE';
+  estimated_volume_m3: number;
+  peak_discharge_cms: number;
+  downstream_impact_km: number;
+  fatalities: number;
+  infrastructure_impact: string;
+  key_findings: string;
+}
 

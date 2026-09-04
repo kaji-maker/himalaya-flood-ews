@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { GlacialLake, MapLayerState, DownstreamImpact, VerticalSafeHaven } from '@/types';
+import { GlacialLake, MapLayerState, DownstreamImpact, VerticalSafeHaven, HistoricalGLOFRecord } from '@/types';
 import { VERTICAL_SAFE_HAVENS } from '@/data/safeHavens';
+import { HISTORICAL_GLOFS } from '@/data/historicalGlofs';
 import { LayerControl } from './LayerControl';
 import { FloodWaveSimulator } from './FloodWaveSimulator';
 import { RiskBadge } from '../alerts/RiskBadge';
-import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell, Globe, ShieldCheck, Zap } from 'lucide-react';
+import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell, Globe, ShieldCheck, Zap, History } from 'lucide-react';
+
 
 interface GlacierMapProps {
   lakes: GlacialLake[];
@@ -152,6 +154,30 @@ const SEISMIC_EARTHQUAKES = [
   },
 ];
 
+// Downstream Hydropower Cascade Barrages & SCADA Defense Points
+const HYDROPOWER_CASCADE_PLANTS = [
+  { id: 'hp-tamakoshi', name: 'Upper Tamakoshi HPP (456 MW)', river: 'Tama Koshi', capacity: '456 MW', coords: [86.220, 27.700] as [number, number], threat: 'Tsho Rolpa', leadTime: '48m', gates: 4 },
+  { id: 'hp-arun3', name: 'Arun III HPP (900 MW)', river: 'Arun', capacity: '900 MW', coords: [87.210, 27.530] as [number, number], threat: 'Lower Barun', leadTime: '85m', gates: 6 },
+  { id: 'hp-bhotekoshi-up', name: 'Upper Bhote Koshi HPP (45 MW)', river: 'Bhote Koshi', capacity: '45 MW', coords: [85.935, 27.910] as [number, number], threat: 'Galong Co', leadTime: '22m', gates: 3 },
+  { id: 'hp-bhotekoshi-mid', name: 'Middle Bhotekoshi HPP (102 MW)', river: 'Bhote Koshi', capacity: '102 MW', coords: [85.890, 27.840] as [number, number], threat: 'Dig Tsho', leadTime: '38m', gates: 4 },
+  { id: 'hp-trishuli1', name: 'Upper Trishuli-1 HPP (216 MW)', river: 'Trishuli', capacity: '216 MW', coords: [85.240, 28.110] as [number, number], threat: 'Kaldang Lake', leadTime: '55m', gates: 4 },
+  { id: 'hp-marsyangdi-mid', name: 'Middle Marsyangdi HPP (70 MW)', river: 'Marsyangdi', capacity: '70 MW', coords: [84.380, 28.180] as [number, number], threat: 'Thulagi Lake', leadTime: '62m', gates: 3 },
+  { id: 'hp-marsyangdi-main', name: 'Marsyangdi HPP (69 MW)', river: 'Marsyangdi', capacity: '69 MW', coords: [84.510, 27.980] as [number, number], threat: 'Thulagi Lake', leadTime: '74m', gates: 4 },
+  { id: 'hp-budhigandaki', name: 'Budhi Gandaki HPP (1200 MW)', river: 'Budhi Gandaki', capacity: '1200 MW', coords: [84.820, 27.950] as [number, number], threat: 'Birendra Lake', leadTime: '42m', gates: 8 },
+];
+
+// DHM Telemetric Hydrometric River Gauging Stations
+const DHM_GAUGE_STATIONS = [
+  { id: 'dhm-680', stn: 680, name: 'Gongar Khola Gauging Stn', river: 'Tama Koshi', coords: [86.225, 27.705] as [number, number], type: 'Radar Stage', stage: '2.85m', discharge: '115 cms' },
+  { id: 'dhm-670', stn: 670, name: 'Sun Koshi at Rabuwa Bazar', river: 'Sun Koshi', coords: [86.580, 27.240] as [number, number], type: 'Ultrasonic Surge', stage: '4.12m', discharge: '340 cms' },
+  { id: 'dhm-679', stn: 679, name: 'Simigaon Gauging Stn', river: 'Rolwaling Khola', coords: [86.340, 27.770] as [number, number], type: 'Radar Stage', stage: '1.62m', discharge: '42 cms' },
+  { id: 'dhm-447', stn: 447, name: 'Betrawati Gauging Stn', river: 'Trishuli', coords: [85.180, 27.970] as [number, number], type: 'Pressure Transducer', stage: '3.40m', discharge: '195 cms' },
+  { id: 'dhm-439', stn: 439, name: 'Bimalnagar Gauging Stn', river: 'Marsyangdi', coords: [84.450, 27.970] as [number, number], type: 'Radar Stage', stage: '3.10m', discharge: '210 cms' },
+  { id: 'dhm-445', stn: 445, name: 'Arughat Gauging Stn', river: 'Budhi Gandaki', coords: [84.810, 28.050] as [number, number], type: 'Radar Stage', stage: '2.95m', discharge: '185 cms' },
+  { id: 'dhm-280', stn: 280, name: 'Asaraghat Gauging Stn', river: 'Karnali', coords: [81.560, 29.080] as [number, number], type: 'Radar Stage', stage: '4.80m', discharge: '460 cms' },
+  { id: 'dhm-120', stn: 120, name: 'Darchula Gauging Stn', river: 'Mahakali', coords: [80.540, 29.840] as [number, number], type: 'Radar Stage', stage: '3.25m', discharge: '220 cms' },
+];
+
 // Pre-computed GLOF Breach & River Gorge Swath Corridors for high-risk lakes
 const GLOF_INUNDATION_CORRIDORS: Record<
   string,
@@ -289,6 +315,9 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
     communitySirens: true,
     verticalSafeHavens: true,
     seismicShakemap: true,
+    hydropowerCascades: true,
+    dhmStations: true,
+    historicalGlofs: true,
   });
 
   const [hoveredLake, setHoveredLake] = useState<GlacialLake | null>(null);
@@ -296,6 +325,7 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
   const [hoveredHaven, setHoveredHaven] = useState<VerticalSafeHaven | null>(null);
   const [selectedHaven, setSelectedHaven] = useState<VerticalSafeHaven | null>(null);
   const [selectedQuake, setSelectedQuake] = useState<any | null>(null);
+  const [selectedGlof, setSelectedGlof] = useState<HistoricalGLOFRecord | null>(null);
 
   // Simulation State
   const [showSimulator, setShowSimulator] = useState(true);
@@ -797,7 +827,103 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
           );
         })}
 
+      {/* Hydropower Cascade Defense Barrages */}
+      {layers.hydropowerCascades &&
+        HYDROPOWER_CASCADE_PLANTS.map((plant) => {
+          const coords = getCanvasCoords(plant.coords[0], plant.coords[1]);
+
+          return (
+            <div
+              key={plant.id}
+              className="absolute z-19 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: coords.x, top: coords.y }}
+            >
+              <div className="p-1 rounded-md border shadow-lg flex items-center gap-1 font-mono text-[9px] bg-slate-900/95 border-amber-500/70 text-amber-200">
+                <Zap className="w-3 h-3 text-amber-400" />
+                <span className="font-bold">{plant.name.split(' (')[0]}</span>
+                <span className="text-[8px] bg-amber-950/60 text-amber-300 px-1 rounded">{plant.capacity}</span>
+              </div>
+              <div className="absolute left-1/2 -translate-x-1/2 top-6 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/95 border border-slate-700 p-2 rounded text-[10px] font-mono text-white whitespace-nowrap shadow-xl pointer-events-none z-30">
+                <div className="font-bold text-amber-300">{plant.name}</div>
+                <div className="text-slate-300">River: {plant.river} • Radial Gates: {plant.gates}</div>
+                <div className="text-amber-400">Threat: {plant.threat} (Lead Time: {plant.leadTime})</div>
+                <div className="text-emerald-400 font-semibold">SCADA: IEC 60870-5-104 Interlocked</div>
+              </div>
+            </div>
+          );
+        })}
+
+      {/* Real DHM Telemetric Gauging Stations */}
+      {layers.dhmStations &&
+        DHM_GAUGE_STATIONS.map((stn) => {
+          const coords = getCanvasCoords(stn.coords[0], stn.coords[1]);
+
+          return (
+            <div
+              key={stn.id}
+              className="absolute z-18 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: coords.x, top: coords.y }}
+            >
+              <div className="p-1 rounded-md border shadow-lg flex items-center gap-1 font-mono text-[9px] bg-slate-900/95 border-sky-500/70 text-sky-200">
+                <Radio className="w-3 h-3 text-sky-400" />
+                <span className="font-bold">DHM #{stn.stn}</span>
+                <span className="text-[8px] bg-sky-950/60 text-sky-300 px-1 rounded">{stn.stage}</span>
+              </div>
+              <div className="absolute left-1/2 -translate-x-1/2 top-6 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/95 border border-slate-700 p-2 rounded text-[10px] font-mono text-white whitespace-nowrap shadow-xl pointer-events-none z-30">
+                <div className="font-bold text-sky-300">{stn.name} (#{stn.stn})</div>
+                <div className="text-slate-300">River: {stn.river} • Tech: {stn.type}</div>
+                <div className="text-sky-300">Current Stage: {stn.stage} • Flow: {stn.discharge}</div>
+                <div className="text-emerald-400 font-semibold">DHM Telemetric Network Live</div>
+              </div>
+            </div>
+          );
+        })}
+
+      {/* Historical GLOF Breach & Hindcast Sites */}
+      {layers.historicalGlofs &&
+        HISTORICAL_GLOFS.map((glof) => {
+          const coords = getCanvasCoords(glof.coordinates[0], glof.coordinates[1]);
+          const isSelected = selectedGlof?.id === glof.id;
+
+          return (
+            <div
+              key={glof.id}
+              className="absolute z-19 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: coords.x, top: coords.y }}
+              onClick={() => setSelectedGlof(isSelected ? null : glof)}
+            >
+              <div
+                className={`p-1 rounded-md border shadow-xl flex items-center gap-1 font-mono text-[9px] transition-all group-hover:scale-110 ${
+                  isSelected
+                    ? 'bg-rose-950 border-rose-400 text-white ring-2 ring-rose-500'
+                    : 'bg-slate-900/95 border-orange-500/70 text-orange-200'
+                }`}
+              >
+                <History className="w-3 h-3 text-orange-400" />
+                <span className="font-bold">{glof.year}</span>
+                <span className="text-[8px] bg-orange-950/70 text-orange-300 px-1 rounded">
+                  {glof.peak_discharge_cms.toLocaleString()} m³/s
+                </span>
+              </div>
+
+              {/* Tooltip */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-6 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/95 border border-slate-700 p-2 rounded text-[10px] font-mono text-white whitespace-nowrap shadow-xl pointer-events-none z-30">
+                <div className="font-bold text-orange-300">{glof.event_name}</div>
+                <div className="text-slate-300">
+                  {glof.river} ({glof.basin})
+                </div>
+                <div className="text-rose-400 font-semibold">
+                  Peak: {glof.peak_discharge_cms.toLocaleString()} m³/s • Vol:{' '}
+                  {(glof.estimated_volume_m3 / 1e6).toFixed(1)}M m³
+                </div>
+                <div className="text-[9px] text-slate-400">Click to inspect forensic breach data</div>
+              </div>
+            </div>
+          );
+        })}
+
       {/* Glacial Lake Markers */}
+
       {lakes.map((lake) => {
         const coords = getCanvasCoords(
           lake.centroid.coordinates[0],
@@ -1114,6 +1240,61 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
           </div>
         </div>
       )}
+
+      {/* Selected Historical GLOF Inspection Card */}
+      {selectedGlof && (
+        <div className="absolute top-4 left-4 z-30 bg-slate-900/95 border border-orange-500/60 rounded-xl p-3.5 shadow-2xl backdrop-blur-md max-w-sm font-mono text-xs text-slate-200">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-1.5 text-orange-400 font-bold">
+              <History className="w-4 h-4 text-orange-400" />
+              <span>Historical GLOF Breach Archive</span>
+            </div>
+            <button
+              onClick={() => setSelectedGlof(null)}
+              className="text-slate-400 hover:text-white p-0.5"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="text-white font-bold text-sm">
+              {selectedGlof.event_name}
+            </div>
+            <div className="text-[11px] text-orange-300">
+              📍 {selectedGlof.lake_or_glacier} • {selectedGlof.river} ({selectedGlof.basin})
+            </div>
+
+            <div className="p-2 bg-slate-950/80 rounded-lg border border-slate-800 space-y-1 text-[11px]">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Trigger Mechanism:</span>
+                <span className="font-bold text-amber-300">{selectedGlof.trigger_mechanism.replace(/_/g, ' ')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Peak Surge Discharge:</span>
+                <span className="font-bold text-rose-400">{selectedGlof.peak_discharge_cms.toLocaleString()} m³/s</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Flood Volume Released:</span>
+                <span className="font-bold text-sky-400">{(selectedGlof.estimated_volume_m3 / 1e6).toFixed(1)} Million m³</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Downstream Reach / Deaths:</span>
+                <span className="font-bold text-white">{selectedGlof.downstream_impact_km} km / {selectedGlof.fatalities}</span>
+              </div>
+            </div>
+
+            <div className="p-2 bg-rose-950/40 rounded-lg border border-rose-500/30 text-[10px] text-rose-200">
+              ⚠️ {selectedGlof.infrastructure_impact}
+            </div>
+
+            <div className="pt-1 text-[10px] text-slate-400">
+              💡 <em>{selectedGlof.key_findings}</em>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Map Header Overlay */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">

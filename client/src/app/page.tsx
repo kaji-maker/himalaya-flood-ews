@@ -9,6 +9,8 @@ import { RiskBadge } from '@/components/alerts/RiskBadge';
 import { EnvironmentalTriggerHub } from '@/components/environmental/EnvironmentalTriggerHub';
 import { LakeComparisonModal } from '@/components/satellite/LakeComparisonModal';
 import { CueSlewTaskingConsole } from '@/components/satellite/CueSlewTaskingConsole';
+import { HydropowerCascadePanel } from '@/components/hydropower/HydropowerCascadePanel';
+import { HistoricalGlofPanel } from '@/components/historical/HistoricalGlofPanel';
 import { GlacialLake, FloodAlert, ObservationPoint, PrecipitationPoint } from '@/types';
 import {
   ShieldAlert,
@@ -21,7 +23,10 @@ import {
   ExternalLink,
   Clock,
   Satellite,
+  Zap,
+  History,
 } from 'lucide-react';
+
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -35,7 +40,7 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
     elevation_m: 4580,
     initial_area_sqm: 1540000.0,
     current_area_sqm: 1820000.0,
-    danger_level: 'CRITICAL', // Red
+    danger_level: 'CRITICAL',
     centroid: { type: 'Point', coordinates: [86.475, 27.868] },
     freeboard_m: 12.5,
     moraine_slope_deg: 28.5,
@@ -61,7 +66,7 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
     elevation_m: 5010,
     initial_area_sqm: 1280000.0,
     current_area_sqm: 1460000.0,
-    danger_level: 'HIGH', // Yellow
+    danger_level: 'HIGH',
     centroid: { type: 'Point', coordinates: [86.924, 27.910] },
     freeboard_m: 14.2,
     moraine_slope_deg: 32.0,
@@ -78,31 +83,6 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
     ],
   },
   {
-    id: 'l-thulagi',
-    icimod_code: 'PDGL_NEP_GANDAKI_001',
-    name: 'Thulagi Lake (Manaslu)',
-    basin_name: 'Gandaki',
-    sub_basin: 'Marsyangdi',
-    elevation_m: 4040,
-    initial_area_sqm: 940000.0,
-    current_area_sqm: 1040000.0,
-    danger_level: 'HIGH', // Yellow
-    centroid: { type: 'Point', coordinates: [84.532, 28.517] },
-    freeboard_m: 22.0,
-    moraine_slope_deg: 24.5,
-    downstream_villages: ['Dharapani', 'Tal', 'Chamje', 'Jagat', 'Syange'],
-    polygon_coordinates: [
-      [
-        [84.525, 28.505],
-        [84.542, 28.512],
-        [84.548, 28.524],
-        [84.535, 28.530],
-        [84.518, 28.518],
-        [84.525, 28.505],
-      ],
-    ],
-  },
-  {
     id: 'l-lower-barun',
     icimod_code: 'PDGL_NEP_KOSHI_003',
     name: 'Lower Barun Lake',
@@ -111,7 +91,7 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
     elevation_m: 4570,
     initial_area_sqm: 1720000.0,
     current_area_sqm: 1910000.0,
-    danger_level: 'MEDIUM', // Yellow
+    danger_level: 'HIGH',
     centroid: { type: 'Point', coordinates: [87.102, 27.808] },
     freeboard_m: 18.5,
     moraine_slope_deg: 35.0,
@@ -128,6 +108,181 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
     ],
   },
   {
+    id: 'l-lumding',
+    icimod_code: 'PDGL_NEP_KOSHI_004',
+    name: 'Lumding Tsho',
+    basin_name: 'Koshi',
+    sub_basin: 'Lumding / Dudh Koshi',
+    elevation_m: 4870,
+    initial_area_sqm: 1050000.0,
+    current_area_sqm: 1150000.0,
+    danger_level: 'HIGH',
+    centroid: { type: 'Point', coordinates: [86.612, 27.765] },
+    freeboard_m: 16.0,
+    moraine_slope_deg: 30.5,
+    downstream_villages: ['Lumding Kharka', 'Ghat', 'Phakding', 'Lukla'],
+    polygon_coordinates: [
+      [
+        [86.602, 27.755],
+        [86.620, 27.760],
+        [86.625, 27.772],
+        [86.615, 27.778],
+        [86.600, 27.768],
+        [86.602, 27.755],
+      ],
+    ],
+  },
+  {
+    id: 'l-chamlang',
+    icimod_code: 'PDGL_NEP_KOSHI_005',
+    name: 'Chamlang Tsho (Hongu-2)',
+    basin_name: 'Koshi',
+    sub_basin: 'Hongu Valley',
+    elevation_m: 5200,
+    initial_area_sqm: 910000.0,
+    current_area_sqm: 980000.0,
+    danger_level: 'HIGH',
+    centroid: { type: 'Point', coordinates: [86.974, 27.782] },
+    freeboard_m: 15.0,
+    moraine_slope_deg: 33.0,
+    downstream_villages: ['Khare', 'Kote', 'Chetarwa', 'Bung'],
+    polygon_coordinates: [
+      [
+        [86.965, 27.774],
+        [86.982, 27.778],
+        [86.988, 27.788],
+        [86.978, 27.794],
+        [86.962, 27.785],
+        [86.965, 27.774],
+      ],
+    ],
+  },
+  {
+    id: 'l-dig-tsho',
+    icimod_code: 'PDGL_NEP_KOSHI_006',
+    name: 'Dig Tsho (1985 Breach Benchmark)',
+    basin_name: 'Koshi',
+    sub_basin: 'Bhote Koshi / Langmoche',
+    elevation_m: 4365,
+    initial_area_sqm: 680000.0,
+    current_area_sqm: 720000.0,
+    danger_level: 'MEDIUM',
+    centroid: { type: 'Point', coordinates: [86.584, 27.876] },
+    freeboard_m: 21.0,
+    moraine_slope_deg: 26.0,
+    downstream_villages: ['Langmoche', 'Thame', 'Mende', 'Namche'],
+    polygon_coordinates: [
+      [
+        [86.575, 27.868],
+        [86.592, 27.872],
+        [86.596, 27.882],
+        [86.586, 27.888],
+        [86.572, 27.879],
+        [86.575, 27.868],
+      ],
+    ],
+  },
+  {
+    id: 'l-galong-co',
+    icimod_code: 'PDGL_NEP_KOSHI_007',
+    name: 'Galong Co / Cirenmaco (Poiqu Transboundary)',
+    basin_name: 'Koshi',
+    sub_basin: 'Bhote Koshi Corridor',
+    elevation_m: 4380,
+    initial_area_sqm: 1580000.0,
+    current_area_sqm: 1640000.0,
+    danger_level: 'CRITICAL',
+    centroid: { type: 'Point', coordinates: [85.996, 28.084] },
+    freeboard_m: 11.0,
+    moraine_slope_deg: 34.0,
+    downstream_villages: ['Zhangmu / Kodari', 'Tatopani', 'Liping', 'Barhabise'],
+    polygon_coordinates: [
+      [
+        [85.985, 28.075],
+        [86.005, 28.080],
+        [86.012, 28.092],
+        [85.998, 28.098],
+        [85.982, 28.088],
+        [85.985, 28.075],
+      ],
+    ],
+  },
+  {
+    id: 'l-thulagi',
+    icimod_code: 'PDGL_NEP_GANDAKI_001',
+    name: 'Thulagi Lake (Manaslu)',
+    basin_name: 'Gandaki',
+    sub_basin: 'Marsyangdi',
+    elevation_m: 4040,
+    initial_area_sqm: 940000.0,
+    current_area_sqm: 1040000.0,
+    danger_level: 'HIGH',
+    centroid: { type: 'Point', coordinates: [84.532, 28.517] },
+    freeboard_m: 22.0,
+    moraine_slope_deg: 24.5,
+    downstream_villages: ['Dharapani', 'Tal', 'Chamje', 'Jagat', 'Syange'],
+    polygon_coordinates: [
+      [
+        [84.525, 28.505],
+        [84.542, 28.512],
+        [84.548, 28.524],
+        [84.535, 28.530],
+        [84.518, 28.518],
+        [84.525, 28.505],
+      ],
+    ],
+  },
+  {
+    id: 'l-birendra',
+    icimod_code: 'PDGL_NEP_GANDAKI_002',
+    name: 'Birendra Lake (April 2024 Avalanche Benchmark)',
+    basin_name: 'Gandaki',
+    sub_basin: 'Budhi Gandaki',
+    elevation_m: 3620,
+    initial_area_sqm: 350000.0,
+    current_area_sqm: 380000.0,
+    danger_level: 'CRITICAL',
+    centroid: { type: 'Point', coordinates: [84.638, 28.563] },
+    freeboard_m: 8.5,
+    moraine_slope_deg: 38.0,
+    downstream_villages: ['Samagaun', 'Lho', 'Namrung', 'Prok', 'Jagat'],
+    polygon_coordinates: [
+      [
+        [84.630, 28.558],
+        [84.644, 28.561],
+        [84.648, 28.569],
+        [84.639, 28.572],
+        [84.628, 28.566],
+        [84.630, 28.558],
+      ],
+    ],
+  },
+  {
+    id: 'l-kaldang',
+    icimod_code: 'PDGL_NEP_GANDAKI_003',
+    name: 'Kaldang Lake (Langtang)',
+    basin_name: 'Gandaki',
+    sub_basin: 'Trishuli Basin',
+    elevation_m: 4710,
+    initial_area_sqm: 590000.0,
+    current_area_sqm: 620000.0,
+    danger_level: 'MEDIUM',
+    centroid: { type: 'Point', coordinates: [85.485, 28.215] },
+    freeboard_m: 24.0,
+    moraine_slope_deg: 22.0,
+    downstream_villages: ['Langtang Village', 'Kyanjin', 'Bamboo', 'Syabrubesi', 'Dhunche'],
+    polygon_coordinates: [
+      [
+        [85.476, 28.208],
+        [85.492, 28.212],
+        [85.498, 28.222],
+        [85.488, 28.228],
+        [85.474, 28.219],
+        [85.476, 28.208],
+      ],
+    ],
+  },
+  {
     id: 'l-karnali-alpine',
     icimod_code: 'PDGL_NEP_KARNALI_001',
     name: 'Karnali High-Alpine Glacial Lake',
@@ -136,7 +291,7 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
     elevation_m: 4920,
     initial_area_sqm: 680000.0,
     current_area_sqm: 695000.0,
-    danger_level: 'LOW', // Green
+    danger_level: 'LOW',
     centroid: { type: 'Point', coordinates: [82.342, 29.893] },
     freeboard_m: 25.0,
     moraine_slope_deg: 19.5,
@@ -153,6 +308,31 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
     ],
   },
   {
+    id: 'l-rara-headwater',
+    icimod_code: 'PDGL_NEP_KARNALI_002',
+    name: 'Rara Headwater Glacial Lake',
+    basin_name: 'Karnali',
+    sub_basin: 'Mugu Karnali',
+    elevation_m: 4650,
+    initial_area_sqm: 510000.0,
+    current_area_sqm: 540000.0,
+    danger_level: 'LOW',
+    centroid: { type: 'Point', coordinates: [82.115, 29.542] },
+    freeboard_m: 28.0,
+    moraine_slope_deg: 18.0,
+    downstream_villages: ['Gamgadhi', 'Rara', 'Pina', 'Soru'],
+    polygon_coordinates: [
+      [
+        [82.106, 29.535],
+        [82.122, 29.540],
+        [82.126, 29.548],
+        [82.118, 29.552],
+        [82.105, 29.545],
+        [82.106, 29.535],
+      ],
+    ],
+  },
+  {
     id: 'l-api-nampa',
     icimod_code: 'PDGL_NEP_MAHAKALI_001',
     name: 'Api Nampa Proglacial Lake',
@@ -161,7 +341,7 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
     elevation_m: 4750,
     initial_area_sqm: 420000.0,
     current_area_sqm: 428000.0,
-    danger_level: 'LOW', // Green
+    danger_level: 'LOW',
     centroid: { type: 'Point', coordinates: [80.950, 29.980] },
     freeboard_m: 30.0,
     moraine_slope_deg: 16.0,
@@ -177,7 +357,33 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
       ],
     ],
   },
+  {
+    id: 'l-south-lhonak',
+    icimod_code: 'PDGL_IND_SIKKIM_001',
+    name: 'South Lhonak Lake (Oct 2023 Benchmark)',
+    basin_name: 'Koshi',
+    sub_basin: 'Teesta Corridor Anchor',
+    elevation_m: 5200,
+    initial_area_sqm: 810000.0,
+    current_area_sqm: 840000.0,
+    danger_level: 'CRITICAL',
+    centroid: { type: 'Point', coordinates: [88.196, 27.912] },
+    freeboard_m: 9.0,
+    moraine_slope_deg: 36.5,
+    downstream_villages: ['Chungthang', 'Mangan', 'Singtam', 'Rangpo'],
+    polygon_coordinates: [
+      [
+        [88.185, 27.905],
+        [88.204, 27.909],
+        [88.210, 27.918],
+        [88.199, 27.922],
+        [88.182, 27.914],
+        [88.185, 27.905],
+      ],
+    ],
+  },
 ];
+
 
 const INITIAL_ALERTS: FloodAlert[] = [
   {
@@ -452,7 +658,37 @@ export default function DashboardPage() {
         onSelectLakeById={handleSelectLakeById}
       />
 
-      {/* 5. Monitored Glacial Lakes Directory & Status Table */}
+      {/* 5. Hydropower Cascade Defense & SCADA Interlock Registry */}
+      <HydropowerCascadePanel />
+
+      {/* 6. Historical GLOF Breach Archive & Forensic Hindcast Benchmark */}
+      <div className="bg-himalaya-card border border-himalaya-border rounded-2xl p-5 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-himalaya-border gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-orange-950/70 border border-orange-500/40 text-orange-400">
+              <History className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white tracking-wide">
+                Historical GLOF & Flash Flood Breach Archive
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Empirical Hindcast Catalog of 10 Landmark Himalayan Cryospheric Catastrophes (1981 – 2024)
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-mono text-slate-400 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-slate-800 self-start sm:self-auto">
+            Validated by ICIMOD & Nepal DHM
+          </span>
+        </div>
+        <HistoricalGlofPanel
+          onFocusLocation={(coords) => {
+            window.scrollTo({ top: 380, behavior: 'smooth' });
+          }}
+        />
+      </div>
+
+      {/* 7. Monitored Glacial Lakes Directory & Status Table */}
       <div className="bg-himalaya-card border border-himalaya-border rounded-2xl p-5 shadow-xl">
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-himalaya-border">
           <div className="flex items-center gap-2">
