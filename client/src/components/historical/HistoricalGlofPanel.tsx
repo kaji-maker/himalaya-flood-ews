@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { HISTORICAL_GLOFS } from '@/data/historicalGlofs';
 import { HistoricalGLOFRecord } from '@/types';
+import { ForensicBreachModal } from './ForensicBreachModal';
 import {
   History,
   AlertTriangle,
@@ -29,6 +30,7 @@ interface HistoricalGlofPanelProps {
 
 export const HistoricalGlofPanel: React.FC<HistoricalGlofPanelProps> = ({ onFocusLocation }) => {
   const [selectedEvent, setSelectedEvent] = useState<HistoricalGLOFRecord | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [selectedBasin, setSelectedBasin] = useState<string>('ALL');
   const [selectedTrigger, setSelectedTrigger] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -174,11 +176,14 @@ export const HistoricalGlofPanel: React.FC<HistoricalGlofPanelProps> = ({ onFocu
           return (
             <div
               key={event.id}
-              onClick={() => setSelectedEvent(event)}
-              className={`p-4 rounded-xl border transition-all cursor-pointer relative overflow-hidden ${
+              onClick={() => {
+                setSelectedEvent(event);
+                setIsModalOpen(true);
+              }}
+              className={`p-4 rounded-xl border transition-all cursor-pointer relative overflow-hidden group ${
                 isSelected
                   ? 'bg-blue-950/40 border-blue-500/80 shadow-lg ring-1 ring-blue-500/50'
-                  : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 hover:bg-slate-850/80'
+                  : 'bg-slate-900/80 border-slate-800 hover:border-blue-500/50 hover:bg-slate-850/80'
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-2">
@@ -190,7 +195,7 @@ export const HistoricalGlofPanel: React.FC<HistoricalGlofPanelProps> = ({ onFocu
                     </span>
                     <span className="text-[10px] text-slate-500 font-mono">{event.basin} Basin</span>
                   </div>
-                  <h4 className="text-sm font-semibold text-slate-100">{event.event_name}</h4>
+                  <h4 className="text-sm font-semibold text-slate-100 group-hover:text-blue-200 transition-colors">{event.event_name}</h4>
                   <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
                     <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
                     <span>{event.river} • {event.country_region}</span>
@@ -238,102 +243,32 @@ export const HistoricalGlofPanel: React.FC<HistoricalGlofPanelProps> = ({ onFocu
                 {event.infrastructure_impact}
               </p>
 
-              <div className="mt-3 flex items-center justify-between text-[11px] text-blue-400 font-medium">
-                <span>View Forensic Breach Analysis</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedEvent(event);
+                  setIsModalOpen(true);
+                }}
+                className="mt-3 flex items-center justify-between text-[11px] text-blue-400 group-hover:text-blue-300 font-semibold transition-colors"
+              >
+                <span className="group-hover:underline">View Forensic Breach Analysis</span>
+                <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Selected Event Forensic Modal / Detail Drawer */}
-      {selectedEvent && (
-        <div className="p-5 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border border-blue-500/40 shadow-2xl relative">
-          <button
-            onClick={() => setSelectedEvent(null)}
-            className="absolute top-4 right-4 text-slate-400 hover:text-white text-xs px-2.5 py-1 bg-slate-800 rounded-lg border border-slate-700"
-          >
-            Close Forensic View
-          </button>
-
-          <div className="flex items-center gap-2 mb-2">
-            <span className="px-2.5 py-0.5 bg-rose-950 text-rose-400 border border-rose-800/60 rounded-full text-xs font-semibold">
-              Historical Breach Archive
-            </span>
-            <span className="text-xs text-slate-400 font-mono">Date: {selectedEvent.event_date}</span>
-          </div>
-
-          <h3 className="text-lg font-bold text-white mb-1">{selectedEvent.event_name}</h3>
-          <p className="text-xs text-slate-400 mb-4">
-            Source: <span className="text-slate-200">{selectedEvent.lake_or_glacier}</span> ({selectedEvent.river}, {selectedEvent.country_region})
-          </p>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-              <div className="text-[10px] text-slate-500 uppercase">Trigger Mechanism</div>
-              <div className="text-xs font-semibold text-amber-400 mt-0.5">
-                {getTriggerBadge(selectedEvent.trigger_mechanism).label}
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-              <div className="text-[10px] text-slate-500 uppercase">Peak Surge Discharge</div>
-              <div className="text-xs font-semibold text-rose-400 font-mono mt-0.5">
-                {selectedEvent.peak_discharge_cms.toLocaleString()} m³/s
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-              <div className="text-[10px] text-slate-500 uppercase">Released Water Volume</div>
-              <div className="text-xs font-semibold text-sky-400 font-mono mt-0.5">
-                {(selectedEvent.estimated_volume_m3 / 1e6).toFixed(2)} Million m³
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-              <div className="text-[10px] text-slate-500 uppercase">Downstream Propagation</div>
-              <div className="text-xs font-semibold text-emerald-400 font-mono mt-0.5">
-                {selectedEvent.downstream_impact_km} km Runout
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-300 mb-1">
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                Infrastructure & Humanitarian Impact
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                {selectedEvent.infrastructure_impact}
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-300 mb-1">
-                <Info className="w-3.5 h-3.5 text-blue-400" />
-                Hydraulic Failure Mechanics & Early Warning Takeaways
-              </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                {selectedEvent.key_findings}
-              </p>
-            </div>
-          </div>
-
-          {onFocusLocation && (
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => onFocusLocation(selectedEvent.coordinates, 12)}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium flex items-center gap-1.5 shadow-lg transition-all"
-              >
-                <Compass className="w-4 h-4" />
-                <span>Fly to Breach Coordinates [{selectedEvent.coordinates.join(', ')}]</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Dedicated Forensic Breach Analysis Modal Dialog */}
+      <ForensicBreachModal
+        event={selectedEvent}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedEvent(null);
+        }}
+        onFocusLocation={onFocusLocation}
+      />
     </div>
   );
 };
