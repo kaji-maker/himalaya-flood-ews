@@ -542,8 +542,10 @@ export const CueSlewTaskingConsole: React.FC<CueSlewConsoleProps> = ({
 
             <form onSubmit={handleDispatchTasking} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <label className="block text-slate-400 text-[10px] mb-1">Target Spacecraft / Sensor:</label>
+                <label htmlFor="target-sensor-select" className="block text-slate-400 text-[10px] mb-1">Target Spacecraft / Sensor:</label>
                 <select
+                  id="target-sensor-select"
+                  name="target_sensor"
                   value={formSensor}
                   onChange={(e: any) => setFormSensor(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono"
@@ -555,8 +557,10 @@ export const CueSlewTaskingConsole: React.FC<CueSlewConsoleProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-400 text-[10px] mb-1">Anomalous Trigger Source:</label>
+                <label htmlFor="trigger-source-select" className="block text-slate-400 text-[10px] mb-1">Anomalous Trigger Source:</label>
                 <select
+                  id="trigger-source-select"
+                  name="trigger_source"
                   value={formCategory}
                   onChange={(e: any) => setFormCategory(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono"
@@ -569,8 +573,10 @@ export const CueSlewTaskingConsole: React.FC<CueSlewConsoleProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-400 text-[10px] mb-1">Execution Priority:</label>
+                <label htmlFor="execution-priority-select" className="block text-slate-400 text-[10px] mb-1">Execution Priority:</label>
                 <select
+                  id="execution-priority-select"
+                  name="execution_priority"
                   value={formSeverity}
                   onChange={(e: any) => setFormSeverity(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono"

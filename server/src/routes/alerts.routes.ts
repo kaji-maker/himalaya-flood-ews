@@ -135,11 +135,13 @@ const resolveAlertHandler = async (req: Request, res: Response) => {
       return res.json({ success: true, data: updated });
     }
   } catch (e) {
-    const alert = alertsMemoryStore.find((a) => a.id === id);
-    if (alert) {
-      alert.resolved_at = new Date().toISOString();
-      return res.json({ success: true, data: alert });
-    }
+    // Continue to memory store fallback
+  }
+
+  const alert = alertsMemoryStore.find((a) => a.id === id);
+  if (alert) {
+    alert.resolved_at = new Date().toISOString();
+    return res.json({ success: true, data: alert });
   }
 
   return res.status(404).json({ success: false, error: 'Alert not found' });

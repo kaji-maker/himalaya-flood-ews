@@ -754,6 +754,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                   max="100"
                   value={sliderPos}
                   onChange={(e) => setSliderPos(Number(e.target.value))}
+                  aria-label="Swipe curtain divider"
                   className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
                 />
 
@@ -829,6 +830,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                   setSelectedYear(Number(e.target.value));
                   setIsPlaying(false);
                 }}
+                aria-label="Annual timeline year slider"
                 className="w-full accent-cyan-400 cursor-pointer h-2 bg-slate-800 rounded-lg appearance-none"
               />
               <div className="flex items-center justify-between text-[10px] text-slate-500 px-0.5">
