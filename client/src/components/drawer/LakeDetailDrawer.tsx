@@ -6,6 +6,7 @@ import { RiskBadge } from '../alerts/RiskBadge';
 import { TimeSeriesAreaChart } from '../charts/TimeSeriesAreaChart';
 import { PrecipitationChart } from '../charts/PrecipitationChart';
 import { LakeComparisonModal } from '../satellite/LakeComparisonModal';
+import { getLakeHydroProfile } from '@/data/lakeHydroProfiles';
 import {
   X,
   Mountain,
@@ -64,32 +65,31 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
     100
   ).toFixed(1);
 
+  // Resolve lake-specific hydrodynamic, InSAR, and downstream telemetry
+  const profile = getLakeHydroProfile(lake);
+
   // Compute or fallback Two-Axis Scores (arXiv:2608.12422)
   const isCritical = ['CRITICAL', 'EMERGENCY'].includes(lake.danger_level.toUpperCase());
   const isWatch = ['HIGH', 'MEDIUM', 'WATCH'].includes(lake.danger_level.toUpperCase());
 
-  const sScore = lake.two_axis_score?.susceptibility_score ?? (isCritical ? 0.88 : isWatch ? 0.72 : 0.42);
-  const tScore = lake.two_axis_score?.trigger_urgency_score ?? (isCritical ? 0.78 : isWatch ? 0.52 : 0.18);
-  const hIndex = lake.two_axis_score?.combined_hazard_index ?? Number((sScore * tScore).toFixed(3));
-  const quadrant =
-    lake.two_axis_score?.risk_matrix_quadrant ??
-    (sScore >= 0.6 && tScore >= 0.6
-      ? 'CRITICAL_DUAL_TRIGGER'
-      : sScore >= 0.6
-      ? 'HIGH_SUSCEPTIBILITY_WATCH'
-      : tScore >= 0.6
-      ? 'TRIGGERED_TRANSIENT_WARNING'
-      : 'DORMANT_STABLE');
+  const sScore = lake.two_axis_score?.susceptibility_score ?? profile.susceptibility_score;
+  const tScore = lake.two_axis_score?.trigger_urgency_score ?? profile.trigger_urgency_score;
+  const hIndex = lake.two_axis_score?.combined_hazard_index ?? profile.combined_hazard_index;
+  const quadrant = lake.two_axis_score?.risk_matrix_quadrant ?? profile.risk_quadrant;
 
-  // Multi-Tiered Sensor Fusion Telemetry
-  const insarVelocityMmYr = isCritical ? -28.4 : isWatch ? -14.2 : -4.5;
-  const insarRating = isCritical ? 'CRITICAL_DESTABILIZATION' : isWatch ? 'ACTIVE_CREEP' : 'STABLE';
+  // Multi-Tiered Sensor Fusion Telemetry (lake-specific)
+  const insarVelocityMmYr = profile.insar_velocity_mm_yr;
+  const insarRating = profile.insar_rating;
+  const insarCoherence = profile.insar_coherence;
   const isCueTasked = isCritical || isWatch;
-  const targetSensor = isCritical ? 'SkySat-Submeter' : 'WorldView-3';
-  const targetGsd = isCritical ? '0.50m GSD' : '0.31m GSD';
-  const geophoneDb = isCritical ? 79.5 : isWatch ? 58.4 : 36.2;
-  const stageRate = isCritical ? '+0.68 m/min' : isWatch ? '+0.18 m/min' : '+0.02 m/min';
-  const scadaFacility = lake?.basin_name === 'Gandaki' ? 'Marsyangdi Hydro (69 MW)' : 'Upper Tamakoshi (456 MW)';
+  const targetSensor = profile.target_sensor;
+  const targetGsd = profile.target_gsd;
+  const geophoneDb = profile.geophone_db;
+  const stageRate = profile.stage_rate;
+  const scadaFacility = profile.coupled_hydropower;
+  const sceneIdentifier = profile.scene_identifier;
+  const solarZenith = profile.solar_zenith_deg;
+  const downstreamSchedule = profile.downstream_schedule;
 
   // Handle Multi-Channel Broadcast Trigger
   const handleTestBroadcast = async () => {
@@ -120,23 +120,59 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
   // Handle Fetch ICIMOD Report Dossier
   const handleFetchReport = async () => {
     try {
-      const res = await fetch(`${API_BASE}/lakes/${lake.icimod_code}/report`);
+      const res = await fetch(`${API_BASE}/lakes/${lake.icimod_code || lake.id}/report`);
       if (res.ok) {
         const json = await res.json();
         setReportData(json.data);
       } else {
         setReportData({
-          document_title: `ICIMOD GLOF Hazard Dossier - ${lake.name}`,
+          document_title: `ICIMOD / DHM GLOF Hazard Assessment Dossier - ${lake.name}`,
           standards_compliance: 'GAPHAZ (2017) & ICIMOD PDGL Guidelines',
-          lake_profile: { name: lake.name, elevation_m: lake.elevation_m, surface_area_sqkm: Number(currentAreaKm2) },
-          recommended_mitigation_actions: ['Continuous Sentinel-2 MNDWI & NASA GPM IMERG 30-min telemetry.'],
+          report_reference_code: `GLOF-HAZ-NEP-${lake.icimod_code || 'PDGL'}-2026`,
+          generated_at: new Date().toISOString(),
+          lake_profile: {
+            name: lake.name,
+            icimod_code: lake.icimod_code,
+            basin_name: `${lake.sub_basin || lake.basin_name} Sub-Basin (${lake.basin_name} River System)`,
+            elevation_m: lake.elevation_m,
+            surface_area_sqkm: Number(currentAreaKm2),
+            estimated_volume_mcm: profile.estimated_volume_mcm,
+            coupled_hydropower: profile.coupled_hydropower,
+          },
+          two_axis_hazard_evaluation: {
+            methodology: 'arXiv:2608.12422 (Kahn et al. 2026)',
+            susceptibility_score_s: profile.susceptibility_score,
+            trigger_urgency_score_t: profile.trigger_urgency_score,
+            combined_hazard_index_h: profile.combined_hazard_index,
+            risk_quadrant: profile.risk_quadrant,
+          },
+          downstream_impact_matrix: profile.downstream_schedule.map((reach) => ({
+            settlement: reach.name,
+            reach_km: reach.dist,
+            travel_time_min: reach.time,
+            peak_flood_height_m: reach.stage,
+            peak_discharge_cms: reach.q,
+            evacuation_protocol: reach.alert === 'IMMEDIATE' ? 'IMMEDIATE_SIREN_EVACUATION' : 'HIGH_PRIORITY_EVACUATION',
+          })),
+          recommended_mitigation_actions: [
+            `Maintain continuous 30-minute Sentinel-2 MNDWI & NASA GPM IMERG telemetry screening for ${lake.name}.`,
+            `Ensure acoustic siren radio repeater link to ${profile.downstream_schedule[0]?.name || 'downstream'} CDMC committee is active.`,
+            `Maintain SCADA automated gate-opening webhook link to ${profile.coupled_hydropower}.`,
+          ],
         });
       }
     } catch (e) {
       setReportData({
-        document_title: `ICIMOD GLOF Hazard Dossier - ${lake.name}`,
+        document_title: `ICIMOD / DHM GLOF Hazard Assessment Dossier - ${lake.name}`,
         standards_compliance: 'GAPHAZ (2017) & ICIMOD PDGL Guidelines',
-        lake_profile: { name: lake.name, elevation_m: lake.elevation_m, surface_area_sqkm: Number(currentAreaKm2) },
+        lake_profile: {
+          name: lake.name,
+          icimod_code: lake.icimod_code,
+          elevation_m: lake.elevation_m,
+          surface_area_sqkm: Number(currentAreaKm2),
+          coupled_hydropower: profile.coupled_hydropower,
+        },
+        downstream_impact_matrix: profile.downstream_schedule,
       });
     }
     setReportModalOpen(true);
@@ -310,11 +346,11 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
                     <span className="text-slate-500 block text-[10px]">Scene Identifier:</span>
-                    <span className="text-cyan-300 font-bold text-[10px] truncate block">S2A_MSIL2A_20260901</span>
+                    <span className="text-cyan-300 font-bold text-[10px] truncate block">{sceneIdentifier}</span>
                   </div>
                   <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
                     <span className="text-slate-500 block text-[10px]">Solar Zenith & Elevation:</span>
-                    <span className="text-slate-200 font-bold text-[10px]">54.2° (C-Corrected)</span>
+                    <span className="text-slate-200 font-bold text-[10px]">{solarZenith.toFixed(1)}° (C-Corrected)</span>
                   </div>
                 </div>
 
@@ -358,7 +394,7 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                   </div>
                   <div className="p-2 bg-slate-950/60 rounded border border-slate-800">
                     <span className="text-slate-500 block text-[10px]">Interferometric Coherence:</span>
-                    <span className="text-slate-200 font-bold">γ = 0.88 (High)</span>
+                    <span className="text-slate-200 font-bold">γ = {insarCoherence.toFixed(2)} ({insarCoherence >= 0.85 ? 'High' : 'Moderate'})</span>
                   </div>
                 </div>
                 <div className="mt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-800/80 pt-1.5">
@@ -624,20 +660,27 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
               </div>
 
               <div className="space-y-2">
-                {[
-                  { name: 'Na Village', dist: '6.5 km', time: '7.7 min', stage: '+54.4 m', q: '72,860 m³/s', alert: 'IMMEDIATE' },
-                  { name: 'Bedding', dist: '14.2 km', time: '16.9 min', stage: '+45.2 m', q: '64,410 m³/s', alert: 'IMMEDIATE' },
-                  { name: 'Chhetchhet', dist: '28.0 km', time: '33.3 min', stage: '+33.8 m', q: '51,650 m³/s', alert: 'HIGH' },
-                  { name: 'Simigaon', dist: '36.5 km', time: '43.5 min', stage: '+28.7 m', q: '45,080 m³/s', alert: 'HIGH' },
-                  { name: 'Gongar Hydro Dam', dist: '48.0 km', time: '57.1 min', stage: '+23.4 m', q: '37,500 m³/s', alert: 'MODERATE' },
-                ].map((reach, idx) => (
+                {downstreamSchedule.map((reach, idx) => (
                   <div
                     key={idx}
                     className="flex items-center justify-between p-2 rounded-lg bg-slate-950/70 border border-slate-800 text-xs font-mono"
                   >
                     <div>
-                      <span className="font-bold text-white block">{reach.name}</span>
-                      <span className="text-[10px] text-slate-400">{reach.dist} downstream</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-white block">{reach.name}</span>
+                        <span
+                          className={`text-[9px] px-1.5 py-0.2 rounded border font-semibold ${
+                            reach.alert === 'IMMEDIATE'
+                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                              : reach.alert === 'HIGH'
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                          }`}
+                        >
+                          {reach.alert}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">{reach.dist} downstream • Q: {reach.q}</span>
                     </div>
                     <div className="text-right">
                       <span className="text-rose-400 font-bold flex items-center gap-1 justify-end">

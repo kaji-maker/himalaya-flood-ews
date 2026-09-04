@@ -706,6 +706,7 @@ export const MOCK_FLOOD_ALERTS: FloodAlert[] = [
     trigger_reason: 'Active debris-dam breach alert: Post-Aug 26 glacial collapse, 2.2M tonnes loose sediment, persistent upper catchment cloudbursts threatening Rasuwa & Nuwakot',
     created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
     resolved_at: null,
+    affected_villages: ['Zhangmu / Kodari', 'Liping', 'Tatopani', 'Barhabise', 'Bhotekoshi Barrage'],
   },
   {
     id: 'a1111111-1111-1111-1111-111111111111',
@@ -715,6 +716,7 @@ export const MOCK_FLOOD_ALERTS: FloodAlert[] = [
     trigger_reason: 'Moraine displacement surge +18.2% expansion and 72h GPM IMERG rainfall exceeding 140mm',
     created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
     resolved_at: null,
+    affected_villages: ['Na', 'Bedding', 'Chhetchhet', 'Simigaon', 'Gongar Khola'],
   },
 ];
 

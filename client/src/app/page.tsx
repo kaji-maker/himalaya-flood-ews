@@ -12,6 +12,7 @@ import { CueSlewTaskingConsole } from '@/components/satellite/CueSlewTaskingCons
 import { HydropowerCascadePanel } from '@/components/hydropower/HydropowerCascadePanel';
 import { HistoricalGlofPanel } from '@/components/historical/HistoricalGlofPanel';
 import { GlacialLake, FloodAlert, ObservationPoint, PrecipitationPoint } from '@/types';
+import { generateLakeObservations, generateLakePrecipitation } from '@/data/lakeHydroProfiles';
 import {
   ShieldAlert,
   Mountain,
@@ -389,26 +390,26 @@ const NEPAL_GLACIAL_LAKES: GlacialLake[] = [
 
 const INITIAL_ALERTS: FloodAlert[] = [
   {
-    id: 'alt-01',
+    id: 'a-bhotekoshi-ongoing-01',
+    lake_id: 'l-galong-co',
+    lake_name: 'Bhotekoshi & Upper Trishuli Corridor (Galong Co / Langtang)',
+    basin_name: 'Koshi',
+    severity: 'EMERGENCY',
+    trigger_reason: 'Active debris-dam breach alert: Post-Aug 26 glacial collapse, 2.2M tonnes loose sediment, persistent upper catchment cloudbursts threatening Rasuwa & Nuwakot',
+    created_at: '2026-09-01T14:30:00.000Z',
+    resolved_at: null,
+    affected_villages: ['Zhangmu / Kodari', 'Liping', 'Tatopani', 'Barhabise', 'Bhotekoshi Barrage'],
+  },
+  {
+    id: 'a1111111-1111-1111-1111-111111111111',
     lake_id: 'l-tsho-rolpa',
     lake_name: 'Tsho Rolpa Glacial Lake',
     basin_name: 'Koshi',
     severity: 'EMERGENCY',
-    trigger_reason: 'GLOF EMERGENCY Alert: Moraine crest pressure surge with +18.2% rapid expansion and 72h antecedent rainfall exceeding 142mm.',
-    created_at: '2026-09-01T14:30:00.000Z',
-    resolved_at: null,
-    affected_villages: ['Na', 'Bedding', 'Chhetchhet', 'Simigaon', 'Gongar Khola'],
-  },
-  {
-    id: 'alt-02',
-    lake_id: 'l-imja-tsho',
-    lake_name: 'Imja Tsho (Everest Region)',
-    basin_name: 'Koshi',
-    severity: 'WARNING',
-    trigger_reason: 'GLOF WARNING Alert: Accelerated supraglacial calving expanding water perimeter toward terminal moraine face.',
+    trigger_reason: 'Moraine displacement surge +18.2% expansion and 72h GPM IMERG rainfall exceeding 140mm',
     created_at: '2026-09-01T10:15:00.000Z',
     resolved_at: null,
-    affected_villages: ['Dingboche', 'Pangboche', 'Tengboche', 'Namche Bazaar'],
+    affected_villages: ['Na', 'Bedding', 'Chhetchhet', 'Simigaon', 'Gongar Khola'],
   },
 ];
 
@@ -498,6 +499,8 @@ export default function DashboardPage() {
   const handleSelectLake = async (lake: GlacialLake) => {
     setSelectedLake(lake);
     setIsDrawerOpen(true);
+    // Dynamically calibrate observations to the selected lake's initial and current surface area
+    setLakeObservations(generateLakeObservations(lake));
 
     try {
       const res = await fetch(`${API_BASE}/lakes/${lake.icimod_code || lake.id}/history`);
@@ -508,7 +511,7 @@ export default function DashboardPage() {
         }
       }
     } catch (e) {
-      setLakeObservations(MOCK_OBSERVATIONS);
+      // Retain calibrated lake observations
     }
   };
 
@@ -971,7 +974,7 @@ export default function DashboardPage() {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         observations={lakeObservations}
-        precipitationData={MOCK_PRECIPITATION}
+        precipitationData={selectedLake ? generateLakePrecipitation(selectedLake) : MOCK_PRECIPITATION}
       />
 
       {/* 6. 20-Year Pan-Himalayan Satellite Comparison Modal */}

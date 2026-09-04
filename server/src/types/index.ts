@@ -115,6 +115,7 @@ export interface FloodAlert {
   trigger_reason: string;
   created_at: string;
   resolved_at?: string | null;
+  affected_villages?: string[];
   two_axis_score?: TwoAxisRiskScore;
   slew_tasking_order?: CueAndSlewTaskingOrder | null;
   scada_actuation?: SCADAGateCommand | null;
