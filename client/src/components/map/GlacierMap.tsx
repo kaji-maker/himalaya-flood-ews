@@ -6,7 +6,7 @@ import { VERTICAL_SAFE_HAVENS } from '@/data/safeHavens';
 import { LayerControl } from './LayerControl';
 import { FloodWaveSimulator } from './FloodWaveSimulator';
 import { RiskBadge } from '../alerts/RiskBadge';
-import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell, Globe, ShieldCheck } from 'lucide-react';
+import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell, Globe, ShieldCheck, Zap } from 'lucide-react';
 
 interface GlacierMapProps {
   lakes: GlacialLake[];
@@ -39,15 +39,15 @@ const GORGE_EDGE_STATIONS = [
   {
     id: 'st-tamakoshi',
     name: 'Upper Rolwaling Gorge Station',
-    coords: [86.38, 27.80] as [number, number],
+    coords: [86.460, 27.840] as [number, number],
     lake_id: 'l-tsho-rolpa',
-    geophone_db: 84.5,
-    stage_rate: '+0.82 m/min',
-    status: 'CRITICAL_SURGE',
-    coupled_facility: 'Upper Tamakoshi (456 MW)',
+    geophone_db: 42.5,
+    stage_rate: '+0.05 m/min',
+    status: 'NORMAL',
+    coupled_facility: 'Upper Tama Koshi Dam (456 MW)',
   },
   {
-    id: 'st-dudhkoshi',
+    id: 'st-imja',
     name: 'Dingboche Gorge Tripwire Station',
     coords: [86.82, 27.86] as [number, number],
     lake_id: 'l-imja-tsho',
@@ -112,7 +112,45 @@ const COMMUNITY_SIREN_TOWERS = [
   },
 ];
 
-
+// USGS Himalayan Arc Seismic Monitors & ShakeMap Contours (Mw >= 4.5)
+const SEISMIC_EARTHQUAKES = [
+  {
+    id: 'eq-dolakha-01',
+    magnitude: 5.4,
+    depth_km: 10,
+    coords: [86.320, 27.780] as [number, number],
+    place: 'Dolakha / Rolwaling Thrust Fault',
+    max_pga: '0.18g',
+    shakemap_radius_km: 65,
+    nearest_lake: 'Tsho Rolpa (18.5 km)',
+    status: 'HIGH_SLUMP_RISK',
+    action: 'SkySat Cue-and-Slew Constellation Tasked',
+  },
+  {
+    id: 'eq-thulagi-02',
+    magnitude: 4.8,
+    depth_km: 14,
+    coords: [84.490, 28.480] as [number, number],
+    place: 'Manaslu / Thulagi Foothills',
+    max_pga: '0.13g',
+    shakemap_radius_km: 45,
+    nearest_lake: 'Thulagi Lake (6.2 km)',
+    status: 'HIGH_SLUMP_RISK',
+    action: 'Geophone Tripwire Sensitivity Boosted',
+  },
+  {
+    id: 'eq-jajarkot-03',
+    magnitude: 5.7,
+    depth_km: 12,
+    coords: [82.200, 28.850] as [number, number],
+    place: 'Jajarkot MFT Segment',
+    max_pga: '0.04g',
+    shakemap_radius_km: 110,
+    nearest_lake: 'West Nepal Glaciers',
+    status: 'NEGLIGIBLE',
+    action: 'Baseline Monitoring',
+  },
+];
 
 // Pre-computed GLOF Breach & River Gorge Swath Corridors for high-risk lakes
 const GLOF_INUNDATION_CORRIDORS: Record<
@@ -250,12 +288,14 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
     edgeSensors: true,
     communitySirens: true,
     verticalSafeHavens: true,
+    seismicShakemap: true,
   });
 
   const [hoveredLake, setHoveredLake] = useState<GlacialLake | null>(null);
   const [hoveredSettlement, setHoveredSettlement] = useState<DownstreamImpact | null>(null);
   const [hoveredHaven, setHoveredHaven] = useState<VerticalSafeHaven | null>(null);
   const [selectedHaven, setSelectedHaven] = useState<VerticalSafeHaven | null>(null);
+  const [selectedQuake, setSelectedQuake] = useState<any | null>(null);
 
   // Simulation State
   const [showSimulator, setShowSimulator] = useState(true);
@@ -847,6 +887,55 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
           );
         })}
 
+      {/* 5. USGS Himalayan Arc Seismic Monitors & ShakeMap Contours (Mw >= 4.5) */}
+      {layers.seismicShakemap &&
+        SEISMIC_EARTHQUAKES.map((eq) => {
+          const coords = getCanvasCoords(eq.coords[0], eq.coords[1]);
+          const isCritical = eq.status === 'CRITICAL_MORAINE_FAILURE' || eq.magnitude >= 5.5;
+
+          return (
+            <div
+              key={eq.id}
+              className="absolute z-18 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: coords.x, top: coords.y }}
+              onClick={() => setSelectedQuake(selectedQuake?.id === eq.id ? null : eq)}
+            >
+              {/* ShakeMap Ground Shaking Radii Rings */}
+              <div
+                className={`absolute rounded-full border border-dashed pointer-events-none transform -translate-x-1/2 -translate-y-1/2 ${
+                  isCritical ? 'border-rose-500/50 bg-rose-500/10' : 'border-amber-400/40 bg-amber-400/5'
+                }`}
+                style={{
+                  width: `${eq.shakemap_radius_km * 2.2}px`,
+                  height: `${eq.shakemap_radius_km * 2.2}px`,
+                  left: '50%',
+                  top: '50%',
+                }}
+              />
+
+              {/* Pulsing Core Wavefront Ring */}
+              <div
+                className={`w-7 h-7 rounded-full animate-ping absolute -inset-1 opacity-60 ${
+                  isCritical ? 'bg-rose-500' : 'bg-amber-400'
+                }`}
+              />
+
+              {/* Epicenter Marker Pill */}
+              <div
+                className={`relative px-2 py-0.5 rounded-xl border-2 shadow-2xl flex items-center gap-1 font-bold font-mono text-[9px] text-white transition-all group-hover:scale-125 ${
+                  isCritical
+                    ? 'bg-rose-950/90 border-rose-400 ring-2 ring-rose-500/50'
+                    : 'bg-amber-950/90 border-amber-400 ring-2 ring-amber-500/40'
+                }`}
+              >
+                <Zap className={`w-3 h-3 ${isCritical ? 'text-rose-300 animate-bounce' : 'text-amber-300'}`} />
+                <span>M_w {eq.magnitude.toFixed(1)}</span>
+                <span className="text-[8px] bg-slate-900/80 px-1 rounded text-slate-300">{eq.max_pga}</span>
+              </div>
+            </div>
+          );
+        })}
+
       {/* Hover Settlement Inspection Card */}
       {hoveredSettlement && (
         <div className="absolute top-4 left-4 z-30 bg-slate-900/95 border border-rose-500/50 rounded-xl p-3.5 shadow-2xl backdrop-blur-md max-w-xs font-mono text-xs text-slate-200">
@@ -977,6 +1066,52 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* Selected Seismic Epicenter Inspection Card */}
+      {selectedQuake && (
+        <div className="absolute top-4 left-4 z-30 bg-slate-900/95 border border-amber-500/60 rounded-xl p-3.5 shadow-2xl backdrop-blur-md max-w-sm font-mono text-xs text-slate-200">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+              <Zap className="w-4 h-4 text-amber-400 animate-bounce" />
+              <span>USGS Seismic Ground Motion (GMPE)</span>
+            </div>
+            <button
+              onClick={() => setSelectedQuake(null)}
+              className="text-slate-400 hover:text-white p-0.5"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="text-white font-bold text-sm">
+              M_w {selectedQuake.magnitude.toFixed(1)} • {selectedQuake.place}
+            </div>
+            <div className="text-[11px] text-slate-300">
+              Focal Depth: {selectedQuake.depth_km} km • ShakeMap Radius: ~{selectedQuake.shakemap_radius_km} km
+            </div>
+
+            <div className="p-2 bg-slate-950/80 rounded-lg border border-slate-800 space-y-1 text-[11px]">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Nearest Monitored Dam:</span>
+                <span className="font-bold text-white">{selectedQuake.nearest_lake}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Dam Crest Acceleration (PGA):</span>
+                <span className="font-bold text-amber-300">{selectedQuake.max_pga}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Moraine Dam Status:</span>
+                <span className="font-bold text-rose-400">{selectedQuake.status.replace(/_/g, ' ')}</span>
+              </div>
+            </div>
+
+            <div className="p-2 bg-amber-950/40 rounded-lg border border-amber-500/30 text-[10px] text-amber-200">
+              ⚡ Automated Action: <strong>{selectedQuake.action}</strong>
+            </div>
+          </div>
         </div>
       )}
 

@@ -6,6 +6,7 @@ import { AlertBanner } from '@/components/alerts/AlertBanner';
 import { LakeDetailDrawer } from '@/components/drawer/LakeDetailDrawer';
 import { StatCard } from '@/components/ui/StatCard';
 import { RiskBadge } from '@/components/alerts/RiskBadge';
+import { EnvironmentalTriggerHub } from '@/components/environmental/EnvironmentalTriggerHub';
 import { GlacialLake, FloodAlert, ObservationPoint, PrecipitationPoint } from '@/types';
 import {
   ShieldAlert,
@@ -399,7 +400,15 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 4. Monitored Glacial Lakes Directory & Status Table */}
+      {/* 4. Live Environmental Ingest & Seismic Trigger Hub */}
+      <EnvironmentalTriggerHub
+        onAlertCreated={(newAlert) =>
+          setAlerts((prev) => [newAlert, ...prev.filter((a) => a.id !== newAlert.id)])
+        }
+        onSelectLakeById={handleSelectLakeById}
+      />
+
+      {/* 5. Monitored Glacial Lakes Directory & Status Table */}
       <div className="bg-himalaya-card border border-himalaya-border rounded-2xl p-5 shadow-xl">
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-himalaya-border">
           <div className="flex items-center gap-2">

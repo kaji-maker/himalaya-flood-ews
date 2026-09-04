@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Layers, Droplet, Mountain, CloudRain, ShieldAlert, Globe, Waves, Activity, Cpu, Target, Bell, ShieldCheck } from 'lucide-react';
+import { Layers, Droplet, Mountain, CloudRain, ShieldAlert, Globe, Waves, Activity, Cpu, Target, Bell, ShieldCheck, Zap } from 'lucide-react';
 import { MapLayerState } from '@/types';
 
 interface LayerControlProps {
@@ -11,6 +11,12 @@ interface LayerControlProps {
 
 export const LayerControl: React.FC<LayerControlProps> = ({ layers, onToggleLayer }) => {
   const layerButtons: { key: keyof MapLayerState; label: string; icon: React.ReactNode; desc: string }[] = [
+    {
+      key: 'seismicShakemap',
+      label: 'USGS Seismic Arc & ShakeMap',
+      icon: <Zap className="w-4 h-4 text-amber-400" />,
+      desc: 'M4.5+ Epicenters & Moraine PGA Contours',
+    },
     {
       key: 'verticalSafeHavens',
       label: 'Vertical Safe Havens (+35m)',

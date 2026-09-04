@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { PrecipitationTelemetry } from '../types';
 import { EdgeDecoderService } from '../services/edge_decoder.service';
 import { RiskEvaluationService } from '../services/evaluation.service';
+import { SeismicTriggerService } from '../services/seismic_trigger.service';
+import { GpmPrecipitationService } from '../services/gpm_precipitation.service';
 
 const router = Router();
 
@@ -244,6 +246,130 @@ router.post('/lorawan', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     return res.status(400).json({ success: false, error: `LoRaWAN frame decoding failed: ${err.message}` });
+  }
+});
+
+// =========================================================================
+// SEISMIC TRIGGER HUB (USGS HIMALAYAN ARC M4.5+ & MORAINE DESTABILIZATION)
+// =========================================================================
+
+// GET /api/v1/telemetry/seismic - Get recent earthquakes and moraine impact analysis
+router.get('/seismic', (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string) || 10;
+  const events = SeismicTriggerService.getRecentEvents(limit);
+  return res.json({
+    success: true,
+    count: events.length,
+    data: events,
+  });
+});
+
+// POST /api/v1/telemetry/seismic/sync - Sync live USGS GeoJSON feed for Himalayan arc
+router.post('/seismic/sync', async (req: Request, res: Response) => {
+  const events = await SeismicTriggerService.fetchUsgsHimalayanFeed();
+  return res.json({
+    success: true,
+    message: 'USGS Himalayan feed synchronized',
+    count: events.length,
+    data: events,
+  });
+});
+
+// POST /api/v1/telemetry/seismic/simulate - Simulate an earthquake event along Himalayan thrust
+router.post('/seismic/simulate', async (req: Request, res: Response) => {
+  const { magnitude, depth_km, latitude, longitude, place } = req.body;
+
+  const mag = Number(magnitude) || 6.1;
+  const depth = Number(depth_km) || 10.0;
+  const lat = Number(latitude) || 27.82;
+  const lon = Number(longitude) || 86.40;
+  const locationName = place || '15 km W of Tsho Rolpa (Dolakha, Rolwaling Arc)';
+
+  const result = await SeismicTriggerService.processSeismicEvent({
+    magnitude: mag,
+    depth_km: depth,
+    latitude: lat,
+    longitude: lon,
+    place: locationName,
+    source: 'SIMULATED',
+  });
+
+  return res.status(201).json({
+    success: true,
+    message: `Simulated Mw ${mag.toFixed(1)} earthquake processed across Himalayan glacial lakes`,
+    data: result.event,
+    alerts_triggered: result.alertsCreated.length,
+    alerts: result.alertsCreated,
+  });
+});
+
+// POST /api/v1/telemetry/seismic/ingest - Ingest raw earthquake observation
+router.post('/seismic/ingest', async (req: Request, res: Response) => {
+  const { id, magnitude, depth_km, latitude, longitude, place, occurred_at, source } = req.body;
+
+  if (magnitude === undefined || latitude === undefined || longitude === undefined) {
+    return res.status(400).json({ success: false, error: 'Missing required seismic parameters (magnitude, latitude, longitude)' });
+  }
+
+  const result = await SeismicTriggerService.processSeismicEvent({
+    id,
+    magnitude: Number(magnitude),
+    depth_km: Number(depth_km || 10.0),
+    latitude: Number(latitude),
+    longitude: Number(longitude),
+    place: place || 'Himalayan Arc Epicenter',
+    occurred_at,
+    source: source || 'USGS',
+  });
+
+  return res.status(201).json({
+    success: true,
+    data: result.event,
+    alerts_triggered: result.alertsCreated.length,
+  });
+});
+
+// =========================================================================
+// NASA GPM IMERG 30-MINUTE PRECIPITATION TELEMETRY
+// =========================================================================
+
+// GET /api/v1/telemetry/precipitation/live - Get live 30-min NASA GPM IMERG sub-basin telemetry
+router.get('/precipitation/live', (req: Request, res: Response) => {
+  const telemetry = GpmPrecipitationService.getLiveTelemetry();
+  return res.json({
+    success: true,
+    count: telemetry.length,
+    data: telemetry,
+  });
+});
+
+// POST /api/v1/telemetry/precipitation/sync - Step/update live GPM telemetry
+router.post('/precipitation/sync', (req: Request, res: Response) => {
+  const { basin_id } = req.body;
+  const updated = GpmPrecipitationService.updateTelemetry(basin_id);
+  return res.json({
+    success: true,
+    message: 'NASA GPM IMERG precipitation telemetry updated',
+    data: updated,
+  });
+});
+
+// POST /api/v1/telemetry/precipitation/simulate-pulse - Simulate extreme cloudburst pulse
+router.post('/precipitation/simulate-pulse', async (req: Request, res: Response) => {
+  const { basin_id, rate_mm_hr } = req.body;
+  try {
+    const result = await GpmPrecipitationService.triggerExtremeRainPulse(
+      basin_id || 'KOSHI',
+      Number(rate_mm_hr) || 28.5
+    );
+    return res.status(201).json({
+      success: true,
+      message: `Simulated extreme cloudburst pulse of ${rate_mm_hr || 28.5} mm/hr in ${basin_id || 'KOSHI'}`,
+      data: result.updated,
+      alert: result.alert,
+    });
+  } catch (err: any) {
+    return res.status(400).json({ success: false, error: err.message });
   }
 });
 

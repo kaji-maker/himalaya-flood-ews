@@ -79,6 +79,7 @@ export interface MapLayerState {
   cueSlewFootprint?: boolean;
   communitySirens?: boolean;
   verticalSafeHavens?: boolean;
+  seismicShakemap?: boolean;
 }
 
 export interface VerticalSafeHaven {
@@ -103,4 +104,43 @@ export interface VerticalSafeHaven {
   focal_person: string;
   emergency_contact: string;
 }
+
+export interface AffectedLakeSeismicImpact {
+  lake_id: string;
+  lake_name: string;
+  distance_km: number;
+  computed_pga_g: number;
+  destabilization_risk: 'CRITICAL_MORAINE_FAILURE' | 'HIGH_SLUMP_RISK' | 'MODERATE_LIQUEFACTION' | 'NEGLIGIBLE';
+  action_triggered: string;
+}
+
+export interface SeismicEvent {
+  id: string;
+  magnitude: number; // Mw
+  depth_km: number;
+  latitude: number;
+  longitude: number;
+  place: string;
+  occurred_at: string;
+  source: 'USGS' | 'NSC_NEPAL' | 'SIMULATED';
+  max_pga_g: number;
+  affected_lakes: AffectedLakeSeismicImpact[];
+  alert_dispatched: boolean;
+}
+
+export interface LiveGpmPrecipitationTelemetry {
+  basin_id: string;
+  basin_name: string;
+  lake_id: string;
+  recorded_at: string;
+  sensor: string;
+  precip_rate_mm_hr: number;
+  accumulated_3h_mm: number;
+  accumulated_24h_mm: number;
+  accumulated_72h_mm: number;
+  climatology_norm_72h_mm: number;
+  anomaly_pct: number;
+  surge_status: 'NORMAL' | 'ELEVATED' | 'EXTREME_PORE_PRESSURE_SURGE';
+}
+
 
