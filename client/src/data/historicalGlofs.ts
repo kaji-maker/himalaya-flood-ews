@@ -6,6 +6,24 @@ import { HistoricalGLOFRecord } from '@/types';
  */
 export const HISTORICAL_GLOFS: HistoricalGLOFRecord[] = [
   {
+    id: 'glof-bhotekoshi-2026',
+    event_name: 'Bhotekoshi–Trishuli Glacial Collapse & Debris Surge (August 26, 2026)',
+    lake_or_glacier: 'Langtang–Tibet Border Glacial Cirque',
+    basin: 'Gandaki / Koshi',
+    river: 'Bhotekoshi & Trishuli River System',
+    country_region: 'Nepal–Tibet Border / Rasuwa, Nuwakot & Dhading',
+    event_date: '2026-08-26',
+    year: 2026,
+    coordinates: [85.340, 28.320],
+    trigger_mechanism: 'ROCK_ICE_DETACHMENT',
+    estimated_volume_m3: 25000000,
+    peak_discharge_cms: 8800,
+    downstream_impact_km: 85,
+    fatalities: 1290,
+    infrastructure_impact: 'Devastating high-velocity slurry surge carrying 2.2 million tonnes of debris, obliterating road spans along Pasang Lhamu Highway, severing Rasuwagadhi border point, and damaging Upper Trishuli-1 and Bhotekoshi hydropower installations.',
+    key_findings: 'Compound multi-hazard cascade: hanging glacial ice and rock detachment dammed an upper transboundary canyon, creating a temporary impoundment that burst catastrophically. Highlighted vital need for transboundary seismic tripwires and automated SCADA gate opening within 15 minutes.'
+  },
+  {
     id: 'glof-dig-tsho-1985',
     event_name: 'Dig Tsho GLOF (1985)',
     lake_or_glacier: 'Dig Tsho / Langmoche Glacier',

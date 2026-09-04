@@ -117,7 +117,11 @@ describe('Community Early Warning & Last-Mile Dissemination (SMS & Solar Sirens)
     const res = await request(app).get('/api/v1/dispatch/historical-glofs');
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.count).toBe(10);
+    expect(res.body.count).toBe(11);
+    const bhotekoshi = res.body.data.find((e: any) => e.id === 'glof-bhotekoshi-2026');
+    expect(bhotekoshi).toBeDefined();
+    expect(bhotekoshi.year).toBe(2026);
+    expect(bhotekoshi.peak_discharge_cms).toBe(8800);
     const digTsho = res.body.data.find((e: any) => e.id === 'glof-dig-tsho-1985');
     expect(digTsho).toBeDefined();
     expect(digTsho.peak_discharge_cms).toBe(1600);

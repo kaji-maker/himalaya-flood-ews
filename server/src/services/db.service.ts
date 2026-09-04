@@ -498,6 +498,24 @@ export const MOCK_DHM_STATIONS: DHMHydrometricStation[] = [
 
 export const MOCK_HISTORICAL_GLOFS: HistoricalGLOFRecord[] = [
   {
+    id: 'glof-bhotekoshi-2026',
+    event_name: 'Bhotekoshi–Trishuli Glacial Avalanche & Outburst Surge (August 26, 2026)',
+    lake_or_glacier: 'Langtang–Tibet Border Glacial Cirque',
+    basin: 'Gandaki / Koshi',
+    river: 'Bhotekoshi & Trishuli River System',
+    country_region: 'Nepal–Tibet Border / Rasuwa, Nuwakot & Dhading',
+    event_date: '2026-08-26',
+    year: 2026,
+    coordinates: [85.340, 28.320],
+    trigger_mechanism: 'ROCK_ICE_DETACHMENT',
+    estimated_volume_m3: 25000000,
+    peak_discharge_cms: 8800,
+    downstream_impact_km: 85,
+    fatalities: 1290,
+    infrastructure_impact: 'Devastating high-velocity slurry surge washing away 2.2 million tonnes of debris, obliterating road spans along Pasang Lhamu Highway, severing Rasuwagadhi border trade point, and causing severe siltation and structural damage to Upper Trishuli-1 and Bhotekoshi hydropower installations.',
+    key_findings: 'Compound multi-hazard cascade: hanging glacial ice and rock detachment dammed an upper transboundary canyon, creating a transient barrier impoundment that burst catastrophically. Highlighted vital need for transboundary seismic tripwires and automated SCADA gate opening within 15 minutes.'
+  },
+  {
     id: 'glof-dig-tsho-1985',
     event_name: 'Dig Tsho GLOF (1985)',
     lake_or_glacier: 'Dig Tsho / Langmoche Glacier',
@@ -680,6 +698,15 @@ export const MOCK_HISTORICAL_GLOFS: HistoricalGLOFRecord[] = [
 ];
 
 export const MOCK_FLOOD_ALERTS: FloodAlert[] = [
+  {
+    id: 'a-bhotekoshi-ongoing-01',
+    lake_id: 'l-galong-co',
+    lake_name: 'Bhotekoshi & Upper Trishuli Corridor (Galong Co / Langtang)',
+    severity: 'EMERGENCY',
+    trigger_reason: 'Active debris-dam breach alert: Post-Aug 26 glacial collapse, 2.2M tonnes loose sediment, persistent upper catchment cloudbursts threatening Rasuwa & Nuwakot',
+    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+    resolved_at: null,
+  },
   {
     id: 'a1111111-1111-1111-1111-111111111111',
     lake_id: 'l1111111-1111-1111-1111-111111111111',
