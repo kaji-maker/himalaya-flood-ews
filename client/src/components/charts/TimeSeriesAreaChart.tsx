@@ -45,7 +45,7 @@ export const TimeSeriesAreaChart: React.FC<TimeSeriesAreaChartProps> = ({
 
   // Build SVG Path
   const points = data.map((d, i) => `${getX(i)},${getY(d.area_sqkm)}`).join(' ');
-  const areaPath = `${points} ${getX(data.length - 1)},${padding.top + chartHeight} ${getX(0)},${padding.top + chartHeight} Z`;
+  const areaPath = `${points} ${getX(data.length - 1)},${padding.top + chartHeight} ${getX(0)},${padding.top + chartHeight}`;
 
   const baselineY = getY(baselineArea);
 

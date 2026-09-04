@@ -12,10 +12,12 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     let query = db('flood_alerts as f')
       .join('glacial_lakes as g', 'f.lake_id', 'g.id')
+      .leftJoin('river_basins as b', 'g.basin_id', 'b.id')
       .select(
         'f.id',
         'f.lake_id',
         'g.name as lake_name',
+        db.raw("COALESCE(b.name, 'Koshi') as basin_name"),
         'f.severity',
         'f.trigger_reason',
         'f.created_at',
@@ -32,7 +34,13 @@ router.get('/', async (req: Request, res: Response) => {
     const alerts = await query.orderBy('f.created_at', 'desc');
     return res.json({ success: true, count: alerts.length, data: alerts });
   } catch (e) {
-    let filtered = [...alertsMemoryStore];
+    let filtered = alertsMemoryStore.map((a) => {
+      const lake = MOCK_GLACIAL_LAKES.find((l) => l.id === a.lake_id || l.icimod_code === a.lake_id || l.name === a.lake_id);
+      return {
+        ...a,
+        basin_name: a.basin_name || (lake ? (lake as any).basin_name : 'Koshi') || 'Koshi',
+      };
+    });
     if (severity) {
       filtered = filtered.filter((a) => a.severity === severity);
     }
@@ -79,8 +87,8 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// PATCH /api/v1/alerts/:id/resolve - Mark flood alert as resolved
-router.patch('/:id/resolve', async (req: Request, res: Response) => {
+// Resolve alert handler function
+const resolveAlertHandler = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
@@ -101,6 +109,30 @@ router.patch('/:id/resolve', async (req: Request, res: Response) => {
   }
 
   return res.status(404).json({ success: false, error: 'Alert not found' });
-});
+};
+
+// PATCH & POST /api/v1/alerts/:id/resolve - Mark flood alert as resolved
+router.patch('/:id/resolve', resolveAlertHandler);
+router.post('/:id/resolve', resolveAlertHandler);
+
+// POST & PATCH /api/v1/alerts/resolve-all - Resolve all active alerts
+const resolveAllHandler = async (req: Request, res: Response) => {
+  const now = new Date().toISOString();
+  try {
+    const updated = await db('flood_alerts')
+      .whereNull('resolved_at')
+      .update({ resolved_at: now })
+      .returning('*');
+    return res.json({ success: true, count: updated.length, data: updated });
+  } catch (e) {
+    alertsMemoryStore.forEach((a) => {
+      if (!a.resolved_at) a.resolved_at = now;
+    });
+    return res.json({ success: true, message: 'All alerts resolved' });
+  }
+};
+
+router.post('/resolve-all', resolveAllHandler);
+router.patch('/resolve-all', resolveAllHandler);
 
 export default router;

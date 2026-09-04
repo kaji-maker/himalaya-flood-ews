@@ -110,6 +110,7 @@ export interface FloodAlert {
   id: string;
   lake_id: string;
   lake_name?: string;
+  basin_name?: string;
   severity: AlertSeverityLevel;
   trigger_reason: string;
   created_at: string;

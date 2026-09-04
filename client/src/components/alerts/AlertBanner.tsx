@@ -111,7 +111,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
                       {alert.lake_name}
                     </span>
                     <span className="text-xs font-mono text-slate-400">
-                      • {alert.basin_name} River Basin
+                      • {alert.basin_name ? `${alert.basin_name} River Basin` : 'Koshi River Basin'}
                     </span>
                     <span
                       className="text-[11px] font-mono text-slate-500"
