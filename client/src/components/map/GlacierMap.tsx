@@ -7,7 +7,7 @@ import { HISTORICAL_GLOFS } from '@/data/historicalGlofs';
 import { LayerControl } from './LayerControl';
 import { FloodWaveSimulator } from './FloodWaveSimulator';
 import { RiskBadge } from '../alerts/RiskBadge';
-import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell, Globe, ShieldCheck, Zap, History } from 'lucide-react';
+import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell, Globe, ShieldCheck, Zap, History, Layers } from 'lucide-react';
 
 
 interface GlacierMapProps {
@@ -326,6 +326,7 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
   const [selectedHaven, setSelectedHaven] = useState<VerticalSafeHaven | null>(null);
   const [selectedQuake, setSelectedQuake] = useState<any | null>(null);
   const [selectedGlof, setSelectedGlof] = useState<HistoricalGLOFRecord | null>(null);
+  const [showLegend, setShowLegend] = useState(false);
 
   // Simulation State
   const [showSimulator, setShowSimulator] = useState(true);
@@ -1325,6 +1326,61 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
           setSpeed={setSpeed}
         />
       )}
+
+      {/* Collapsible Floating Map Legend */}
+      <div className="absolute bottom-4 left-4 z-20 font-mono">
+        {showLegend ? (
+          <div className="bg-slate-950/95 border border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur-md w-72 text-xs text-slate-300 space-y-2.5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-bold text-white flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                <Layers className="w-3.5 h-3.5 text-blue-400" />
+                Map Telemetry Legend
+              </span>
+              <button
+                onClick={() => setShowLegend(false)}
+                className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-1.5 text-[11px]">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-rose-500 border border-rose-400 shrink-0" />
+                <span>Critical / High-Risk Glacial Lake</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-md bg-amber-500/30 border border-amber-400 text-amber-300 flex items-center justify-center text-[9px] font-bold shrink-0">⚡</span>
+                <span>Hydropower Cascade (IEC 104 SCADA)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-md bg-sky-500/30 border border-sky-400 text-sky-300 flex items-center justify-center text-[9px] font-bold shrink-0">📡</span>
+                <span>DHM Real-Time Radar Gauge</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-md bg-emerald-500/30 border border-emerald-400 text-emerald-300 flex items-center justify-center text-[9px] font-bold shrink-0">🛡️</span>
+                <span>Vertical Safe Haven (+35m / +50m)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-md bg-orange-500/30 border border-orange-400 text-orange-300 flex items-center justify-center text-[9px] font-bold shrink-0">📜</span>
+                <span>Historical GLOF Breach Site</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full border border-dashed border-rose-500 bg-rose-500/20 shrink-0" />
+                <span>USGS Seismic Ground Motion Contour</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowLegend(true)}
+            className="px-3 py-1.5 rounded-xl bg-slate-950/90 hover:bg-slate-900 border border-slate-700/80 text-xs font-mono text-slate-300 hover:text-white shadow-xl flex items-center gap-1.5 transition-all"
+          >
+            <Layers className="w-3.5 h-3.5 text-blue-400" />
+            <span>Map Legend</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 };

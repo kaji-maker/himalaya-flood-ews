@@ -25,6 +25,8 @@ import {
   Satellite,
   Zap,
   History,
+  LayoutGrid,
+  Activity,
 } from 'lucide-react';
 
 
@@ -439,6 +441,7 @@ export default function DashboardPage() {
     code: 'PDGL_NEP_KOSHI_001',
   });
   const [isCueSlewModalOpen, setIsCueSlewModalOpen] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'ALL' | 'MAP' | 'HYDRO' | 'HISTORIC' | 'ENVIRONMENTAL' | 'DIRECTORY'>('ALL');
 
   // Fetch live lakes and alerts from PostGIS API
   useEffect(() => {
@@ -586,201 +589,262 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 3. 3D Terrain Map Centered on Nepal */}
-      <div className="space-y-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              Himalayan Glacial Lake 3D Monitoring Grid
-            </h2>
-            <p className="text-xs text-slate-400">
-              Centered on Nepal (28.3949° N, 84.1240° E) • Click any lake pin to inspect detailed telemetry.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* 20-Year Retrospective Launch Button */}
-            <button
-              onClick={() => {
-                if (selectedLake) {
-                  setComparisonLakeTarget({ id: selectedLake.id, name: selectedLake.name, code: selectedLake.icimod_code });
-                }
-                setIsComparisonModalOpen(true);
-              }}
-              className="px-3 py-1.5 rounded-xl bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-950/40 transition-all hover:border-cyan-400"
-              title="Open Pan-Himalayan 20-Year Multi-Lake Satellite Comparison (2004-2026)"
-            >
-              <Clock className="w-3.5 h-3.5 text-cyan-400" />
-              <span>20-Yr Satellite Comparison</span>
-            </button>
-
-            {/* Autonomous Satellite Tasking & InSAR Button */}
-            <button
-              onClick={() => setIsCueSlewModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-950/40 transition-all hover:border-indigo-400"
-              title="Autonomous High-Resolution Satellite Tasking (SkySat 0.5m) & InSAR Moraine Console"
-            >
-              <Satellite className="w-3.5 h-3.5 text-indigo-400" />
-              <span>SkySat Tasking & InSAR</span>
-            </button>
-
-            {/* Basin Filter Buttons */}
-            <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 p-1 rounded-xl">
-              {['ALL', 'KOSHI', 'GANDAKI', 'KARNALI', 'MAHAKALI'].map((b) => (
-                <button
-                  key={b}
-                  onClick={() => setBasinFilter(b)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
-                    basinFilter === b
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {b}
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* Executive Operations Navigation Bar */}
+      <div className="sticky top-16 z-30 backdrop-blur-md bg-slate-900/90 border border-slate-800/90 rounded-2xl p-1.5 shadow-2xl flex items-center justify-between gap-2 overflow-x-auto">
+        <div className="flex items-center gap-1.5 min-w-max">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold px-2.5 hidden sm:inline-block">
+            Console View:
+          </span>
+          {[
+            { id: 'ALL', label: 'All Modules', icon: LayoutGrid, count: null },
+            { id: 'MAP', label: '3D Glacier Grid', icon: Mountain, count: filteredLakes.length },
+            { id: 'ENVIRONMENTAL', label: 'Cryosphere Triggers', icon: CloudRain, count: null },
+            { id: 'HYDRO', label: 'Cascade Defense', icon: Zap, count: '6 Dams' },
+            { id: 'HISTORIC', label: 'Breach Archive', icon: History, count: '11 GLOFs' },
+            { id: 'DIRECTORY', label: 'Catchments Directory', icon: Layers, count: filteredLakes.length },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = viewMode === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setViewMode(tab.id as any)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono font-medium transition-all ${
+                  isActive
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/40 border border-blue-400/40 font-semibold'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/70 border border-transparent'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <span>{tab.label}</span>
+                {tab.count !== null && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        <GlacierMap
-          lakes={filteredLakes}
-          selectedLake={selectedLake}
-          onSelectLake={handleSelectLake}
-        />
+        <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-400 px-3 py-1 bg-slate-950/60 rounded-xl border border-slate-800/80">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[11px] text-slate-300 font-medium">Ops Active:</span>
+          <span className="text-cyan-400 font-bold">{filteredLakes.length} High-Risk Basins</span>
+        </div>
       </div>
 
-      {/* 4. Live Environmental Ingest & Seismic Trigger Hub */}
-      <EnvironmentalTriggerHub
-        onAlertCreated={(newAlert) =>
-          setAlerts((prev) => [newAlert, ...prev.filter((a) => a.id !== newAlert.id)])
-        }
-        onSelectLakeById={handleSelectLakeById}
-      />
-
-      {/* 5. Hydropower Cascade Defense & SCADA Interlock Registry */}
-      <HydropowerCascadePanel />
-
-      {/* 6. Historical GLOF Breach Archive & Forensic Hindcast Benchmark */}
-      <div className="bg-himalaya-card border border-himalaya-border rounded-2xl p-5 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-himalaya-border gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-orange-950/70 border border-orange-500/40 text-orange-400">
-              <History className="w-5 h-5" />
-            </div>
+      {/* 3. 3D Terrain Map Centered on Nepal */}
+      {(viewMode === 'ALL' || viewMode === 'MAP') && (
+        <div className="space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h3 className="text-base font-bold text-white tracking-wide">
-                Historical GLOF & Flash Flood Breach Archive
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Empirical Hindcast Catalog of 10 Landmark Himalayan Cryospheric Catastrophes (1981 – 2024)
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                Himalayan Glacial Lake 3D Monitoring Grid
+              </h2>
+              <p className="text-xs text-slate-400">
+                Centered on Nepal (28.3949° N, 84.1240° E) • Click any lake pin to inspect detailed telemetry.
               </p>
             </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* 20-Year Retrospective Launch Button */}
+              <button
+                onClick={() => {
+                  if (selectedLake) {
+                    setComparisonLakeTarget({ id: selectedLake.id, name: selectedLake.name, code: selectedLake.icimod_code });
+                  }
+                  setIsComparisonModalOpen(true);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-950/40 transition-all hover:border-cyan-400"
+                title="Open Pan-Himalayan 20-Year Multi-Lake Satellite Comparison (2004-2026)"
+              >
+                <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                <span>20-Yr Satellite Comparison</span>
+              </button>
+
+              {/* Autonomous Satellite Tasking & InSAR Button */}
+              <button
+                onClick={() => setIsCueSlewModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 text-xs font-mono font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-950/40 transition-all hover:border-indigo-400"
+                title="Autonomous High-Resolution Satellite Tasking (SkySat 0.5m) & InSAR Moraine Console"
+              >
+                <Satellite className="w-3.5 h-3.5 text-indigo-400" />
+                <span>SkySat Tasking & InSAR</span>
+              </button>
+
+              {/* Basin Filter Buttons */}
+              <div className="flex items-center gap-1.5 bg-slate-900/80 border border-slate-800 p-1 rounded-xl">
+                {['ALL', 'KOSHI', 'GANDAKI', 'KARNALI', 'MAHAKALI'].map((b) => (
+                  <button
+                    key={b}
+                    onClick={() => setBasinFilter(b)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
+                      basinFilter === b
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    {b}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <span className="text-xs font-mono text-slate-400 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-slate-800 self-start sm:self-auto">
-            Validated by ICIMOD & Nepal DHM
-          </span>
+
+          <GlacierMap
+            lakes={filteredLakes}
+            selectedLake={selectedLake}
+            onSelectLake={handleSelectLake}
+          />
         </div>
-        <HistoricalGlofPanel
-          onFocusLocation={(coords) => {
-            window.scrollTo({ top: 380, behavior: 'smooth' });
-          }}
+      )}
+
+      {/* 4. Live Environmental Ingest & Seismic Trigger Hub */}
+      {(viewMode === 'ALL' || viewMode === 'ENVIRONMENTAL') && (
+        <EnvironmentalTriggerHub
+          onAlertCreated={(newAlert) =>
+            setAlerts((prev) => [newAlert, ...prev.filter((a) => a.id !== newAlert.id)])
+          }
+          onSelectLakeById={handleSelectLakeById}
         />
-      </div>
+      )}
+
+      {/* 5. Hydropower Cascade Defense & SCADA Interlock Registry */}
+      {(viewMode === 'ALL' || viewMode === 'HYDRO') && (
+        <HydropowerCascadePanel />
+      )}
+
+      {/* 6. Historical GLOF Breach Archive & Forensic Hindcast Benchmark */}
+      {(viewMode === 'ALL' || viewMode === 'HISTORIC') && (
+        <div className="bg-himalaya-card border border-himalaya-border rounded-2xl p-5 shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-himalaya-border gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-orange-950/70 border border-orange-500/40 text-orange-400">
+                <History className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white tracking-wide">
+                  Historical GLOF & Flash Flood Breach Archive
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Empirical Hindcast Catalog of 11 Landmark Himalayan Cryospheric Catastrophes (1981 – 2026)
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-mono text-slate-400 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-slate-800 self-start sm:self-auto">
+              Validated by ICIMOD & Nepal DHM
+            </span>
+          </div>
+          <HistoricalGlofPanel
+            onFocusLocation={(coords) => {
+              window.scrollTo({ top: 380, behavior: 'smooth' });
+            }}
+          />
+        </div>
+      )}
 
       {/* 7. Monitored Glacial Lakes Directory & Status Table */}
-      <div className="bg-himalaya-card border border-himalaya-border rounded-2xl p-5 shadow-xl">
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-himalaya-border">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-sky-400" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-              Glacial Lake Catchments Directory ({filteredLakes.length} Monitored)
-            </h3>
+      {(viewMode === 'ALL' || viewMode === 'DIRECTORY') && (
+        <div className="bg-himalaya-card border border-himalaya-border rounded-2xl p-5 shadow-xl">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-himalaya-border">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-sky-400" />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Glacial Lake Catchments Directory ({filteredLakes.length} Monitored)
+              </h3>
+            </div>
+            <span className="text-xs font-mono text-slate-400">
+              CRS: EPSG:4326 (WGS84) / Metric Area: EPSG:32645
+            </span>
           </div>
-          <span className="text-xs font-mono text-slate-400">
-            CRS: EPSG:4326 (WGS84) / Metric Area: EPSG:32645
-          </span>
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400">
-                <th className="pb-2.5">Glacial Lake</th>
-                <th className="pb-2.5">ICIMOD Code</th>
-                <th className="pb-2.5">River Basin</th>
-                <th className="pb-2.5">Elevation</th>
-                <th className="pb-2.5">Current Area</th>
-                <th className="pb-2.5">Risk Rating</th>
-                <th className="pb-2.5 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {filteredLakes.map((lake) => {
-                const isCritical = ['CRITICAL', 'EMERGENCY'].includes(lake.danger_level.toUpperCase());
-                const isWatch = ['HIGH', 'MEDIUM', 'WATCH'].includes(lake.danger_level.toUpperCase());
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs font-mono">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400">
+                  <th className="pb-2.5">Glacial Lake</th>
+                  <th className="pb-2.5">ICIMOD Code</th>
+                  <th className="pb-2.5">River Basin</th>
+                  <th className="pb-2.5">Elevation</th>
+                  <th className="pb-2.5">Current Area</th>
+                  <th className="pb-2.5">Risk Rating</th>
+                  <th className="pb-2.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80">
+                {filteredLakes.map((lake) => {
+                  const isCritical = ['CRITICAL', 'EMERGENCY'].includes(lake.danger_level.toUpperCase());
+                  const isWatch = ['HIGH', 'MEDIUM', 'WATCH'].includes(lake.danger_level.toUpperCase());
 
-                return (
-                  <tr
-                    key={lake.id}
-                    className="hover:bg-slate-800/40 cursor-pointer transition-colors"
-                    onClick={() => handleSelectLake(lake)}
-                  >
-                    <td className="py-3 font-bold text-white flex items-center gap-2">
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          isCritical
-                            ? 'bg-rose-500 animate-pulse'
-                            : isWatch
-                            ? 'bg-amber-500'
-                            : 'bg-emerald-500'
-                        }`}
-                      />
-                      {lake.name}
-                    </td>
-                    <td className="py-3 text-slate-400">{lake.icimod_code}</td>
-                    <td className="py-3 text-slate-300">
-                      {lake.basin_name} ({lake.sub_basin || 'Main'})
-                    </td>
-                    <td className="py-3 text-slate-300">{lake.elevation_m} m</td>
-                    <td className="py-3 text-sky-400 font-bold">
-                      {(lake.current_area_sqm / 1e6).toFixed(3)} km²
-                    </td>
-                    <td className="py-3">
-                      <RiskBadge level={lake.danger_level} size="sm" />
-                    </td>
-                    <td className="py-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setComparisonLakeTarget({ id: lake.id, name: lake.name, code: lake.icimod_code });
-                            setIsComparisonModalOpen(true);
-                          }}
-                          className="px-2 py-1 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 rounded border border-cyan-500/40 text-[11px] font-mono transition-colors flex items-center gap-1"
-                          title="20-Year Satellite Comparison (2004-2026)"
-                        >
-                          <Clock className="w-3 h-3 text-cyan-400" />
-                          <span>20-Yr Timelapse</span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectLake(lake);
-                          }}
-                          className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-sky-400 hover:text-white rounded border border-blue-500/40 text-[11px] font-mono transition-colors"
-                        >
-                          Drawer →
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                  return (
+                    <tr
+                      key={lake.id}
+                      className="hover:bg-slate-800/40 cursor-pointer transition-colors"
+                      onClick={() => handleSelectLake(lake)}
+                    >
+                      <td className="py-3 font-bold text-white flex items-center gap-2">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            isCritical
+                              ? 'bg-rose-500 animate-pulse'
+                              : isWatch
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
+                          }`}
+                        />
+                        {lake.name}
+                      </td>
+                      <td className="py-3 text-slate-400">{lake.icimod_code}</td>
+                      <td className="py-3 text-slate-300">
+                        {lake.basin_name} ({lake.sub_basin || 'Main'})
+                      </td>
+                      <td className="py-3 text-slate-300">{lake.elevation_m} m</td>
+                      <td className="py-3 text-sky-400 font-bold">
+                        {(lake.current_area_sqm / 1e6).toFixed(3)} km²
+                      </td>
+                      <td className="py-3">
+                        <RiskBadge level={lake.danger_level} size="sm" />
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setComparisonLakeTarget({ id: lake.id, name: lake.name, code: lake.icimod_code });
+                              setIsComparisonModalOpen(true);
+                            }}
+                            className="px-2 py-1 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 rounded border border-cyan-500/40 text-[11px] font-mono transition-colors flex items-center gap-1"
+                            title="20-Year Satellite Comparison (2004-2026)"
+                          >
+                            <Clock className="w-3 h-3 text-cyan-400" />
+                            <span>20-Yr Timelapse</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectLake(lake);
+                            }}
+                            className="px-2.5 py-1 bg-blue-600/20 hover:bg-blue-600/30 text-sky-400 hover:text-white rounded border border-blue-500/40 text-[11px] font-mono transition-colors"
+                          >
+                            Drawer →
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 5. Interactive Side Drawer */}
       <LakeDetailDrawer

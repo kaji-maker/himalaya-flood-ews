@@ -21,7 +21,7 @@ export const LayerControl: React.FC<LayerControlProps> = ({ layers, onToggleLaye
       key: 'historicalGlofs',
       label: 'Historical GLOF Breaches',
       icon: <History className="w-4 h-4 text-orange-400" />,
-      desc: '10 Landmark Himalayan Disasters (1981-2024)',
+      desc: '11 Landmark Himalayan Disasters (1981-2026)',
     },
     {
       key: 'dhmStations',

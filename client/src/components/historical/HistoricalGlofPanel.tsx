@@ -89,7 +89,7 @@ export const HistoricalGlofPanel: React.FC<HistoricalGlofPanelProps> = ({ onFocu
             <span>Documented Disasters</span>
           </div>
           <div className="text-xl font-bold text-white font-mono">{HISTORICAL_GLOFS.length} Events</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">1981 – 2024 Cryospheric Record</div>
+          <div className="text-[10px] text-slate-500 mt-0.5">1981 – 2026 Cryospheric Record</div>
         </div>
 
         <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 backdrop-blur">

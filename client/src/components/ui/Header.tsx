@@ -67,42 +67,54 @@ export const Header: React.FC = () => {
           </Link>
 
           {/* Navigation Basins */}
-          <nav className="hidden md:flex items-center space-x-1">
+          <nav className="hidden lg:flex items-center space-x-1">
             <Link
               href="/"
-              className="px-3 py-1.5 text-sm font-medium rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
             >
               Pan-Himalaya Overview
             </Link>
             <Link
               href="/basin/koshi"
-              className="px-3 py-1.5 text-sm font-medium rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              className="px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
             >
               Koshi Basin
             </Link>
             <Link
               href="/basin/gandaki"
-              className="px-3 py-1.5 text-sm font-medium rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              className="px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
             >
               Gandaki Basin
             </Link>
             <Link
               href="/basin/karnali"
-              className="px-3 py-1.5 text-sm font-medium rounded-md text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              className="px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
             >
               Karnali Basin
             </Link>
+            <Link
+              href="/basin/mahakali"
+              className="px-2.5 py-1.5 text-xs font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              Mahakali Basin
+            </Link>
           </nav>
 
-          {/* Live Pipeline Telemetry & Health Indicator */}
+          {/* Live Pipeline Telemetry, Clock & Health Indicator */}
           <div className="flex items-center space-x-3">
+            {/* Live Clock */}
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 font-mono text-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span>NPT (UTC+5:45)</span>
+            </div>
+
             <div
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono border ${
                 healthStatus === 'healthy'
-                  ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-400'
+                  ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-400 shadow-sm shadow-emerald-500/10'
                   : healthStatus === 'degraded'
-                  ? 'bg-amber-950/40 border-amber-500/30 text-amber-400'
-                  : 'bg-rose-950/40 border-rose-500/30 text-rose-400'
+                  ? 'bg-amber-950/50 border-amber-500/40 text-amber-400'
+                  : 'bg-rose-950/50 border-rose-500/40 text-rose-400'
               }`}
             >
               <span className="relative flex h-2 w-2">
@@ -119,9 +131,9 @@ export const Header: React.FC = () => {
                   }`}
                 ></span>
               </span>
-              <span>{healthStatus === 'healthy' ? 'Pipeline Active' : healthStatus.toUpperCase()}</span>
+              <span className="font-semibold">{healthStatus === 'healthy' ? 'Pipeline Active' : healthStatus.toUpperCase()}</span>
               {latencyMs !== null && (
-                <span className="text-[10px] text-slate-400 border-l border-slate-700 pl-1.5">
+                <span className="text-[10px] text-slate-400 border-l border-slate-700/80 pl-1.5 font-bold">
                   {latencyMs}ms
                 </span>
               )}
