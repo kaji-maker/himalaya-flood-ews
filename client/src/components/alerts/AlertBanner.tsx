@@ -8,7 +8,7 @@ import { AlertTriangle, ShieldAlert, CheckCircle, ChevronRight, BellRing } from 
 interface AlertBannerProps {
   alerts: FloodAlert[];
   onAcknowledge: (alertId: string) => void;
-  onSelectLakeById?: (lakeId: string) => void;
+  onSelectLakeById?: (lakeId: string, alert?: FloodAlert) => void;
 }
 
 export const AlertBanner: React.FC<AlertBannerProps> = ({
@@ -146,7 +146,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
               <div className="flex items-center gap-2 self-end md:self-center shrink-0">
                 {onSelectLakeById && (
                   <button
-                    onClick={() => onSelectLakeById(alert.lake_id)}
+                    onClick={() => onSelectLakeById(alert.lake_id, alert)}
                     className="px-3 py-1.5 bg-slate-900/80 hover:bg-slate-800 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition-colors flex items-center gap-1 font-mono"
                   >
                     Inspect Lake <ChevronRight className="w-3.5 h-3.5" />

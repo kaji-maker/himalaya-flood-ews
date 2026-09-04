@@ -21,7 +21,7 @@ import { SeismicEvent, LiveGpmPrecipitationTelemetry, FloodAlert } from '@/types
 
 interface EnvironmentalTriggerHubProps {
   onAlertCreated?: (alert: FloodAlert) => void;
-  onSelectLakeById?: (lakeId: string) => void;
+  onSelectLakeById?: (lakeId: string, lakeName?: string) => void;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
@@ -315,7 +315,7 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
                       >
                         <div>
                           <span
-                            onClick={() => onSelectLakeById && onSelectLakeById(l.lake_id)}
+                            onClick={() => onSelectLakeById && onSelectLakeById(l.lake_id, l.lake_name)}
                             className="font-bold text-white hover:text-sky-300 cursor-pointer flex items-center gap-1"
                           >
                             {l.lake_name.split('(')[0]}

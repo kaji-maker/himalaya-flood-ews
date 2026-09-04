@@ -460,6 +460,7 @@ export default function DashboardPage() {
                 const match = prev.find((p) => p.icimod_code === l.icimod_code || p.name === l.name);
                 return {
                   id: l.id || match?.id || `lake-${idx}`,
+                  alias_id: match?.id,
                   icimod_code: l.icimod_code || match?.icimod_code || `PDGL-${idx}`,
                   name: l.name || match?.name,
                   basin_name: l.basin_name || match?.basin_name || 'Koshi',
@@ -511,16 +512,134 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSelectLakeById = (lakeId: string) => {
-    const found = lakes.find(
+  const handleSelectLakeById = (lakeId: string, alertOrName?: string | FloodAlert) => {
+    let targetName = '';
+    if (typeof alertOrName === 'string') {
+      targetName = alertOrName;
+    } else if (alertOrName && typeof alertOrName === 'object') {
+      targetName = alertOrName.lake_name || '';
+    }
+
+    const idLower = (lakeId || '').toLowerCase();
+    const nameLower = targetName.toLowerCase();
+
+    // 1. Direct ID, Alias ID, or ICIMOD Code match
+    let found = lakes.find(
       (l) =>
         l.id === lakeId ||
         l.icimod_code === lakeId ||
-        l.name.toLowerCase() === lakeId.toLowerCase() ||
-        lakeId.toLowerCase().includes(l.name.toLowerCase())
-    ) || lakes[0];
+        (l as any).alias_id === lakeId ||
+        l.id.toLowerCase() === idLower ||
+        l.icimod_code.toLowerCase() === idLower ||
+        ((l as any).alias_id && ((l as any).alias_id.toLowerCase() === idLower))
+    );
+
+    // 2. Alert-specific and river corridor alias resolution
+    if (!found) {
+      if (
+        idLower.includes('galong') ||
+        idLower.includes('bhotekoshi') ||
+        nameLower.includes('galong') ||
+        nameLower.includes('bhotekoshi') ||
+        nameLower.includes('trishuli')
+      ) {
+        found = lakes.find(
+          (l) =>
+            l.icimod_code === 'PDGL_NEP_KOSHI_007' ||
+            (l as any).alias_id === 'l-galong-co' ||
+            l.name.toLowerCase().includes('galong') ||
+            l.name.toLowerCase().includes('cirenmaco')
+        );
+      } else if (
+        idLower.includes('tsho-rolpa') ||
+        idLower === 'l1111111-1111-1111-1111-111111111111' ||
+        nameLower.includes('tsho rolpa') ||
+        nameLower.includes('rolwaling')
+      ) {
+        found = lakes.find(
+          (l) =>
+            l.icimod_code === 'PDGL_NEP_KOSHI_001' ||
+            (l as any).alias_id === 'l-tsho-rolpa' ||
+            l.name.toLowerCase().includes('tsho rolpa')
+        );
+      } else if (idLower.includes('imja') || nameLower.includes('imja')) {
+        found = lakes.find(
+          (l) =>
+            l.icimod_code === 'PDGL_NEP_KOSHI_002' ||
+            (l as any).alias_id === 'l-imja-tsho' ||
+            l.name.toLowerCase().includes('imja')
+        );
+      } else if (idLower.includes('barun') || nameLower.includes('barun')) {
+        found = lakes.find(
+          (l) =>
+            l.icimod_code === 'PDGL_NEP_KOSHI_003' ||
+            (l as any).alias_id === 'l-lower-barun' ||
+            l.name.toLowerCase().includes('barun')
+        );
+      } else if (idLower.includes('lumding') || nameLower.includes('lumding')) {
+        found = lakes.find(
+          (l) =>
+            l.icimod_code === 'PDGL_NEP_KOSHI_004' ||
+            (l as any).alias_id === 'l-lumding' ||
+            l.name.toLowerCase().includes('lumding')
+        );
+      } else if (idLower.includes('chamlang') || nameLower.includes('chamlang')) {
+        found = lakes.find(
+          (l) =>
+            l.icimod_code === 'PDGL_NEP_KOSHI_005' ||
+            (l as any).alias_id === 'l-chamlang' ||
+            l.name.toLowerCase().includes('chamlang')
+        );
+      } else if (idLower.includes('thulagi') || nameLower.includes('thulagi')) {
+        found = lakes.find(
+          (l) =>
+            l.icimod_code === 'PDGL_NEP_GANDAKI_001' ||
+            (l as any).alias_id === 'l-thulagi' ||
+            l.name.toLowerCase().includes('thulagi')
+        );
+      } else if (idLower.includes('birendra') || nameLower.includes('birendra')) {
+        found = lakes.find(
+          (l) =>
+            l.icimod_code === 'PDGL_NEP_GANDAKI_002' ||
+            (l as any).alias_id === 'l-birendra' ||
+            l.name.toLowerCase().includes('birendra')
+        );
+      } else if (idLower.includes('lhonak') || nameLower.includes('lhonak')) {
+        found = lakes.find(
+          (l) =>
+            l.icimod_code === 'PDGL_IND_SIKKIM_001' ||
+            l.name.toLowerCase().includes('lhonak')
+        );
+      }
+    }
+
+    // 3. Name or substring match
+    if (!found && targetName) {
+      found = lakes.find((l) => {
+        const ln = l.name.toLowerCase();
+        return nameLower.includes(ln) || ln.includes(nameLower);
+      });
+    }
+
+    // 4. Token search
+    if (!found && targetName) {
+      const tokens = targetName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length >= 4);
+
+      for (const token of tokens) {
+        found = lakes.find((l) => l.name.toLowerCase().includes(token) || l.icimod_code.toLowerCase().includes(token));
+        if (found) break;
+      }
+    }
+
     if (found) {
       handleSelectLake(found);
+    } else {
+      console.warn(`[EWS] Unresolved lake inspect request for ID: ${lakeId}, name: ${targetName}`);
+      handleSelectLake(lakes[0]);
     }
   };
 
