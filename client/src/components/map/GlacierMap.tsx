@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { GlacialLake, MapLayerState, DownstreamImpact } from '@/types';
+import { GlacialLake, MapLayerState, DownstreamImpact, VerticalSafeHaven } from '@/types';
+import { VERTICAL_SAFE_HAVENS } from '@/data/safeHavens';
 import { LayerControl } from './LayerControl';
 import { FloodWaveSimulator } from './FloodWaveSimulator';
 import { RiskBadge } from '../alerts/RiskBadge';
-import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell, Globe } from 'lucide-react';
+import { Mountain, Compass, Waves, AlertOctagon, ShieldAlert, Clock, TrendingUp, Play, Flame, Activity, Cpu, Target, Radio, Bell, Globe, ShieldCheck } from 'lucide-react';
 
 interface GlacierMapProps {
   lakes: GlacialLake[];
@@ -110,6 +111,8 @@ const COMMUNITY_SIREN_TOWERS = [
     frequency_mhz: 154.650,
   },
 ];
+
+
 
 // Pre-computed GLOF Breach & River Gorge Swath Corridors for high-risk lakes
 const GLOF_INUNDATION_CORRIDORS: Record<
@@ -246,10 +249,13 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
     cueSlewFootprint: true,
     edgeSensors: true,
     communitySirens: true,
+    verticalSafeHavens: true,
   });
 
   const [hoveredLake, setHoveredLake] = useState<GlacialLake | null>(null);
   const [hoveredSettlement, setHoveredSettlement] = useState<DownstreamImpact | null>(null);
+  const [hoveredHaven, setHoveredHaven] = useState<VerticalSafeHaven | null>(null);
+  const [selectedHaven, setSelectedHaven] = useState<VerticalSafeHaven | null>(null);
 
   // Simulation State
   const [showSimulator, setShowSimulator] = useState(true);
@@ -527,6 +533,37 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
               />
             </g>
           )}
+
+          {/* 3. VERTICAL SAFE HAVEN FOOT-SCRAMBLE ESCAPE TRAILS */}
+          {layers.verticalSafeHavens && VERTICAL_SAFE_HAVENS.map((haven, hIdx) => {
+            const trailPath = haven.escape_trail.map(([lon, lat], i) => {
+              const pt = getCanvasCoords(lon, lat);
+              return `${i === 0 ? 'M' : 'L'} ${pt.numX * 10},${pt.numY * 6}`;
+            }).join(' ');
+
+            return (
+              <g key={`haven-trail-${hIdx}`}>
+                {/* Glow buffer */}
+                <path
+                  d={trailPath}
+                  fill="none"
+                  stroke="#10B981"
+                  strokeWidth="6"
+                  strokeOpacity="0.25"
+                  strokeLinecap="round"
+                />
+                {/* Dashed green evacuation trail */}
+                <path
+                  d={trailPath}
+                  fill="none"
+                  stroke="#34D399"
+                  strokeWidth="2.5"
+                  strokeDasharray="4 4"
+                  strokeLinecap="round"
+                />
+              </g>
+            );
+          })}
         </svg>
       )}
 
@@ -767,6 +804,49 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
         );
       })}
 
+      {/* Pre-surveyed Geological Vertical Safe Haven Waypoint Pins */}
+      {layers.verticalSafeHavens &&
+        VERTICAL_SAFE_HAVENS.map((haven) => {
+          const coords = getCanvasCoords(haven.haven_coordinates[0], haven.haven_coordinates[1]);
+          const timeToFlood = haven.flood_arrival_minutes - simTimeMinutes;
+          const isFlooded = timeToFlood <= 0;
+          const isUrgent = !isFlooded && timeToFlood <= haven.ascent_time_minutes;
+
+          return (
+            <div
+              key={haven.id}
+              className="absolute z-16 cursor-pointer transform -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: coords.x, top: coords.y }}
+              onMouseEnter={() => setHoveredHaven(haven)}
+              onMouseLeave={() => setHoveredHaven(null)}
+              onClick={() => setSelectedHaven(selectedHaven?.id === haven.id ? null : haven)}
+            >
+              {/* Pulsing Safety Contour Ring */}
+              <div className="absolute -inset-2.5 rounded-full bg-emerald-500/25 animate-pulse pointer-events-none" />
+
+              {/* Shield Pin */}
+              <div className="relative flex items-center justify-center w-7 h-7 rounded-xl bg-emerald-950 border-2 border-emerald-400 shadow-xl text-emerald-300 group-hover:scale-110 group-hover:bg-emerald-900 transition-all">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              </div>
+
+              {/* Compact Haven Elevation Pill */}
+              <div className="absolute left-8 top-1/2 -translate-y-1/2 bg-slate-950/90 border border-emerald-500/60 px-2 py-0.5 rounded text-[10px] font-mono text-emerald-200 shadow-xl whitespace-nowrap flex items-center gap-1 group-hover:scale-105 transition-all">
+                <span className="font-bold">+{haven.vertical_gain_m}m</span>
+                <span className="text-slate-400 text-[9px]">({haven.ascent_time_minutes}m scramble)</span>
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isFlooded
+                      ? 'bg-rose-400'
+                      : isUrgent
+                      ? 'bg-amber-400 animate-ping'
+                      : 'bg-emerald-400'
+                  }`}
+                />
+              </div>
+            </div>
+          );
+        })}
+
       {/* Hover Settlement Inspection Card */}
       {hoveredSettlement && (
         <div className="absolute top-4 left-4 z-30 bg-slate-900/95 border border-rose-500/50 rounded-xl p-3.5 shadow-2xl backdrop-blur-md max-w-xs font-mono text-xs text-slate-200">
@@ -800,6 +880,103 @@ export const GlacierMap: React.FC<GlacierMapProps> = ({
               </span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Hovered/Selected Safe Haven Inspection Card */}
+      {(hoveredHaven || selectedHaven) && (
+        <div className="absolute top-4 left-4 z-30 bg-slate-900/95 border border-emerald-500/50 rounded-xl p-3.5 shadow-2xl backdrop-blur-md max-w-sm font-mono text-xs text-slate-200">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 animate-pulse" />
+              <span>Vertical Safe Haven Waypoint</span>
+            </div>
+            {selectedHaven && (
+              <button
+                onClick={() => setSelectedHaven(null)}
+                className="text-slate-400 hover:text-white p-0.5"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {(() => {
+            const haven = hoveredHaven || selectedHaven!;
+            const timeToFlood = haven.flood_arrival_minutes - simTimeMinutes;
+            const isFlooded = timeToFlood <= 0;
+            const isUrgent = !isFlooded && timeToFlood <= haven.ascent_time_minutes;
+
+            return (
+              <div className="space-y-1.5">
+                <div className="text-white font-bold text-sm">
+                  {haven.haven_name}
+                </div>
+                <div className="text-[11px] text-emerald-300 font-semibold">
+                  📍 {haven.settlement_name} • {haven.valley}
+                </div>
+
+                <div className="p-2 bg-slate-950/80 rounded-lg border border-slate-800 space-y-1 text-[11px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Haven Elevation:</span>
+                    <span className="font-bold text-white">{haven.haven_elevation_m} m a.s.l.</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Vertical Height Gain:</span>
+                    <span className="font-bold text-emerald-400">+{haven.vertical_gain_m} m above riverbed</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Ascent Scramble:</span>
+                    <span className="font-bold text-cyan-300">{haven.ascent_distance_m} m ({haven.ascent_time_minutes} min scramble)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Shelter Capacity:</span>
+                    <span className="font-bold text-amber-300">{haven.capacity_persons} persons</span>
+                  </div>
+                </div>
+
+                {/* Real-time Dynamic Evacuation Clearance Status */}
+                <div className="p-2 bg-emerald-950/40 rounded-lg border border-emerald-500/30">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Flood Wave Status:</span>
+                    <span className={`font-bold ${isFlooded ? 'text-rose-400' : isUrgent ? 'text-amber-400 animate-pulse' : 'text-emerald-400'}`}>
+                      {isFlooded
+                        ? 'VALLEY INUNDATED (Haven Safe)'
+                        : isUrgent
+                        ? `URGENT: ARRIVES IN ${timeToFlood.toFixed(1)} MIN`
+                        : `Arrives in ${timeToFlood.toFixed(1)} min`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] pt-1">
+                    <span className="text-slate-400">Clearance Margin:</span>
+                    <span className="font-bold text-white font-mono">
+                      {isFlooded
+                        ? 'Haven Secured'
+                        : `+${Math.max(0, timeToFlood - haven.ascent_time_minutes).toFixed(1)} min lead buffer`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Safety Features */}
+                <div className="pt-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block mb-1">Haven Emergency Equipment:</span>
+                  <div className="space-y-0.5">
+                    {haven.safety_features.map((feat, idx) => (
+                      <div key={idx} className="text-[10px] text-slate-300 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>{feat}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-1.5 border-t border-slate-800 text-[10px] text-slate-400 flex justify-between items-center">
+                  <span>CDMC Warden: <strong className="text-slate-300">{haven.focal_person}</strong></span>
+                  <span className="text-cyan-400">{haven.emergency_contact}</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

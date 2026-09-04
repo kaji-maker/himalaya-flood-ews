@@ -49,6 +49,20 @@ router.get('/communities', (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/v1/dispatch/safe-havens
+ * List pre-surveyed vertical safe havens (+25m to +45m) and geological foot-scramble escape routes.
+ */
+router.get('/safe-havens', (req: Request, res: Response) => {
+  const { basin } = req.query;
+  const havens = CommunityEWSService.getSafeHavens(basin as string);
+  return res.json({
+    success: true,
+    count: havens.length,
+    data: havens,
+  });
+});
+
+/**
  * POST /api/v1/dispatch/community-sms
  * Broadcast localized multi-lingual emergency bulletins (Nepali, Sherpa, English) via NTC / Ncell.
  */

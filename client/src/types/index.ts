@@ -78,4 +78,29 @@ export interface MapLayerState {
   edgeSensors?: boolean;
   cueSlewFootprint?: boolean;
   communitySirens?: boolean;
+  verticalSafeHavens?: boolean;
 }
+
+export interface VerticalSafeHaven {
+  id: string;
+  settlement_id: string;
+  settlement_name: string;
+  haven_name: string;
+  valley: string;
+  basin: string;
+  riverbed_elevation_m: number;
+  haven_elevation_m: number;
+  vertical_gain_m: number;
+  ascent_distance_m: number;
+  ascent_time_minutes: number;
+  flood_arrival_minutes: number;
+  evacuation_clearance_margin_minutes: number;
+  capacity_persons: number;
+  haven_coordinates: [number, number]; // [lon, lat]
+  settlement_coordinates: [number, number]; // [lon, lat]
+  escape_trail: [number, number][]; // series of coordinates
+  safety_features: string[];
+  focal_person: string;
+  emergency_contact: string;
+}
+

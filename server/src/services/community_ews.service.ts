@@ -1,3 +1,5 @@
+import { VerticalSafeHaven } from '../types';
+
 export interface VillageSettlement {
   id: string;
   name: string;
@@ -38,6 +40,163 @@ export interface SMSDispatchRecord {
 }
 
 export class CommunityEWSService {
+  private static readonly VERTICAL_SAFE_HAVENS: VerticalSafeHaven[] = [
+    {
+      id: 'haven-na-01',
+      settlement_id: 'cdmc-na-01',
+      settlement_name: 'Na Village (ना गाउँ)',
+      haven_name: 'North Moraine Terrace Haven',
+      valley: 'Rolwaling Valley',
+      basin: 'Koshi',
+      riverbed_elevation_m: 4180,
+      haven_elevation_m: 4215,
+      vertical_gain_m: 35,
+      ascent_distance_m: 180,
+      ascent_time_minutes: 4.5,
+      flood_arrival_minutes: 7.7,
+      evacuation_clearance_margin_minutes: 3.2,
+      capacity_persons: 350,
+      haven_coordinates: [86.463, 27.846],
+      settlement_coordinates: [86.460, 27.840],
+      escape_trail: [
+        [86.460, 27.840],
+        [86.461, 27.842],
+        [86.462, 27.844],
+        [86.463, 27.846],
+      ],
+      safety_features: [
+        'Solar Emergency Radio Repeater (154.600 MHz)',
+        'Pre-positioned Medical & Blanket Cache',
+        'Helicopter Winch Evacuation Terrace',
+        'Bedrock Anchored High Ground (+35m above floodline)',
+      ],
+      focal_person: 'Dawa Sherpa (CDMC Chairman)',
+      emergency_contact: '+977-9841234567',
+    },
+    {
+      id: 'haven-bedding-02',
+      settlement_id: 'cdmc-bedding-02',
+      settlement_name: 'Bedding Village (बेदिङ)',
+      haven_name: 'Gauri Shankar Monastery Ridge Haven',
+      valley: 'Rolwaling Valley',
+      basin: 'Koshi',
+      riverbed_elevation_m: 3740,
+      haven_elevation_m: 3788,
+      vertical_gain_m: 48,
+      ascent_distance_m: 250,
+      ascent_time_minutes: 6.2,
+      flood_arrival_minutes: 16.9,
+      evacuation_clearance_margin_minutes: 10.7,
+      capacity_persons: 600,
+      haven_coordinates: [86.424, 27.825],
+      settlement_coordinates: [86.420, 27.820],
+      escape_trail: [
+        [86.420, 27.820],
+        [86.421, 27.822],
+        [86.423, 27.823],
+        [86.424, 27.825],
+      ],
+      safety_features: [
+        'Ancient Monastery Stone Shelter (+48m)',
+        'Satellite Iridium Emergency SBD Beacon',
+        'Solar PV & LiFePO4 Battery Inverter System',
+        'Emergency Potable Spring Water Connection',
+      ],
+      focal_person: 'Pasang Nuru Sherpa (Ward Rep)',
+      emergency_contact: '+977-9847654321',
+    },
+    {
+      id: 'haven-chhetchhet-03',
+      settlement_id: 'cdmc-chhetchhet-03',
+      settlement_name: 'Chhetchhet (छेतछेत)',
+      haven_name: 'Upper East Cliff Plateau Haven',
+      valley: 'Rolwaling Valley',
+      basin: 'Koshi',
+      riverbed_elevation_m: 1980,
+      haven_elevation_m: 2015,
+      vertical_gain_m: 35,
+      ascent_distance_m: 210,
+      ascent_time_minutes: 5.5,
+      flood_arrival_minutes: 33.3,
+      evacuation_clearance_margin_minutes: 27.8,
+      capacity_persons: 400,
+      haven_coordinates: [86.355, 27.784],
+      settlement_coordinates: [86.350, 27.780],
+      escape_trail: [
+        [86.350, 27.780],
+        [86.352, 27.782],
+        [86.355, 27.784],
+      ],
+      safety_features: [
+        'Concrete Evacuation Shelter Bunker',
+        'APF Emergency Radio Post',
+        'High-Intensity LED Strobe Mast',
+      ],
+      focal_person: 'Sub-Inspector APF Chhetchhet',
+      emergency_contact: '+977-9843344556',
+    },
+    {
+      id: 'haven-gongar-04',
+      settlement_id: 'cdmc-gongar-03',
+      settlement_name: 'Gongar Khola / Dam (गोंगर)',
+      haven_name: 'Upper Switchyard Helipad Haven',
+      valley: 'Tama Koshi',
+      basin: 'Koshi',
+      riverbed_elevation_m: 1690,
+      haven_elevation_m: 1735,
+      vertical_gain_m: 45,
+      ascent_distance_m: 320,
+      ascent_time_minutes: 8.0,
+      flood_arrival_minutes: 57.1,
+      evacuation_clearance_margin_minutes: 49.1,
+      capacity_persons: 850,
+      haven_coordinates: [86.225, 27.704],
+      settlement_coordinates: [86.220, 27.700],
+      escape_trail: [
+        [86.220, 27.700],
+        [86.222, 27.702],
+        [86.225, 27.704],
+      ],
+      safety_features: [
+        'Paved Emergency Helipad',
+        'SCADA Dam Control Emergency Bunker',
+        'Full Power Diesel Generator Backup',
+      ],
+      focal_person: 'Bikram Thapa (Plant Safety Lead)',
+      emergency_contact: '+977-9851122334',
+    },
+    {
+      id: 'haven-dingboche-05',
+      settlement_id: 'cdmc-dingboche-04',
+      settlement_name: 'Dingboche (दिङबोचे)',
+      haven_name: 'Nangkartshang Ridge Haven',
+      valley: 'Imja Khola / Khumbu',
+      basin: 'Koshi',
+      riverbed_elevation_m: 4410,
+      haven_elevation_m: 4450,
+      vertical_gain_m: 40,
+      ascent_distance_m: 230,
+      ascent_time_minutes: 5.5,
+      flood_arrival_minutes: 6.9,
+      evacuation_clearance_margin_minutes: 1.4,
+      capacity_persons: 800,
+      haven_coordinates: [86.883, 27.895],
+      settlement_coordinates: [86.880, 27.890],
+      escape_trail: [
+        [86.880, 27.890],
+        [86.882, 27.892],
+        [86.883, 27.895],
+      ],
+      safety_features: [
+        'SPCC Community Disaster Center',
+        'Oxygen Cylinder Emergency Bank',
+        'Dual VHF Repeater Linking Namche and Lukla',
+      ],
+      focal_person: 'Ang Tshering Sherpa (CDMC Secretary)',
+      emergency_contact: '+977-9842233445',
+    },
+  ];
+
   private static readonly HIGH_RISK_SETTLEMENTS: VillageSettlement[] = [
     {
       id: 'cdmc-na-01',
@@ -121,6 +280,18 @@ export class CommunityEWSService {
       );
     }
     return [...this.HIGH_RISK_SETTLEMENTS];
+  }
+
+  /**
+   * Returns pre-surveyed vertical safe havens and geological escape routes.
+   */
+  public static getSafeHavens(basin?: string): VerticalSafeHaven[] {
+    if (basin) {
+      return this.VERTICAL_SAFE_HAVENS.filter(
+        (h) => h.basin.toLowerCase() === basin.toLowerCase()
+      );
+    }
+    return [...this.VERTICAL_SAFE_HAVENS];
   }
 
   /**

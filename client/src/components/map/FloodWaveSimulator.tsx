@@ -19,8 +19,12 @@ import {
   AlertTriangle,
   Building,
   CheckCircle2,
+  ShieldCheck,
+  ArrowUpRight,
+  Phone,
 } from 'lucide-react';
 import { DownstreamImpact } from '@/types';
+import { VERTICAL_SAFE_HAVENS } from '@/data/safeHavens';
 
 interface FloodWaveSimulatorProps {
   activeCorridorName: string;
@@ -45,6 +49,7 @@ export const FloodWaveSimulator: React.FC<FloodWaveSimulatorProps> = ({
 }) => {
   const maxTime = 60.0; // 60 minutes simulation window
   const [showHydraulicProfile, setShowHydraulicProfile] = useState<boolean>(false);
+  const [showSafeHavens, setShowSafeHavens] = useState<boolean>(false);
 
   // Animation Loop
   useEffect(() => {
@@ -100,6 +105,18 @@ export const FloodWaveSimulator: React.FC<FloodWaveSimulatorProps> = ({
   // Upper Tamakoshi 456 MW Dam Interlock Status
   const damSettlement = settlements.find((s) => s.settlement_name.includes('Gongar') || s.settlement_name.includes('Hydropower'));
   const damTimeRemaining = damSettlement ? Math.max(0, damSettlement.travel_time_minutes - simTimeMinutes) : null;
+
+  // Active Safe Havens matching settlements in active corridor
+  const corridorHavens = useMemo(() => {
+    const matches = VERTICAL_SAFE_HAVENS.filter((h) =>
+      settlements.some((s) => {
+        const sPrefix = s.settlement_name.toLowerCase().replace(/[^a-z]/g, '').slice(0, 4);
+        const hPrefix = h.settlement_name.toLowerCase().replace(/[^a-z]/g, '').slice(0, 4);
+        return sPrefix && (hPrefix.includes(sPrefix) || sPrefix.includes(hPrefix));
+      })
+    );
+    return matches.length > 0 ? matches : VERTICAL_SAFE_HAVENS;
+  }, [settlements]);
 
   // Longitudinal Profile points: Distance (km) -> Elevation (m)
   // Tsho Rolpa (0km, 4580m) -> Na (6.5km, 4180m) -> Bedding (14.2km, 3740m) -> Chhetchhet (28km, 1980m) -> Gongar (48km, 1690m)
@@ -192,11 +209,28 @@ export const FloodWaveSimulator: React.FC<FloodWaveSimulatorProps> = ({
 
           <button
             onClick={() => setShowHydraulicProfile(!showHydraulicProfile)}
-            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs flex items-center gap-1 transition-colors"
+            className={`px-2.5 py-1 rounded-lg text-xs flex items-center gap-1 transition-colors ${
+              showHydraulicProfile
+                ? 'bg-sky-600 text-white border border-sky-400 font-semibold'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+            }`}
             title="Toggle 2D Hydraulic Cross-Section & Longitudinal Profile"
           >
             {showHydraulicProfile ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
             <span>{showHydraulicProfile ? 'Hide Hydraulics' : 'Hydraulic Profile'}</span>
+          </button>
+
+          <button
+            onClick={() => setShowSafeHavens(!showSafeHavens)}
+            className={`px-2.5 py-1 rounded-lg text-xs flex items-center gap-1.5 transition-colors ${
+              showSafeHavens
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400 font-semibold shadow-lg shadow-emerald-950/40'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+            }`}
+            title="Toggle Village Vertical Safe Havens & Foot-Scramble Escape Decision Support"
+          >
+            <ShieldCheck className={`w-3.5 h-3.5 ${showSafeHavens ? 'text-white' : 'text-emerald-400'}`} />
+            <span>{showSafeHavens ? 'Hide Havens' : 'Safe Havens (+35m)'}</span>
           </button>
         </div>
       </div>
@@ -353,6 +387,161 @@ export const FloodWaveSimulator: React.FC<FloodWaveSimulatorProps> = ({
                 IEC 60870-5-104 ASDU Type 45 command executed; spherical inlet valves sealed to protect turbines.
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expandable Vertical Evacuation Decision Support Panel */}
+      {showSafeHavens && (
+        <div className="mb-3 p-3.5 bg-slate-950/95 border border-emerald-500/40 rounded-xl space-y-3 text-xs animate-in fade-in duration-150">
+          {/* Panel Header & Scientific Doctrine */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+                    Vertical Safe Haven Evacuation Decision Support
+                  </span>
+                  <span className="text-[10px] bg-emerald-950/90 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40">
+                    ICIMOD & DHM Nepal Protocol
+                  </span>
+                  <span className="text-[10px] bg-slate-900 text-slate-300 px-2 py-0.5 rounded border border-slate-800">
+                    Escape Rule: Scramble Vertically (+25m to +48m)
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Flood wave gorge velocity: 12–16 m/s (45–60 km/h). Down-valley trail evacuation is non-viable. Communities must scramble vertically to surveyed bedrock terraces.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-800 text-[11px]">
+                <span className="text-slate-400">Total Refuge Capacity: </span>
+                <span className="font-bold text-emerald-400">
+                  {corridorHavens.reduce((acc, h) => acc + h.capacity_persons, 0).toLocaleString()} Persons
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Settlements Safe Havens Decision Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {corridorHavens.map((haven) => {
+              // Match settlement travel time if in settlements prop
+              const matchedSettlement = settlements.find((s) => {
+                const sName = s.settlement_name.toLowerCase().replace(/[^a-z]/g, '');
+                const hName = haven.settlement_name.toLowerCase().replace(/[^a-z]/g, '');
+                return hName.includes(sName.slice(0, 4)) || sName.includes(hName.slice(0, 4));
+              });
+
+              const floodArrival = matchedSettlement
+                ? matchedSettlement.travel_time_minutes
+                : haven.flood_arrival_minutes;
+
+              const timeToWave = Math.max(0, floodArrival - simTimeMinutes);
+              const clearanceBuffer = floodArrival - simTimeMinutes - haven.ascent_time_minutes;
+              const isFlooded = simTimeMinutes >= floodArrival;
+              const isCutOff = !isFlooded && clearanceBuffer <= 0;
+              const isUrgent = !isFlooded && clearanceBuffer > 0 && clearanceBuffer <= 3.0;
+
+              return (
+                <div
+                  key={haven.id}
+                  className={`p-2.5 rounded-xl border transition-all ${
+                    isFlooded
+                      ? 'bg-rose-950/40 border-rose-600/50 text-slate-300'
+                      : isCutOff
+                      ? 'bg-rose-950/60 border-rose-500 text-white ring-1 ring-rose-500/50'
+                      : isUrgent
+                      ? 'bg-amber-950/40 border-amber-500/60 text-slate-200'
+                      : 'bg-slate-900/70 border-slate-800 hover:border-emerald-500/40 text-slate-200'
+                  }`}
+                >
+                  {/* Settlement & Haven Name */}
+                  <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                    <div>
+                      <div className="font-bold text-white text-xs leading-tight">
+                        {haven.settlement_name}
+                      </div>
+                      <div className="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
+                        <ArrowUpRight className="w-3 h-3 text-emerald-400 shrink-0" />
+                        <span className="truncate">{haven.haven_name}</span>
+                      </div>
+                    </div>
+
+                    {/* Dynamic Status Badge */}
+                    <div className="shrink-0">
+                      {isFlooded ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                          INUNDATED
+                        </span>
+                      ) : isCutOff ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500 text-white animate-pulse">
+                          CUT OFF
+                        </span>
+                      ) : isUrgent ? (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/30 text-amber-200 border border-amber-500/50 animate-pulse">
+                          URGENT (+{clearanceBuffer.toFixed(1)}m)
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                          SAFE (+{clearanceBuffer.toFixed(1)}m)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Elevation & Scramble Physical Stats */}
+                  <div className="grid grid-cols-2 gap-1.5 my-2 p-1.5 bg-slate-950/80 rounded-lg border border-slate-800/80 text-[10px]">
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">Vertical Gain:</span>
+                      <span className="font-bold text-emerald-300">+{haven.vertical_gain_m} meters</span>
+                      <span className="text-slate-400 block text-[8px]">{haven.riverbed_elevation_m}m ➔ {haven.haven_elevation_m}m</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">Scramble Trail:</span>
+                      <span className="font-bold text-white">{haven.ascent_distance_m}m</span>
+                      <span className="text-slate-400 block text-[8px]">~{haven.ascent_time_minutes} min scramble</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">Wave Arrival:</span>
+                      <span className="font-bold text-rose-300">T + {floodArrival.toFixed(1)} min</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">Time Left:</span>
+                      <span className={`font-bold ${isFlooded ? 'text-slate-500' : isCutOff ? 'text-rose-400' : 'text-sky-300'}`}>
+                        {isFlooded ? '0.0 min' : `${timeToWave.toFixed(1)} min`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Key Safety Features & Capacity */}
+                  <div className="space-y-1 text-[10px]">
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span>Refuge Capacity:</span>
+                      <span className="font-semibold text-white">{haven.capacity_persons} persons</span>
+                    </div>
+
+                    <div className="text-slate-400 text-[9px] truncate" title={haven.safety_features.join(' • ')}>
+                      🛡️ {haven.safety_features[0]}
+                    </div>
+
+                    {/* CDMC Warden Contact */}
+                    <div className="pt-1.5 mt-1 border-t border-slate-800/80 flex items-center justify-between text-[9px] text-slate-400">
+                      <div className="flex items-center gap-1 truncate text-slate-300">
+                        <Phone className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                        <span className="truncate">{haven.focal_person.split('(')[0]}</span>
+                      </div>
+                      <span className="font-mono text-emerald-400 shrink-0 text-[8px]">{haven.emergency_contact}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
