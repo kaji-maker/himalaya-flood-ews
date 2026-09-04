@@ -82,9 +82,11 @@ interface CueSlewConsoleProps {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 const MONITORED_LAKES = [
+  { code: 'PDGL_NEP_KOSHI_007', id: 'l-galong-co', name: 'Galong Co / Cirenmaco', basin: 'Bhote Koshi / Poiqu' },
   { code: 'PDGL_NEP_KOSHI_001', id: 'l-tsho-rolpa', name: 'Tsho Rolpa', basin: 'Tama Koshi' },
   { code: 'PDGL_NEP_KOSHI_002', id: 'l-imja-tsho', name: 'Imja Tsho', basin: 'Dudh Koshi' },
   { code: 'PDGL_NEP_KOSHI_003', id: 'l-lower-barun', name: 'Lower Barun', basin: 'Barun / Arun' },
+  { code: 'PDGL_NEP_GANDAKI_002', id: 'l-birendra', name: 'Birendra Lake', basin: 'Budhi Gandaki' },
   { code: 'PDGL_NEP_GANDAKI_001', id: 'l-thulagi', name: 'Thulagi Lake', basin: 'Marsyangdi' },
   { code: 'PDGL_IND_SIKKIM_001', id: 'l-south-lhonak', name: 'South Lhonak', basin: 'Teesta Basin' },
 ];
@@ -92,7 +94,7 @@ const MONITORED_LAKES = [
 export const CueSlewTaskingConsole: React.FC<CueSlewConsoleProps> = ({
   isOpen,
   onClose,
-  defaultLakeCode = 'PDGL_NEP_KOSHI_001',
+  defaultLakeCode = 'PDGL_NEP_KOSHI_007',
 }) => {
   const [activeLakeCode, setActiveLakeCode] = useState<string>(defaultLakeCode);
   const [orders, setOrders] = useState<CueSlewOrder[]>([]);
@@ -113,10 +115,10 @@ export const CueSlewTaskingConsole: React.FC<CueSlewConsoleProps> = ({
   const [showEscarpment, setShowEscarpment] = useState<boolean>(true);
 
   useEffect(() => {
-    if (defaultLakeCode) {
+    if (isOpen && defaultLakeCode) {
       setActiveLakeCode(defaultLakeCode);
     }
-  }, [defaultLakeCode]);
+  }, [isOpen, defaultLakeCode]);
 
   // Fetch orders and InSAR data
   useEffect(() => {

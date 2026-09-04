@@ -168,15 +168,18 @@ router.get('/lakes/:id/history', async (req: Request, res: Response) => {
     { observation_date: '2026-08-30T00:00:00Z', area_sqm: Math.round(baseArea * 1.18), sensor_name: 'Sentinel-2A MSI L2A', mean_mndwi: 0.74, cloud_cover_pct: 1.5 },
   ];
 
+  const lon = mockLake?.centroid?.coordinates ? mockLake.centroid.coordinates[0] : 86.475;
+  const lat = mockLake?.centroid?.coordinates ? mockLake.centroid.coordinates[1] : 27.868;
+
   const samplePolygonCoords = [
     [
-      [86.468, 27.855],
-      [86.485, 27.862],
-      [86.495, 27.873],
-      [86.488, 27.881],
-      [86.465, 27.876],
-      [86.458, 27.864],
-      [86.468, 27.855],
+      [Number((lon - 0.007).toFixed(4)), Number((lat - 0.013).toFixed(4))],
+      [Number((lon + 0.010).toFixed(4)), Number((lat - 0.006).toFixed(4))],
+      [Number((lon + 0.020).toFixed(4)), Number((lat + 0.005).toFixed(4))],
+      [Number((lon + 0.013).toFixed(4)), Number((lat + 0.013).toFixed(4))],
+      [Number((lon - 0.010).toFixed(4)), Number((lat + 0.008).toFixed(4))],
+      [Number((lon - 0.017).toFixed(4)), Number((lat - 0.004).toFixed(4))],
+      [Number((lon - 0.007).toFixed(4)), Number((lat - 0.013).toFixed(4))],
     ],
   ];
 

@@ -108,6 +108,46 @@ const LAKE_PROFILES: Record<string, any> = {
       'Maintain SCADA automated tripwire link to Middle Marsyangdi plant.',
     ],
   },
+  PDGL_NEP_KOSHI_003: {
+    volumeMcm: 118.0,
+    coupled_hydropower: 'Arun-3 Hydroelectric Project (900 MW) / Lower Arun (669 MW)',
+    sScore: 0.96,
+    tScore: 0.88,
+    hIndex: 0.85,
+    quadrant: 'CRITICAL_DUAL_TRIGGER',
+    impact_matrix: [
+      { settlement: 'Yangle Kharka', reach_km: 8.5, travel_time_min: 9.8, peak_flood_height_m: 52.0, peak_discharge_cms: 76000.0, evacuation_protocol: 'IMMEDIATE_SIREN_EVACUATION' },
+      { settlement: 'Tadosa', reach_km: 19.0, travel_time_min: 22.1, peak_flood_height_m: 41.5, peak_discharge_cms: 64200.0, evacuation_protocol: 'IMMEDIATE_SIREN_EVACUATION' },
+      { settlement: 'Num / Arun-3 Dam Site', reach_km: 36.5, travel_time_min: 42.4, peak_flood_height_m: 31.0, peak_discharge_cms: 49800.0, evacuation_protocol: 'AUTOMATED_SPILLWAY_GATE_RELEASE' },
+      { settlement: 'Hedangna', reach_km: 48.0, travel_time_min: 55.8, peak_flood_height_m: 24.5, peak_discharge_cms: 39500.0, evacuation_protocol: 'HIGH_PRIORITY_EVACUATION' },
+      { settlement: 'Tumlingtar / Airport', reach_km: 72.0, travel_time_min: 83.7, peak_flood_height_m: 16.8, peak_discharge_cms: 28400.0, evacuation_protocol: 'REGIONAL_ALERT_ADVISORY' },
+    ],
+    mitigation_actions: [
+      'Continuous InSAR SBAS radar monitoring of Barun calving cliff lift-off.',
+      'Maintain tripwire geophone link along Barun river canyon to Arun-3 powerhouse.',
+      'Screen Hanging glacier detachments above Makalu north headwall.',
+    ],
+  },
+  PDGL_IND_SIKKIM_001: {
+    volumeMcm: 31.5,
+    coupled_hydropower: 'Teesta Stage-III (1200 MW - Destroyed/Reconstruction) / Teesta-V (510 MW)',
+    sScore: 0.98,
+    tScore: 0.95,
+    hIndex: 0.93,
+    quadrant: 'CRITICAL_DUAL_TRIGGER',
+    impact_matrix: [
+      { settlement: 'Lachen Town', reach_km: 18.0, travel_time_min: 19.5, peak_flood_height_m: 46.0, peak_discharge_cms: 68000.0, evacuation_protocol: 'IMMEDIATE_SIREN_EVACUATION' },
+      { settlement: 'Chungthang Dam Site', reach_km: 34.0, travel_time_min: 37.0, peak_flood_height_m: 38.0, peak_discharge_cms: 57500.0, evacuation_protocol: 'DAM_OVERTOPPING_SURGE' },
+      { settlement: 'Mangan District HQ', reach_km: 52.0, travel_time_min: 56.5, peak_flood_height_m: 28.5, peak_discharge_cms: 43000.0, evacuation_protocol: 'HIGH_PRIORITY_EVACUATION' },
+      { settlement: 'Dikchu Bazaar', reach_km: 71.0, travel_time_min: 77.2, peak_flood_height_m: 22.0, peak_discharge_cms: 33500.0, evacuation_protocol: 'HIGH_PRIORITY_EVACUATION' },
+      { settlement: 'Singtam / Teesta-V', reach_km: 88.0, travel_time_min: 95.7, peak_flood_height_m: 17.5, peak_discharge_cms: 26000.0, evacuation_protocol: 'AUTOMATED_SPILLWAY_GATE_RELEASE' },
+    ],
+    mitigation_actions: [
+      'Maintain reconstructed breach notch stage monitoring with dual-redundant Iridium SBD uplinks.',
+      'Operate early warning sirens in Lachen, Chungthang, and Mangan corridors.',
+      'Track headward erosion of residual South Lhonak moraine scarp.',
+    ],
+  },
 };
 
 /**
@@ -144,7 +184,9 @@ router.get('/lakes/:id/report', async (req: Request, res: Response) => {
 
   // Find profile or fallback
   const p = LAKE_PROFILES[lake.icimod_code] ||
-    (lake.name?.toLowerCase().includes('galong') || lake.name?.toLowerCase().includes('cirenmaco') ? LAKE_PROFILES['PDGL_NEP_KOSHI_007'] : null) ||
+    (lake.name?.toLowerCase().includes('galong') || lake.name?.toLowerCase().includes('cirenmaco') || lake.name?.toLowerCase().includes('bhote') ? LAKE_PROFILES['PDGL_NEP_KOSHI_007'] : null) ||
+    (lake.name?.toLowerCase().includes('barun') ? LAKE_PROFILES['PDGL_NEP_KOSHI_003'] : null) ||
+    (lake.name?.toLowerCase().includes('lhonak') ? LAKE_PROFILES['PDGL_IND_SIKKIM_001'] : null) ||
     (lake.name?.toLowerCase().includes('birendra') ? LAKE_PROFILES['PDGL_NEP_GANDAKI_002'] : null) ||
     (lake.name?.toLowerCase().includes('imja') ? LAKE_PROFILES['PDGL_NEP_KOSHI_002'] : null) ||
     (lake.name?.toLowerCase().includes('thulagi') ? LAKE_PROFILES['PDGL_NEP_GANDAKI_001'] : null) ||

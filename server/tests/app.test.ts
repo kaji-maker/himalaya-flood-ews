@@ -187,11 +187,11 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     }
   });
 
-  it('GET /api/v1/lakes/timelapse-lakes - should list all 5 available 20-year comparison glacial lakes', async () => {
+  it('GET /api/v1/lakes/timelapse-lakes - should list all available 20-year comparison glacial lakes', async () => {
     const res = await request(app).get('/api/v1/lakes/timelapse-lakes');
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.count).toBe(5);
+    expect(res.body.count).toBeGreaterThanOrEqual(5);
     expect(Array.isArray(res.body.data)).toBe(true);
     const codes = res.body.data.map((l: any) => l.icimod_code);
     expect(codes).toContain('PDGL_NEP_KOSHI_001'); // Tsho Rolpa
@@ -199,6 +199,7 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     expect(codes).toContain('PDGL_NEP_KOSHI_003'); // Lower Barun
     expect(codes).toContain('PDGL_NEP_GANDAKI_001'); // Thulagi
     expect(codes).toContain('PDGL_IND_SIKKIM_001'); // South Lhonak
+    expect(codes).toContain('PDGL_NEP_KOSHI_007'); // Galong Co / Cirenmaco
   });
 
   it('GET /api/v1/lakes/:id/timelapse-comparison - should return 22-year data for Lower Barun and South Lhonak', async () => {
@@ -218,6 +219,21 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     expect(lhonakRes.body.epochs.length).toBe(23);
     const epoch2023 = lhonakRes.body.epochs.find((e: any) => e.epoch_year === 2023);
     expect(epoch2023.glaciological_note).toContain('CATASTROPHIC GLOF BREACH');
+
+    // Galong Co / Cirenmaco (Poiqu / Bhote Koshi)
+    const galongRes = await request(app).get('/api/v1/lakes/PDGL_NEP_KOSHI_007/timelapse-comparison');
+    expect(galongRes.status).toBe(200);
+    expect(galongRes.body.success).toBe(true);
+    expect(galongRes.body.lake_name).toContain('Galong Co');
+    expect(galongRes.body.icimod_code).toBe('PDGL_NEP_KOSHI_007');
+    expect(galongRes.body.epochs.length).toBe(23);
+    expect(galongRes.body.net_summary.total_glacier_terminus_retreat_m).toBe(680);
+
+    // Test alias resolution by ID 'l-galong-co'
+    const galongAliasRes = await request(app).get('/api/v1/lakes/l-galong-co/timelapse-comparison');
+    expect(galongAliasRes.status).toBe(200);
+    expect(galongAliasRes.body.lake_name).toContain('Galong Co');
+    expect(galongAliasRes.body.icimod_code).toBe('PDGL_NEP_KOSHI_007');
   });
 });
 

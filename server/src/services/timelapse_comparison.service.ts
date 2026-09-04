@@ -1,3 +1,5 @@
+import { MOCK_GLACIAL_LAKES } from './db.service';
+
 export interface HistoricalEpochData {
   epoch_year: number;
   capture_date: string;
@@ -55,7 +57,49 @@ interface LakeDefinition {
 
 export class TimelapseComparisonService {
   private static readonly LAKES: Record<string, LakeDefinition> = {
-    // 1. Tsho Rolpa (Tama Koshi)
+    // 1. Galong Co / Cirenmaco (Poiqu / Bhote Koshi Transboundary Corridor)
+    'PDGL_NEP_KOSHI_007': {
+      id: 'l-galong-co',
+      icimod_code: 'PDGL_NEP_KOSHI_007',
+      name: 'Galong Co / Cirenmaco (Poiqu Transboundary)',
+      basin: 'Koshi (Bhote Koshi / Poiqu Corridor)',
+      elevation_m: 4380,
+      coordinates: [85.996, 28.084],
+      glacier_name: 'Galong Glacier / Cirenmaco Tongue',
+      base_area_sqkm: 1.380,
+      final_area_sqkm: 1.640,
+      total_retreat_m: 680,
+      initial_volume_mcm: 42.5,
+      final_volume_mcm: 58.8,
+      primary_driver: 'Post-1981 breach scar refilling, subaqueous ice calving along Galong glacier terminus, and acute August 2026 debris-slurry surge vulnerability down Bhote Koshi',
+      annual_milestones: {
+        2004: { note: 'Residual post-1981 breach basin stabilized behind remnant terminal moraine notch at 1.380 km².', retreat: 0, area: 1.380, vol: 42.5 },
+        2005: { note: 'Landsat 7 NIR detects early supraglacial ponding on northeastern Galong tongue.', retreat: 25, area: 1.392, vol: 43.1 },
+        2006: { note: 'Thermal melting expands subaqueous contact along lateral moraine contact.', retreat: 55, area: 1.405, vol: 43.9 },
+        2007: { note: 'Supraglacial ponds coalesce into main proglacial body.', retreat: 90, area: 1.418, vol: 44.8 },
+        2008: { note: 'Bilateral Sino-Nepal hydrological survey notes persistent sediment plume in Poiqu gorge.', retreat: 125, area: 1.432, vol: 45.7 },
+        2009: { note: 'Subaqueous ice cliff undercutting causes localized calving (+35m detachment).', retreat: 160, area: 1.446, vol: 46.6 },
+        2010: { note: 'Terminal moraine outlet monitored for piping seepage toward Kodari / Zhangmu.', retreat: 195, area: 1.460, vol: 47.5 },
+        2011: { note: 'Moraine crest settlement assessed following regional seismic tremors in Tibet border zone.', retreat: 230, area: 1.474, vol: 48.4 },
+        2012: { note: 'Upper Galong cirque hanging glacier detachment causes 2.5m displacement wave.', retreat: 270, area: 1.488, vol: 49.3 },
+        2013: { note: 'Landsat 8 operational; 15m panchromatic band deployed to map calving wall.', retreat: 310, area: 1.502, vol: 50.3 },
+        2014: { note: 'Lake volume surpasses 51.0 MCM; transboundary hazard status elevated to HIGH.', retreat: 350, area: 1.516, vol: 51.2 },
+        2015: { note: 'Mw 7.8 Gorkha earthquake destabilizes lateral scree; severe rockfall into northern margin.', retreat: 385, area: 1.528, vol: 52.0 },
+        2016: { note: 'Copernicus Sentinel-2A begins 10m high-frequency multi-spectral coverage.', retreat: 420, area: 1.540, vol: 52.8 },
+        2017: { note: 'Sentinel-2B verifies active calving front retreat into steep bedrock valley.', retreat: 460, area: 1.554, vol: 53.7 },
+        2018: { note: 'Arniko Highway infrastructure upgrades prompt installation of remote acoustic sensors.', retreat: 495, area: 1.568, vol: 54.5 },
+        2019: { note: 'Accelerated headward calving into Galong icefall; surface area reaches 1.582 km².', retreat: 535, area: 1.582, vol: 55.4 },
+        2020: { note: 'Intense monsoon cloudburst drives thermal incision on ice-cored moraine.', retreat: 570, area: 1.595, vol: 56.2 },
+        2021: { note: 'Cross-border early warning radar stage gauge calibrated at Zhangmu border bridge.', retreat: 605, area: 1.608, vol: 57.0 },
+        2022: { note: 'Sentinel-1 InSAR SBAS records -31.6 mm/yr crest subsidence on remaining moraine dam.', retreat: 635, area: 1.620, vol: 57.6 },
+        2023: { note: 'Sikkim Lhonak disaster accelerates bilateral hazard review of Poiqu / Bhote Koshi.', retreat: 655, area: 1.628, vol: 58.1 },
+        2024: { note: 'Surface area reaches 1.635 km²; volume reaches 58.4 MCM.', retreat: 670, area: 1.635, vol: 58.5 },
+        2025: { note: 'Autonomous cue-and-slew SkySat tasking protocol enabled for Galong Co.', retreat: 676, area: 1.638, vol: 58.7 },
+        2026: { note: 'Present-day critical configuration. August 2026 glacial collapse and cloudburst in upper cirque triggers severe flash flood and 2.2M-tonne debris slurry surge down Bhotekoshi.', retreat: 680, area: 1.640, vol: 58.8 },
+      },
+    },
+
+    // 2. Tsho Rolpa (Tama Koshi)
     'PDGL_NEP_KOSHI_001': {
       id: 'l-tsho-rolpa',
       icimod_code: 'PDGL_NEP_KOSHI_001',
@@ -97,7 +141,7 @@ export class TimelapseComparisonService {
       },
     },
 
-    // 2. Imja Tsho (Everest / Dudh Koshi)
+    // 3. Imja Tsho (Everest / Dudh Koshi)
     'PDGL_NEP_KOSHI_002': {
       id: 'l-imja-tsho',
       icimod_code: 'PDGL_NEP_KOSHI_002',
@@ -139,7 +183,7 @@ export class TimelapseComparisonService {
       },
     },
 
-    // 3. Lower Barun Lake (Makalu-Barun / Arun)
+    // 4. Lower Barun Lake (Makalu-Barun / Arun)
     'PDGL_NEP_KOSHI_003': {
       id: 'l-lower-barun',
       icimod_code: 'PDGL_NEP_KOSHI_003',
@@ -181,7 +225,49 @@ export class TimelapseComparisonService {
       },
     },
 
-    // 4. Thulagi Lake (Manaslu / Marsyangdi)
+    // 5. Birendra Lake (Manaslu / Budhi Gandaki)
+    'PDGL_NEP_GANDAKI_002': {
+      id: 'l-birendra',
+      icimod_code: 'PDGL_NEP_GANDAKI_002',
+      name: 'Birendra Lake (Manaslu)',
+      basin: 'Gandaki (Budhi Gandaki)',
+      elevation_m: 3620,
+      coordinates: [84.638, 28.563],
+      glacier_name: 'Manaslu North Glacier Tongue',
+      base_area_sqkm: 0.280,
+      final_area_sqkm: 0.350,
+      total_retreat_m: 480,
+      initial_volume_mcm: 9.8,
+      final_volume_mcm: 13.5,
+      primary_driver: 'Hanging ice and rock avalanches from Mt. Manaslu North Face into proglacial water body; April 2024 surge overflow event',
+      annual_milestones: {
+        2004: { note: 'Proglacial lake situated below steep Manaslu cirque at 0.280 km².', retreat: 0, area: 0.280, vol: 9.8 },
+        2005: { note: 'Stable outlet outflow into Budhi Gandaki headwaters.', retreat: 20, area: 0.283, vol: 10.0 },
+        2006: { note: 'Minor calving along eastern ice cliff.', retreat: 45, area: 0.287, vol: 10.2 },
+        2007: { note: 'Debris-covered ice tongue melts slowly under moraine debris mantle.', retreat: 70, area: 0.291, vol: 10.4 },
+        2008: { note: 'Field observations by trekking expeditions record lake depth ~35m.', retreat: 95, area: 0.295, vol: 10.6 },
+        2009: { note: 'Steady expansion upstream beneath Manaslu avalanche chutes.', retreat: 120, area: 0.299, vol: 10.8 },
+        2010: { note: 'Avalanche shockwaves create localized waves over outlet weir.', retreat: 145, area: 0.303, vol: 11.0 },
+        2011: { note: 'Continuous summer melt expands water body to 0.308 km².', retreat: 170, area: 0.308, vol: 11.3 },
+        2012: { note: 'Moraine crest surveyed; minor surface cracking noted.', retreat: 195, area: 0.312, vol: 11.5 },
+        2013: { note: 'Landsat 8 begins multi-spectral coverage.', retreat: 220, area: 0.316, vol: 11.7 },
+        2014: { note: 'Calving cliff height stands at 18m above waterline.', retreat: 245, area: 0.320, vol: 11.9 },
+        2015: { note: 'Gorkha earthquake Mw 7.8 causes rockfalls from Manaslu flanks into lake.', retreat: 275, area: 0.324, vol: 12.1 },
+        2016: { note: 'Copernicus Sentinel-2 provides 10m true-color monitoring.', retreat: 305, area: 0.328, vol: 12.3 },
+        2017: { note: 'Samagaun local committee monitors lake stage.', retreat: 335, area: 0.332, vol: 12.5 },
+        2018: { note: 'Tongue thinning continues steadily.', retreat: 360, area: 0.335, vol: 12.7 },
+        2019: { note: 'Subaqueous bathymetry reveals maximum depth of 45m.', retreat: 385, area: 0.338, vol: 12.9 },
+        2020: { note: 'High summer temperatures increase glacial runoff.', retreat: 410, area: 0.341, vol: 13.0 },
+        2021: { note: 'Automated flood siren installed downstream at Samagaun.', retreat: 430, area: 0.343, vol: 13.1 },
+        2022: { note: 'InSAR verifies moraine stability with minor settlement.', retreat: 450, area: 0.345, vol: 13.2 },
+        2023: { note: 'Lake area reaches 0.347 km².', retreat: 465, area: 0.347, vol: 13.3 },
+        2024: { note: 'CATASTROPHIC SURGE EVENT (April 21, 2024): Massive ice-rock avalanche from Mt. Manaslu plunged into lake, overtopping moraine and destroying wooden bridge.', retreat: 475, area: 0.349, vol: 13.4 },
+        2025: { note: 'Post-event moraine stabilization and continuous radar monitoring active.', retreat: 478, area: 0.3495, vol: 13.45 },
+        2026: { note: 'Present-day configuration. Active avalanche corridor surveillance.', retreat: 480, area: 0.350, vol: 13.5 },
+      },
+    },
+
+    // 6. Thulagi Lake (Manaslu / Marsyangdi)
     'PDGL_NEP_GANDAKI_001': {
       id: 'l-thulagi',
       icimod_code: 'PDGL_NEP_GANDAKI_001',
@@ -223,7 +309,7 @@ export class TimelapseComparisonService {
       },
     },
 
-    // 5. South Lhonak Lake (Sikkim / Teesta Arc)
+    // 7. South Lhonak Lake (Sikkim / Teesta Arc)
     'PDGL_IND_SIKKIM_001': {
       id: 'l-south-lhonak',
       icimod_code: 'PDGL_IND_SIKKIM_001',
@@ -233,7 +319,7 @@ export class TimelapseComparisonService {
       coordinates: [88.190, 27.915],
       glacier_name: 'South Lhonak Glacier',
       base_area_sqkm: 0.420,
-      final_area_sqkm: 0.840, // Post-burst 2024-2026 residual state
+      final_area_sqkm: 0.840,
       total_retreat_m: 1650,
       initial_volume_mcm: 18.2,
       final_volume_mcm: 31.5,
@@ -264,21 +350,348 @@ export class TimelapseComparisonService {
         2026: { note: 'Present-day post-burst configuration. Ongoing moraine armoring.', retreat: 1650, area: 0.840, vol: 31.5 },
       },
     },
+
+    // 8. Lumding Tsho (Dudh Koshi)
+    'PDGL_NEP_KOSHI_004': {
+      id: 'l-lumding',
+      icimod_code: 'PDGL_NEP_KOSHI_004',
+      name: 'Lumding Tsho',
+      basin: 'Koshi (Dudh Koshi)',
+      elevation_m: 4850,
+      coordinates: [86.612, 27.765],
+      glacier_name: 'Lumding Glacier',
+      base_area_sqkm: 0.840,
+      final_area_sqkm: 1.050,
+      total_retreat_m: 720,
+      initial_volume_mcm: 29.5,
+      final_volume_mcm: 41.2,
+      primary_driver: 'Subaqueous calving retreat in remote western Khumbu cirque',
+      annual_milestones: {
+        2004: { note: 'Baseline Landsat 7 survey at 0.840 km².', retreat: 0, area: 0.840, vol: 29.5 },
+        2010: { note: 'Steady eastward expansion across proglacial valley.', retreat: 220, area: 0.905, vol: 32.8 },
+        2016: { note: 'Sentinel-2 begins regular multispectral imaging.', retreat: 440, area: 0.975, vol: 36.5 },
+        2020: { note: 'Calving front retreats against steep rock headwall.', retreat: 580, area: 1.015, vol: 39.0 },
+        2026: { note: 'Present-day configuration. Total expansion +25.0%.', retreat: 720, area: 1.050, vol: 41.2 },
+      },
+    },
+
+    // 9. Chamlang Tsho / Hongu-2 (Koshi / Hongu)
+    'PDGL_NEP_KOSHI_005': {
+      id: 'l-chamlang',
+      icimod_code: 'PDGL_NEP_KOSHI_005',
+      name: 'Chamlang Tsho (Hongu-2)',
+      basin: 'Koshi (Hongu / Dudh Koshi)',
+      elevation_m: 5120,
+      coordinates: [86.974, 27.782],
+      glacier_name: 'Chamlang South Glacier',
+      base_area_sqkm: 0.740,
+      final_area_sqkm: 0.910,
+      total_retreat_m: 590,
+      initial_volume_mcm: 24.2,
+      final_volume_mcm: 34.6,
+      primary_driver: 'High-altitude moraine dam expansion under Chamlang icefall',
+      annual_milestones: {
+        2004: { note: 'High altitude cirque lake at 0.740 km².', retreat: 0, area: 0.740, vol: 24.2 },
+        2010: { note: 'Melting of ice-core causes localized lateral slope slumping.', retreat: 180, area: 0.795, vol: 27.5 },
+        2016: { note: 'Sentinel-2 captures calving margin detachment.', retreat: 360, area: 0.850, vol: 30.8 },
+        2020: { note: 'Supraglacial tributary feeding proglacial basin.', retreat: 480, area: 0.885, vol: 32.9 },
+        2026: { note: 'Present-day configuration. +23.0% area growth.', retreat: 590, area: 0.910, vol: 34.6 },
+      },
+    },
+
+    // 10. Dig Tsho (1985 Breach Scar / Bhote Koshi - Dudh Koshi)
+    'PDGL_NEP_KOSHI_006': {
+      id: 'l-dig-tsho',
+      icimod_code: 'PDGL_NEP_KOSHI_006',
+      name: 'Dig Tsho (1985 Breach)',
+      basin: 'Koshi (Langmoche / Dudh Koshi)',
+      elevation_m: 4360,
+      coordinates: [86.584, 27.876],
+      glacier_name: 'Langmoche Glacier',
+      base_area_sqkm: 0.610,
+      final_area_sqkm: 0.680,
+      total_retreat_m: 290,
+      initial_volume_mcm: 14.5,
+      final_volume_mcm: 18.2,
+      primary_driver: 'Post-1985 GLOF residual lake stabilizing behind deep breach canyon',
+      annual_milestones: {
+        2004: { note: 'Stable residual water body behind 1985 breach incised channel.', retreat: 0, area: 0.610, vol: 14.5 },
+        2010: { note: 'Modest sediment filling from upstream Langmoche tongue.', retreat: 90, area: 0.635, vol: 15.6 },
+        2016: { note: 'Sentinel-2 verifies stable breach sill elevation.', retreat: 180, area: 0.655, vol: 16.8 },
+        2020: { note: 'Vegetation recolonizing outer moraine slopes.', retreat: 240, area: 0.670, vol: 17.6 },
+        2026: { note: 'Present-day configuration. Stabilized post-breach regime.', retreat: 290, area: 0.680, vol: 18.2 },
+      },
+    },
+
+    // 11. Kaldang Lake (Langtang / Trishuli)
+    'PDGL_NEP_GANDAKI_003': {
+      id: 'l-kaldang',
+      icimod_code: 'PDGL_NEP_GANDAKI_003',
+      name: 'Kaldang Lake (Langtang)',
+      basin: 'Gandaki (Trishuli)',
+      elevation_m: 4620,
+      coordinates: [85.485, 28.215],
+      glacier_name: 'Kaldang Glacier',
+      base_area_sqkm: 0.490,
+      final_area_sqkm: 0.590,
+      total_retreat_m: 380,
+      initial_volume_mcm: 15.8,
+      final_volume_mcm: 22.4,
+      primary_driver: 'Langtang valley headwater calving retreat threatening Upper Trishuli cascade',
+      annual_milestones: {
+        2004: { note: 'Baseline observation at 0.490 km².', retreat: 0, area: 0.490, vol: 15.8 },
+        2010: { note: 'Tongue calving advances into U-shaped cirque.', retreat: 110, area: 0.520, vol: 17.8 },
+        2015: { note: 'Gorkha earthquake epicenter adjacent; heavy rockfall into lake.', retreat: 210, area: 0.550, vol: 19.5 },
+        2020: { note: 'Debris cover on terminus accelerates sub-debris melt.', retreat: 300, area: 0.572, vol: 21.0 },
+        2026: { note: 'Present-day configuration. Coupled to Upper Trishuli-1 early warning.', retreat: 380, area: 0.590, vol: 22.4 },
+      },
+    },
+
+    // 12. Karnali High-Alpine Glacial Lake
+    'PDGL_NEP_KARNALI_001': {
+      id: 'l5555555-5555-5555-5555-555555555555',
+      icimod_code: 'PDGL_NEP_KARNALI_001',
+      name: 'Karnali High-Alpine Glacial Lake',
+      basin: 'Karnali (Humla Karnali)',
+      elevation_m: 4920,
+      coordinates: [82.342, 29.893],
+      glacier_name: 'Changla Glacier',
+      base_area_sqkm: 0.560,
+      final_area_sqkm: 0.680,
+      total_retreat_m: 420,
+      initial_volume_mcm: 16.4,
+      final_volume_mcm: 23.5,
+      primary_driver: 'Western Himalayan arid zone glacier retreat and bedrock threshold impoundment',
+      annual_milestones: {
+        2004: { note: 'Western Himalaya high-altitude lake baseline.', retreat: 0, area: 0.560, vol: 16.4 },
+        2015: { note: 'Slow retreat in cold, dry Tibetan border climatic regime.', retreat: 220, area: 0.625, vol: 20.1 },
+        2026: { note: 'Present-day configuration. Stable bedrock threshold.', retreat: 420, area: 0.680, vol: 23.5 },
+      },
+    },
+
+    // 13. Rara Headwater Glacial Lake
+    'PDGL_NEP_KARNALI_002': {
+      id: 'l-rara-headwater',
+      icimod_code: 'PDGL_NEP_KARNALI_002',
+      name: 'Rara Headwater Glacial Lake',
+      basin: 'Karnali (Mugu Karnali)',
+      elevation_m: 4760,
+      coordinates: [82.115, 29.542],
+      glacier_name: 'Mugu Glacier',
+      base_area_sqkm: 0.440,
+      final_area_sqkm: 0.510,
+      total_retreat_m: 310,
+      initial_volume_mcm: 12.2,
+      final_volume_mcm: 16.8,
+      primary_driver: 'Proglacial calving in Mugu Karnali catchment',
+      annual_milestones: {
+        2004: { note: 'Headwater cirque lake baseline.', retreat: 0, area: 0.440, vol: 12.2 },
+        2015: { note: 'Sentinel-2 tracks seasonal ice melt and water clarity.', retreat: 170, area: 0.480, vol: 14.8 },
+        2026: { note: 'Present-day configuration. Low downstream hazard index.', retreat: 310, area: 0.510, vol: 16.8 },
+      },
+    },
+
+    // 14. Api Nampa Proglacial Lake
+    'PDGL_NEP_MAHAKALI_001': {
+      id: 'l-api-nampa-srv',
+      icimod_code: 'PDGL_NEP_MAHAKALI_001',
+      name: 'Api Nampa Proglacial Lake',
+      basin: 'Mahakali (Chameliya)',
+      elevation_m: 4680,
+      coordinates: [80.950, 29.980],
+      glacier_name: 'Api Glacier',
+      base_area_sqkm: 0.350,
+      final_area_sqkm: 0.420,
+      total_retreat_m: 280,
+      initial_volume_mcm: 9.5,
+      final_volume_mcm: 13.8,
+      primary_driver: 'Far-Western Nepal Api massif proglacial retreat',
+      annual_milestones: {
+        2004: { note: 'Far-Western Nepal baseline.', retreat: 0, area: 0.350, vol: 9.5 },
+        2015: { note: 'Calving cliff backwasting measured at 14m/yr.', retreat: 150, area: 0.390, vol: 11.9 },
+        2026: { note: 'Present-day configuration. Monitored via Darchula hydrometric station.', retreat: 280, area: 0.420, vol: 13.8 },
+      },
+    },
   };
 
   /**
    * Retrieves 20-year multi-temporal satellite comparison data for a specified lake.
    */
   public static getLakeComparison(lakeIdOrCode: string): LakeTimelapseComparison {
-    // Match by ICIMOD code, lake ID, or name keyword
-    let foundKey = Object.keys(this.LAKES).find(
-      (k) =>
-        k.toLowerCase() === lakeIdOrCode.toLowerCase() ||
-        this.LAKES[k].id.toLowerCase() === lakeIdOrCode.toLowerCase() ||
-        this.LAKES[k].name.toLowerCase().includes(lakeIdOrCode.toLowerCase())
-    );
+    const rawKey = (lakeIdOrCode || '').trim();
+    const normalized = rawKey.toLowerCase();
 
-    // Default to Tsho Rolpa if not matched
+    // 1. Direct match or alias resolution
+    let foundKey = Object.keys(this.LAKES).find((k) => {
+      const l = this.LAKES[k];
+      return (
+        k.toLowerCase() === normalized ||
+        l.id.toLowerCase() === normalized ||
+        l.name.toLowerCase() === normalized ||
+        l.name.toLowerCase().includes(normalized)
+      );
+    });
+
+    if (!foundKey) {
+      if (
+        normalized.includes('galong') ||
+        normalized.includes('cirenmaco') ||
+        normalized.includes('bhote') ||
+        normalized.includes('poiku') ||
+        normalized.includes('poiqu') ||
+        normalized === 'l-galong-co' ||
+        normalized === 'pdgl_nep_koshi_007'
+      ) {
+        foundKey = 'PDGL_NEP_KOSHI_007';
+      } else if (
+        normalized.includes('tsho rolpa') ||
+        normalized.includes('rolwaling') ||
+        normalized.includes('tsho-rolpa') ||
+        normalized === 'l-tsho-rolpa' ||
+        normalized === 'l1111111-1111-1111-1111-111111111111' ||
+        normalized === 'pdgl_nep_koshi_001'
+      ) {
+        foundKey = 'PDGL_NEP_KOSHI_001';
+      } else if (
+        normalized.includes('imja') ||
+        normalized === 'l-imja-tsho' ||
+        normalized === 'l2222222-2222-2222-2222-222222222222' ||
+        normalized === 'pdgl_nep_koshi_002'
+      ) {
+        foundKey = 'PDGL_NEP_KOSHI_002';
+      } else if (
+        normalized.includes('barun') ||
+        normalized === 'l-lower-barun' ||
+        normalized === 'l4444444-4444-4444-4444-444444444444' ||
+        normalized === 'pdgl_nep_koshi_003'
+      ) {
+        foundKey = 'PDGL_NEP_KOSHI_003';
+      } else if (
+        normalized.includes('birendra') ||
+        normalized.includes('samagaun') ||
+        normalized === 'l-birendra' ||
+        normalized === 'pdgl_nep_gandaki_002'
+      ) {
+        foundKey = 'PDGL_NEP_GANDAKI_002';
+      } else if (
+        normalized.includes('thulagi') ||
+        normalized === 'l-thulagi' ||
+        normalized === 'l3333333-3333-3333-3333-333333333333' ||
+        normalized === 'pdgl_nep_gandaki_001'
+      ) {
+        foundKey = 'PDGL_NEP_GANDAKI_001';
+      } else if (
+        normalized.includes('lhonak') ||
+        normalized.includes('sikkim') ||
+        normalized === 'l-south-lhonak' ||
+        normalized === 'pdgl_ind_sikkim_001'
+      ) {
+        foundKey = 'PDGL_IND_SIKKIM_001';
+      } else if (
+        normalized.includes('lumding') ||
+        normalized === 'l-lumding' ||
+        normalized === 'pdgl_nep_koshi_004'
+      ) {
+        foundKey = 'PDGL_NEP_KOSHI_004';
+      } else if (
+        normalized.includes('chamlang') ||
+        normalized === 'l-chamlang' ||
+        normalized === 'pdgl_nep_koshi_005'
+      ) {
+        foundKey = 'PDGL_NEP_KOSHI_005';
+      } else if (
+        normalized.includes('dig') ||
+        normalized.includes('langmoche') ||
+        normalized === 'l-dig-tsho' ||
+        normalized === 'pdgl_nep_koshi_006'
+      ) {
+        foundKey = 'PDGL_NEP_KOSHI_006';
+      } else if (
+        normalized.includes('kaldang') ||
+        normalized.includes('langtang') ||
+        normalized === 'l-kaldang' ||
+        normalized === 'pdgl_nep_gandaki_003'
+      ) {
+        foundKey = 'PDGL_NEP_GANDAKI_003';
+      } else if (
+        normalized.includes('karnali') ||
+        normalized === 'l5555555-5555-5555-5555-555555555555' ||
+        normalized === 'pdgl_nep_karnali_001'
+      ) {
+        foundKey = 'PDGL_NEP_KARNALI_001';
+      } else if (
+        normalized.includes('rara') ||
+        normalized === 'l-rara-headwater' ||
+        normalized === 'pdgl_nep_karnali_002'
+      ) {
+        foundKey = 'PDGL_NEP_KARNALI_002';
+      } else if (
+        normalized.includes('api') ||
+        normalized.includes('nampa') ||
+        normalized === 'l-api-nampa-srv' ||
+        normalized === 'pdgl_nep_mahakali_001'
+      ) {
+        foundKey = 'PDGL_NEP_MAHAKALI_001';
+      }
+    }
+
+    // 2. Fallback search in MOCK_GLACIAL_LAKES if not hardcoded
+    if (!foundKey) {
+      const mockLake = MOCK_GLACIAL_LAKES.find(
+        (l) =>
+          l.id.toLowerCase() === normalized ||
+          l.icimod_code.toLowerCase() === normalized ||
+          l.name.toLowerCase().includes(normalized)
+      );
+
+      if (mockLake) {
+        const baseAreaSqkm = Number((mockLake.initial_area_sqm / 1e6).toFixed(3));
+        const finalAreaSqkm = Number((baseAreaSqkm * 1.16).toFixed(3));
+        const [lon, lat] = mockLake.centroid?.coordinates || [86.475, 27.868];
+        const elev = (mockLake as any).elevation_m || 4500;
+        const totalRetreat = Math.round(baseAreaSqkm * 500);
+
+        const milestones: Record<number, { note: string; retreat: number; area: number; vol: number }> = {};
+        for (let y = 2004; y <= 2026; y++) {
+          const ratio = (y - 2004) / 22;
+          const currentArea = Number((baseAreaSqkm + (finalAreaSqkm - baseAreaSqkm) * ratio).toFixed(3));
+          const retreat = Math.round(totalRetreat * ratio);
+          const vol = Number((currentArea * 35).toFixed(1));
+          milestones[y] = {
+            note:
+              y === 2004
+                ? `Landsat 7 baseline observation for ${mockLake.name}.`
+                : y === 2026
+                ? `Present-day calibrated configuration for ${mockLake.name}.`
+                : `Calving retreat and proglacial expansion monitoring (${y}).`,
+            retreat,
+            area: currentArea,
+            vol,
+          };
+        }
+
+        const syntheticLake: LakeDefinition = {
+          id: mockLake.id,
+          icimod_code: mockLake.icimod_code,
+          name: mockLake.name,
+          basin: (mockLake as any).basin_name || 'Himalayan Basin',
+          elevation_m: elev,
+          coordinates: [lon, lat],
+          glacier_name: `${mockLake.name} Glacier Tongue`,
+          base_area_sqkm: baseAreaSqkm,
+          final_area_sqkm: finalAreaSqkm,
+          total_retreat_m: totalRetreat,
+          initial_volume_mcm: Number((baseAreaSqkm * 35).toFixed(1)),
+          final_volume_mcm: Number((finalAreaSqkm * 35).toFixed(1)),
+          primary_driver: `Proglacial expansion and terminus calving under regional climate warming in ${(mockLake as any).basin_name || 'Himalayas'}`,
+          annual_milestones: milestones,
+        };
+
+        this.LAKES[mockLake.icimod_code] = syntheticLake;
+        foundKey = mockLake.icimod_code;
+      }
+    }
+
     if (!foundKey) {
       foundKey = 'PDGL_NEP_KOSHI_001';
     }
@@ -286,9 +699,37 @@ export class TimelapseComparisonService {
     const lake = this.LAKES[foundKey];
     const [lon, lat] = lake.coordinates;
 
-    const epochs: HistoricalEpochData[] = Object.keys(lake.annual_milestones).map((yearStr) => {
+    // Fill missing intermediate years if milestones defined intermittently
+    const availableMilestoneYears = Object.keys(lake.annual_milestones).map(Number).sort((a, b) => a - b);
+    const fullMilestones: Record<number, { note: string; retreat: number; area: number; vol: number }> = {};
+    for (let y = 2004; y <= 2026; y++) {
+      if (lake.annual_milestones[y]) {
+        fullMilestones[y] = lake.annual_milestones[y];
+      } else {
+        const prevYear = [...availableMilestoneYears].reverse().find((ay) => ay <= y) || 2004;
+        const nextYear = availableMilestoneYears.find((ay) => ay >= y) || 2026;
+        if (prevYear === nextYear) {
+          fullMilestones[y] = lake.annual_milestones[prevYear];
+        } else {
+          const ratio = (y - prevYear) / (nextYear - prevYear);
+          const pM = lake.annual_milestones[prevYear];
+          const nM = lake.annual_milestones[nextYear];
+          const area = Number((pM.area + (nM.area - pM.area) * ratio).toFixed(3));
+          const retreat = Math.round(pM.retreat + (nM.retreat - pM.retreat) * ratio);
+          const vol = Number((pM.vol + (nM.vol - pM.vol) * ratio).toFixed(1));
+          fullMilestones[y] = {
+            note: `Multispectral satellite observation and margin tracking (${y}).`,
+            retreat,
+            area,
+            vol,
+          };
+        }
+      }
+    }
+
+    const epochs: HistoricalEpochData[] = Object.keys(fullMilestones).map((yearStr) => {
       const year = Number(yearStr);
-      const m = lake.annual_milestones[year];
+      const m = fullMilestones[year];
       const sensor =
         year < 2013
           ? 'Landsat 7 ETM+'

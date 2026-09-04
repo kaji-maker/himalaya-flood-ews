@@ -67,6 +67,47 @@ export interface LakeInSarAnalysis {
 export class CueSlewTaskingService {
   private static taskings: CueSlewOrder[] = [
     {
+      id: 'task-slew-galong-01',
+      tasking_code: 'CS-KOSHI_007-20260904-01',
+      lake_id: 'l-galong-co',
+      icimod_code: 'PDGL_NEP_KOSHI_007',
+      lake_name: 'Galong Co / Cirenmaco (Poiqu Transboundary)',
+      priority: 'IMMEDIATE_INTERVENTION',
+      target_sensor: 'SkySat-Submeter',
+      target_gsd_meters: 0.50,
+      bounding_box: [85.965, 28.055, 86.025, 28.115],
+      trigger_reason: {
+        category: 'INSAR_SUBSIDENCE',
+        severity: 'CRITICAL',
+        description: 'Sentinel-1 SBAS InSAR detected accelerated moraine crest subsidence of -31.6 mm/yr and piping fissures post-August 2026 Poiqu debris pulse',
+        trigger_value: -31.6,
+        trigger_unit: 'mm/year',
+      },
+      predicted_pass: {
+        satellite_id: 'SkySat-C16 (SSC# 46273)',
+        pass_window_utc: new Date(Date.now() + 1000 * 60 * 25).toISOString(),
+        off_nadir_angle_deg: 12.4,
+        sun_elevation_deg: 54.1,
+        cloud_cover_forecast_pct: 8.0,
+      },
+      cv_inspection_targets: [
+        {
+          feature: '1981 Breach Sill Residual Scarp Creep',
+          status: 'DETECTED',
+          confidence: 0.96,
+          metrics: { fracture_length_m: 120.0, aperture_cm: 48.0, displacement_rate_mm_day: 3.2 },
+        },
+        {
+          feature: 'Poiqu Transboundary Debris Flow Fan Headcut',
+          status: 'DETECTED',
+          confidence: 0.92,
+          metrics: { headcut_retreat_m_yr: 18.5, sediment_yield_m3: 185000 },
+        },
+      ],
+      status: 'TASKED',
+      created_at: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
+    },
+    {
       id: 'task-slew-tsho-01',
       tasking_code: 'CS-TSHO-20260904-01',
       lake_id: 'l-tsho-rolpa',
@@ -271,37 +312,51 @@ export class CueSlewTaskingService {
 
   public static getLakeInSarDeformation(lakeIdOrCode: string): LakeInSarAnalysis {
     const code = lakeIdOrCode.toUpperCase();
+    const isGalong = code.includes('GALONG') || code.includes('CIRENMACO') || code.includes('BHOTE') || code.includes('POIQU') || code.includes('KOSHI_007');
     const isLhonak = code.includes('LHON') || code.includes('SIKKIM');
     const isBarun = code.includes('BARUN');
     const isImja = code.includes('IMJA');
+    const isBirendra = code.includes('BIRENDRA') || code.includes('GANDAKI_002');
     const isThulagi = code.includes('THULAGI');
 
-    const lakeName = isLhonak
+    const lakeName = isGalong
+      ? 'Galong Co / Cirenmaco (Poiqu Transboundary)'
+      : isLhonak
       ? 'South Lhonak Lake (Sikkim Arc)'
       : isBarun
       ? 'Lower Barun Lake (Makalu)'
       : isImja
       ? 'Imja Tsho (Everest Region)'
+      : isBirendra
+      ? 'Birendra Lake (Manaslu)'
       : isThulagi
       ? 'Thulagi Lake (Manaslu)'
       : 'Tsho Rolpa Glacial Lake';
 
-    const icimodCode = isLhonak
+    const icimodCode = isGalong
+      ? 'PDGL_NEP_KOSHI_007'
+      : isLhonak
       ? 'PDGL_IND_SIKKIM_001'
       : isBarun
       ? 'PDGL_NEP_KOSHI_003'
       : isImja
       ? 'PDGL_NEP_KOSHI_002'
+      : isBirendra
+      ? 'PDGL_NEP_GANDAKI_002'
       : isThulagi
       ? 'PDGL_NEP_GANDAKI_001'
       : 'PDGL_NEP_KOSHI_001';
 
-    const meanVelocity = isLhonak
+    const meanVelocity = isGalong
+      ? -31.6
+      : isLhonak
       ? -34.8
       : isBarun
       ? -21.4
       : isImja
       ? -14.2
+      : isBirendra
+      ? -19.8
       : isThulagi
       ? -18.5
       : -28.4;

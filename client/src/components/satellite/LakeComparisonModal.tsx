@@ -32,6 +32,14 @@ export interface TimelapsePresetLake {
 
 export const TIMELAPSE_PRESET_LAKES: TimelapsePresetLake[] = [
   {
+    code: 'PDGL_NEP_KOSHI_007',
+    name: 'Galong Co / Cirenmaco',
+    basin: 'Bhote Koshi / Poiqu',
+    region: 'Transboundary Tibet-Nepal Border',
+    elevation: '4,380m',
+    tag: 'Aug 2026 Surge Trigger',
+  },
+  {
     code: 'PDGL_NEP_KOSHI_001',
     name: 'Tsho Rolpa',
     basin: 'Tama Koshi',
@@ -54,6 +62,14 @@ export const TIMELAPSE_PRESET_LAKES: TimelapsePresetLake[] = [
     region: 'Makalu-Barun, Nepal',
     elevation: '4,570m',
     tag: '+197% Rapid Expansion',
+  },
+  {
+    code: 'PDGL_NEP_GANDAKI_002',
+    name: 'Birendra Lake',
+    basin: 'Budhi Gandaki',
+    region: 'Manaslu Arc, Nepal',
+    elevation: '3,620m',
+    tag: 'April 2024 Surge',
   },
   {
     code: 'PDGL_NEP_GANDAKI_001',
@@ -128,7 +144,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [activeLakeCode, setActiveLakeCode] = useState<string>(icimodCode || lakeId || 'PDGL_NEP_KOSHI_001');
+  const [activeLakeCode, setActiveLakeCode] = useState<string>(icimodCode || lakeId || 'PDGL_NEP_KOSHI_007');
   const [data, setData] = useState<ComparisonData | null>(null);
   const [sliderPos, setSliderPos] = useState<number>(50); // Split swipe slider (0 to 100%)
   const [selectedYear, setSelectedYear] = useState<number>(2026);
@@ -141,14 +157,36 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   const [showExpansionHighlight, setShowExpansionHighlight] = useState<boolean>(true);
   const [showCalvingLine, setShowCalvingLine] = useState<boolean>(true);
 
-  // Sync active lake when props change
+  // Sync active lake when props change or modal opens
   useEffect(() => {
-    if (icimodCode) {
-      setActiveLakeCode(icimodCode);
-    } else if (lakeId) {
-      setActiveLakeCode(lakeId);
+    if (isOpen) {
+      const target = icimodCode || lakeId || 'PDGL_NEP_KOSHI_007';
+      setActiveLakeCode(target);
+      setSelectedYear(2026);
+      setIsPlaying(false);
     }
-  }, [icimodCode, lakeId]);
+  }, [isOpen, icimodCode, lakeId]);
+
+  // Dynamic preset pills (ensure the active inspected lake is always present and selectable)
+  const displayedPresets = useMemo(() => {
+    const activeExists = TIMELAPSE_PRESET_LAKES.some(
+      (p) =>
+        p.code.toLowerCase() === activeLakeCode.toLowerCase() ||
+        (data && p.code.toLowerCase() === data.icimod_code.toLowerCase())
+    );
+    if (!activeExists && (data || lakeName)) {
+      const customPreset: TimelapsePresetLake = {
+        code: data?.icimod_code || activeLakeCode,
+        name: data?.lake_name || lakeName || 'Active Target',
+        basin: data?.basin || 'Monitored Basin',
+        region: 'Himalayan Arc',
+        elevation: data?.elevation_m ? `${data.elevation_m}m` : 'Alpine',
+        tag: 'Inspected Target',
+      };
+      return [customPreset, ...TIMELAPSE_PRESET_LAKES];
+    }
+    return TIMELAPSE_PRESET_LAKES;
+  }, [activeLakeCode, data, lakeName]);
 
   // Fetch comparison data for current active lake
   useEffect(() => {
@@ -374,7 +412,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           strokeWidth="1.5"
         />
         <text x="137" y="142" fill={isSouthLhonakBreach && !is2004Baseline ? '#FCA5A5' : '#FDE047'} fontSize="9" fontWeight="bold" textAnchor="middle">
-          {data?.icimod_code === 'PDGL_NEP_KOSHI_002' ? 'ENGINEERED CANAL' : 'OUTLET DAM'}
+          {data?.icimod_code === 'PDGL_NEP_KOSHI_007' ? '1981 BREACH NOTCH' : data?.icimod_code === 'PDGL_NEP_KOSHI_002' ? 'ENGINEERED CANAL' : data?.icimod_code === 'PDGL_NEP_KOSHI_001' ? 'SPILLWAY SIPHON' : 'OUTLET DAM'}
         </text>
 
         {/* 5. Special South Lhonak Oct 2023 Breach Channel */}
@@ -556,7 +594,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
             <Layers className="w-3.5 h-3.5 text-cyan-400" />
             Glacial Lake Presets:
           </span>
-          {TIMELAPSE_PRESET_LAKES.map((l) => {
+          {displayedPresets.map((l) => {
             const isActive = (data?.icimod_code === l.code) || (activeLakeCode === l.code);
             return (
               <button
