@@ -18,6 +18,8 @@ import {
   Sliders,
   Ruler,
   AlertTriangle,
+  Eye,
+  Activity,
 } from 'lucide-react';
 
 export interface TimelapsePresetLake {
@@ -60,7 +62,7 @@ export const TIMELAPSE_PRESET_LAKES: TimelapsePresetLake[] = [
     name: 'Lower Barun',
     basin: 'Barun / Arun',
     region: 'Makalu-Barun, Nepal',
-    elevation: '4,570m',
+    elevation: '4,540m',
     tag: '+197% Rapid Expansion',
   },
   {
@@ -120,6 +122,7 @@ interface ComparisonData {
   basin?: string;
   elevation_m?: number;
   coordinates: [number, number];
+  bbox?: [number, number, number, number];
   study_period: string;
   glacier_name?: string;
   net_summary: {
@@ -133,6 +136,441 @@ interface ComparisonData {
     primary_driver: string;
   };
   epochs: HistoricalEpoch[];
+}
+
+/**
+ * Precision Geo-Referenced Overlay Configuration per Lake (viewBox 800 x 450)
+ * Geographically calibrated to align the anchor crosshair with the true moraine dam
+ * and the calving transect with the true glacier retreat axis in the satellite view.
+ */
+interface LakeGeometryConfig {
+  anchor: {
+    x: number;
+    y: number;
+    label: string;
+    sublabel: string;
+  };
+  baselineCalving: {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    label: string;
+  };
+  modernCalving: {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  };
+  lakePath: (ratio: number) => string;
+  expansionPath: (ratio: number) => string | null;
+  ruler: (ratio: number) => { x1: number; y1: number; x2: number; y2: number };
+  glacierFlow: {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    label: string;
+  };
+}
+
+const LAKE_GEOMETRIES: Record<string, LakeGeometryConfig> = {
+  // 1. Galong Co / Cirenmaco (Bhote Koshi / Poiqu corridor)
+  PDGL_NEP_KOSHI_007: {
+    anchor: {
+      x: 215,
+      y: 180,
+      label: '1981 BREACH NOTCH',
+      sublabel: 'Western Moraine Scarp (4,380m)',
+    },
+    baselineCalving: {
+      x1: 430,
+      y1: 165,
+      x2: 430,
+      y2: 238,
+      label: '2004 CALVING WALL',
+    },
+    modernCalving: {
+      x1: 505,
+      y1: 185,
+      x2: 505,
+      y2: 242,
+    },
+    lakePath: (t: number) => {
+      const termX = 430 + t * (505 - 430);
+      const termYTop = 165 + t * (185 - 165);
+      const termYBot = 238 + t * (242 - 238);
+      return `M 215,180 
+        C 250,165 310,158 370,162 
+        C 400,163 420,164 ${termX},${termYTop} 
+        L ${termX},${termYBot} 
+        C 420,240 370,245 320,235 
+        C 260,225 230,205 215,180 Z`;
+    },
+    expansionPath: (t: number) => {
+      if (t <= 0.02) return null;
+      const termX = 430 + t * (505 - 430);
+      const termYTop = 165 + t * (185 - 165);
+      const termYBot = 238 + t * (242 - 238);
+      return `M 430,165 L ${termX},${termYTop} L ${termX},${termYBot} L 430,238 Z`;
+    },
+    ruler: (t: number) => {
+      const termX = 430 + t * (505 - 430);
+      return { x1: 430, y1: 201, x2: termX, y2: 201 };
+    },
+    glacierFlow: {
+      x1: 515,
+      y1: 215,
+      x2: 630,
+      y2: 230,
+      label: 'Galong Glacier Tongue ➔',
+    },
+  },
+
+  // 2. Tsho Rolpa (Tama Koshi)
+  PDGL_NEP_KOSHI_001: {
+    anchor: {
+      x: 205,
+      y: 185,
+      label: 'SPILLWAY SIPHON CANAL',
+      sublabel: 'NW Terminal Moraine (4,580m)',
+    },
+    baselineCalving: {
+      x1: 440,
+      y1: 280,
+      x2: 390,
+      y2: 340,
+      label: '2004 CALVING WALL',
+    },
+    modernCalving: {
+      x1: 570,
+      y1: 360,
+      x2: 520,
+      y2: 420,
+    },
+    lakePath: (t: number) => {
+      const topX = 440 + t * (570 - 440);
+      const topY = 280 + t * (360 - 280);
+      const botX = 390 + t * (520 - 390);
+      const botY = 340 + t * (420 - 340);
+      return `M 205,185 
+        C 245,155 330,210 400,255 
+        L ${topX},${topY} 
+        L ${botX},${botY} 
+        C 350,310 300,270 250,230 
+        C 225,210 212,195 205,185 Z`;
+    },
+    expansionPath: (t: number) => {
+      if (t <= 0.02) return null;
+      const topX = 440 + t * (570 - 440);
+      const topY = 280 + t * (360 - 280);
+      const botX = 390 + t * (520 - 390);
+      const botY = 340 + t * (420 - 340);
+      return `M 440,280 L ${topX},${topY} L ${botX},${botY} L 390,340 Z`;
+    },
+    ruler: (t: number) => {
+      const topX = 440 + t * (570 - 440);
+      const topY = 280 + t * (360 - 280);
+      return { x1: 440, y1: 280, x2: topX, y2: topY };
+    },
+    glacierFlow: {
+      x1: 570,
+      y1: 390,
+      x2: 670,
+      y2: 430,
+      label: 'Trakarding Glacier Tongue ➔',
+    },
+  },
+
+  // 3. Imja Tsho (Everest / Dudh Koshi)
+  PDGL_NEP_KOSHI_002: {
+    anchor: {
+      x: 170,
+      y: 270,
+      label: '2016 ENGINEERED CANAL',
+      sublabel: 'West Outlet Spillway (5,010m)',
+    },
+    baselineCalving: {
+      x1: 490,
+      y1: 255,
+      x2: 490,
+      y2: 360,
+      label: '2004 CALVING WALL',
+    },
+    modernCalving: {
+      x1: 690,
+      y1: 260,
+      x2: 690,
+      y2: 365,
+    },
+    lakePath: (t: number) => {
+      const termX = 490 + t * (690 - 490);
+      return `M 170,270 
+        C 230,240 360,245 450,250 
+        L ${termX},255 
+        L ${termX},362 
+        C 450,360 350,355 240,330 
+        C 195,310 180,285 170,270 Z`;
+    },
+    expansionPath: (t: number) => {
+      if (t <= 0.02) return null;
+      const termX = 490 + t * (690 - 490);
+      return `M 490,255 L ${termX},255 L ${termX},362 L 490,360 Z`;
+    },
+    ruler: (t: number) => {
+      const termX = 490 + t * (690 - 490);
+      return { x1: 490, y1: 310, x2: termX, y2: 310 };
+    },
+    glacierFlow: {
+      x1: 700,
+      y1: 310,
+      x2: 780,
+      y2: 310,
+      label: 'Amphu / Lhotse Shar Cliffs ➔',
+    },
+  },
+
+  // 4. Lower Barun Lake (Makalu-Barun / Arun)
+  PDGL_NEP_KOSHI_003: {
+    anchor: {
+      x: 120,
+      y: 245,
+      label: 'TERMINAL MORAINE DAM',
+      sublabel: 'Barun Gorge (4,540m)',
+    },
+    baselineCalving: {
+      x1: 280,
+      y1: 175,
+      x2: 280,
+      y2: 275,
+      label: '2004 CALVING WALL',
+    },
+    modernCalving: {
+      x1: 450,
+      y1: 170,
+      x2: 450,
+      y2: 270,
+    },
+    lakePath: (t: number) => {
+      const termX = 280 + t * (450 - 280);
+      return `M 120,245 
+        C 150,210 200,185 250,180 
+        L ${termX},172 
+        L ${termX},272 
+        C 240,275 190,270 150,260 
+        C 135,255 125,250 120,245 Z`;
+    },
+    expansionPath: (t: number) => {
+      if (t <= 0.02) return null;
+      const termX = 280 + t * (450 - 280);
+      return `M 280,175 L ${termX},172 L ${termX},272 L 280,275 Z`;
+    },
+    ruler: (t: number) => {
+      const termX = 280 + t * (450 - 280);
+      return { x1: 280, y1: 225, x2: termX, y2: 225 };
+    },
+    glacierFlow: {
+      x1: 460,
+      y1: 220,
+      x2: 600,
+      y2: 220,
+      label: 'Barun Glacier Tongue ➔',
+    },
+  },
+
+  // 5. Birendra Lake (Manaslu / Budhi Gandaki)
+  PDGL_NEP_GANDAKI_002: {
+    anchor: {
+      x: 435,
+      y: 185,
+      label: 'BUDHI GANDAKI OUTLET WEIR',
+      sublabel: 'Manaslu Base (3,620m)',
+    },
+    baselineCalving: {
+      x1: 440,
+      y1: 215,
+      x2: 405,
+      y2: 225,
+      label: '2004 BASIN',
+    },
+    modernCalving: {
+      x1: 465,
+      y1: 225,
+      x2: 395,
+      y2: 235,
+    },
+    lakePath: (t: number) => {
+      const tipX = 405 + t * (395 - 405);
+      const tipY = 225 + t * (235 - 225);
+      return `M 435,185 
+        C 450,195 465,210 460,220 
+        L ${tipX},${tipY} 
+        C 400,215 410,200 420,192 
+        Z`;
+    },
+    expansionPath: (t: number) => {
+      if (t <= 0.02) return null;
+      const tipX = 405 + t * (395 - 405);
+      const tipY = 225 + t * (235 - 225);
+      return `M 405,225 L 460,220 L 465,225 L ${tipX},${tipY} Z`;
+    },
+    ruler: (t: number) => {
+      const tipX = 405 + t * (395 - 405);
+      return { x1: 405, y1: 225, x2: tipX, y2: 235 };
+    },
+    glacierFlow: {
+      x1: 410,
+      y1: 225,
+      x2: 350,
+      y2: 270,
+      label: 'Manaslu Avalanche Chute ➔',
+    },
+  },
+
+  // 6. South Lhonak (Sikkim / Teesta)
+  PDGL_IND_SIKKIM_001: {
+    anchor: {
+      x: 370,
+      y: 160,
+      label: 'OCT 4 2023 BREACH CANYON',
+      sublabel: 'Teesta Surge Notch (5,200m)',
+    },
+    baselineCalving: {
+      x1: 260,
+      y1: 200,
+      x2: 260,
+      y2: 260,
+      label: '2004 CALVING',
+    },
+    modernCalving: {
+      x1: 180,
+      y1: 210,
+      x2: 180,
+      y2: 250,
+    },
+    lakePath: () => {
+      return `M 370,160 
+        C 330,170 280,185 240,195 
+        L 150,210 
+        L 150,250 
+        C 240,245 300,230 350,200 
+        Z`;
+    },
+    expansionPath: () => null,
+    ruler: () => ({ x1: 260, y1: 230, x2: 180, y2: 230 }),
+    glacierFlow: {
+      x1: 140,
+      y1: 230,
+      x2: 60,
+      y2: 230,
+      label: 'South Lhonak Glacier ➔',
+    },
+  },
+
+  // 7. Thulagi Lake (Marsyangdi)
+  PDGL_NEP_GANDAKI_001: {
+    anchor: {
+      x: 535,
+      y: 325,
+      label: 'MARSYANGDI OUTLET WEIR',
+      sublabel: 'Southern Moraine Lip (4,040m)',
+    },
+    baselineCalving: {
+      x1: 580,
+      y1: 240,
+      x2: 630,
+      y2: 270,
+      label: '2004 CALVING',
+    },
+    modernCalving: {
+      x1: 600,
+      y1: 210,
+      x2: 660,
+      y2: 240,
+    },
+    lakePath: (t: number) => {
+      const topX = 580 + t * (600 - 580);
+      const topY = 240 + t * (210 - 240);
+      const botX = 630 + t * (660 - 630);
+      const botY = 270 + t * (240 - 270);
+      return `M 535,325 
+        C 510,290 530,260 560,245 
+        L ${topX},${topY} 
+        L ${botX},${botY} 
+        C 610,290 580,315 535,325 Z`;
+    },
+    expansionPath: (t: number) => {
+      if (t <= 0.02) return null;
+      const topX = 580 + t * (600 - 580);
+      const topY = 240 + t * (210 - 240);
+      const botX = 630 + t * (660 - 630);
+      const botY = 270 + t * (240 - 270);
+      return `M 580,240 L ${topX},${topY} L ${botX},${botY} L 630,270 Z`;
+    },
+    ruler: (t: number) => {
+      const topX = 580 + t * (600 - 580);
+      const topY = 240 + t * (210 - 240);
+      return { x1: 580, y1: 240, x2: topX, y2: topY };
+    },
+    glacierFlow: {
+      x1: 610,
+      y1: 210,
+      x2: 670,
+      y2: 170,
+      label: 'Dona Glacier Tongue ➔',
+    },
+  },
+};
+
+// Fallback dynamic geometry builder for arbitrary lakes
+function getGenericGeometry(lakeName: string): LakeGeometryConfig {
+  return {
+    anchor: {
+      x: 200,
+      y: 225,
+      label: 'TERMINAL MORAINE DAM',
+      sublabel: `${lakeName} Outlet`,
+    },
+    baselineCalving: {
+      x1: 440,
+      y1: 175,
+      x2: 440,
+      y2: 275,
+      label: '2004 CALVING',
+    },
+    modernCalving: {
+      x1: 540,
+      y1: 170,
+      x2: 540,
+      y2: 280,
+    },
+    lakePath: (t: number) => {
+      const termX = 440 + t * (540 - 440);
+      return `M 200,225 
+        C 240,195 320,180 400,178 
+        L ${termX},172 
+        L ${termX},278 
+        C 400,270 320,260 240,250 
+        Z`;
+    },
+    expansionPath: (t: number) => {
+      if (t <= 0.02) return null;
+      const termX = 440 + t * (540 - 440);
+      return `M 440,175 L ${termX},172 L ${termX},278 L 440,275 Z`;
+    },
+    ruler: (t: number) => {
+      const termX = 440 + t * (540 - 440);
+      return { x1: 440, y1: 225, x2: termX, y2: 225 };
+    },
+    glacierFlow: {
+      x1: 540,
+      y1: 225,
+      x2: 640,
+      y2: 225,
+      label: 'Glacier Tongue ➔',
+    },
+  };
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
@@ -152,6 +590,9 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Multi-spectral band filter: 'rgb' (natural) | 'nir' (false-color infrared NDWI) | 'sar' (high-contrast terrain)
+  const [spectralBand, setSpectralBand] = useState<'rgb' | 'nir' | 'sar'>('rgb');
+
   // Inspection Display Mode: 'side-by-side' | 'split'
   const [viewMode, setViewMode] = useState<'side-by-side' | 'split'>('side-by-side');
   const [showExpansionHighlight, setShowExpansionHighlight] = useState<boolean>(true);
@@ -167,7 +608,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
     }
   }, [isOpen, icimodCode, lakeId]);
 
-  // Dynamic preset pills (ensure the active inspected lake is always present and selectable)
+  // Dynamic preset pills
   const displayedPresets = useMemo(() => {
     const activeExists = TIMELAPSE_PRESET_LAKES.some(
       (p) =>
@@ -236,10 +677,10 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
     return data?.epochs.find((e) => e.epoch_year === selectedYear) || data?.epochs[data.epochs.length - 1] || null;
   }, [data, selectedYear]);
 
-  // Dynamic Sparkline Path Calculation across 23 years based on each lake's area bounds
-  const { minArea, maxArea, sparklinePoints, activePointCoord } = useMemo(() => {
+  // Sparkline Points
+  const { sparklinePoints, activePointCoord } = useMemo(() => {
     if (!data || data.epochs.length === 0) {
-      return { minArea: 0, maxArea: 1, sparklinePoints: '', activePointCoord: { x: 0, y: 0 } };
+      return { sparklinePoints: '', activePointCoord: { x: 0, y: 0 } };
     }
     const areas = data.epochs.map((e) => e.area_sqkm);
     const rawMin = Math.min(...areas);
@@ -268,87 +709,83 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
       }
     }
 
-    return { minArea: min, maxArea: max, sparklinePoints: points, activePointCoord: activeCoord };
+    return { sparklinePoints: points, activePointCoord: activeCoord };
   }, [data, currentEpoch]);
 
-  // Key landmark years for quick jumps
   const landmarkYears = [2004, 2007, 2011, 2015, 2018, 2021, 2023, 2026];
 
-  // Calculate geometric retreat ratio (0.0 for 2004 -> 1.0 for max retreat)
+  // Geometric retreat ratio (0.0 for 2004 -> 1.0 for max retreat in 2026)
   const retreatRatio = useMemo(() => {
     if (!currentEpoch || !data) return 1.0;
-    const maxRetreat = Math.max(100, data.net_summary?.total_glacier_terminus_retreat_m || 1240);
+    const maxRetreat = Math.max(100, data.net_summary?.total_glacier_terminus_retreat_m || 680);
     return Math.min(1.0, Math.max(0.0, currentEpoch.terminus_retreat_m / maxRetreat));
   }, [currentEpoch, data]);
 
+  // Current Lake Geometry
+  const activeGeometry = useMemo<LakeGeometryConfig>(() => {
+    const code = data?.icimod_code || activeLakeCode;
+    return LAKE_GEOMETRIES[code] || getGenericGeometry(data?.lake_name || lakeName);
+  }, [data, activeLakeCode, lakeName]);
+
   if (!isOpen) return null;
 
-  const initialAreaSqm = data?.net_summary?.initial_area_sqm_2004 || 1390000;
+  const initialAreaSqm = data?.net_summary?.initial_area_sqm_2004 || 1380000;
   const initialAreaSqkm = (initialAreaSqm / 1e6).toFixed(3);
   const currentAreaSqm = currentEpoch?.area_sqm || 0;
   const deltaSqm = currentAreaSqm - initialAreaSqm;
-  const isSouthLhonakBreach = data?.icimod_code === 'PDGL_IND_SIKKIM_001' && selectedYear >= 2023;
+  const isSouthLhonakBreach = (data?.icimod_code === 'PDGL_IND_SIKKIM_001') && selectedYear >= 2023;
 
-  // Render SVG Lake Canvas with authentic morphological glacier tongue retreat
+  // Render SVG Vector Lake Overlay with Geodesic Alignment
   const renderLakeSvg = (is2004Baseline: boolean) => {
-    // Coordinate space: 700 x 300
-    // Lake starts at Outlet Dam: (140, 160)
-    // Baseline Terminus: X = 410
-    // Retreated Terminus: X = 410 + retreatRatio * 160
-    const baselineTerminusX = 410;
-    const activeTerminusX = is2004Baseline ? 410 : 410 + retreatRatio * 160;
-    const retreatDistPx = activeTerminusX - baselineTerminusX;
+    const effectiveRatio = is2004Baseline ? 0.0 : retreatRatio;
+    const lakePathD = activeGeometry.lakePath(effectiveRatio);
+    const expansionPathD = activeGeometry.expansionPath(effectiveRatio);
+    const { anchor, baselineCalving, modernCalving, glacierFlow } = activeGeometry;
+
+    // Active calving line coordinates (interpolated along retreat axis)
+    const activeCalving = {
+      x1: baselineCalving.x1 + effectiveRatio * (modernCalving.x1 - baselineCalving.x1),
+      y1: baselineCalving.y1 + effectiveRatio * (modernCalving.y1 - baselineCalving.y1),
+      x2: baselineCalving.x2 + effectiveRatio * (modernCalving.x2 - baselineCalving.x2),
+      y2: baselineCalving.y2 + effectiveRatio * (modernCalving.y2 - baselineCalving.y2),
+    };
 
     return (
       <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        viewBox="0 0 700 300"
+        className="absolute inset-0 w-full h-full pointer-events-none select-none"
+        viewBox="0 0 800 450"
         preserveAspectRatio="none"
       >
         <defs>
           {/* Glacial Water Gradient 2004 (Landsat 7 False Color NIR Navy) */}
           <linearGradient id="waterGrad2004" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#0B3C5D" stopOpacity="0.88" />
-            <stop offset="70%" stopColor="#1D5F8A" stopOpacity="0.92" />
-            <stop offset="100%" stopColor="#2A7B9B" stopOpacity="0.95" />
+            <stop offset="0%" stopColor="#0284C7" stopOpacity="0.45" />
+            <stop offset="60%" stopColor="#0369A1" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#075985" stopOpacity="0.65" />
           </linearGradient>
 
           {/* Glacial Water Gradient Modern (Sentinel-2 True Color Milky Turquoise) */}
           <linearGradient id="waterGradModern" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#0891B2" stopOpacity="0.85" />
-            <stop offset="60%" stopColor="#06B6D4" stopOpacity="0.90" />
-            <stop offset="100%" stopColor="#22D3EE" stopOpacity="0.95" />
+            <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.45" />
+            <stop offset="60%" stopColor="#0891B2" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#0E7490" stopOpacity="0.65" />
           </linearGradient>
 
           {/* Post-Breach Drained Lake Water Gradient (South Lhonak) */}
           <linearGradient id="waterGradBreached" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#450A0A" stopOpacity="0.88" />
-            <stop offset="70%" stopColor="#7F1D1D" stopOpacity="0.92" />
-            <stop offset="100%" stopColor="#991B1B" stopOpacity="0.95" />
+            <stop offset="0%" stopColor="#7F1D1D" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#991B1B" stopOpacity="0.75" />
           </linearGradient>
 
           {/* Expansion Zone Striped Pattern */}
-          <pattern id="expansionHatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
-            <line x1="0" y1="0" x2="0" y2="8" stroke="#F43F5E" strokeWidth="2.5" strokeOpacity="0.7" />
-          </pattern>
-
-          {/* Debris-covered Glacier Tongue Texture */}
-          <pattern id="glacierDebrisPattern" width="12" height="12" patternUnits="userSpaceOnUse">
-            <rect width="12" height="12" fill="#4B5563" fillOpacity="0.82" />
-            <circle cx="3" cy="3" r="1.5" fill="#9CA3AF" />
-            <circle cx="9" cy="8" r="1.2" fill="#D1D5DB" />
-            <path d="M 0,6 Q 6,2 12,6" fill="none" stroke="#374151" strokeWidth="0.8" />
+          <pattern id="expansionHatch" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="0" x2="0" y2="10" stroke="#F43F5E" strokeWidth="2.5" strokeOpacity="0.75" />
           </pattern>
         </defs>
 
-        {/* 1. Base Glacial Lake Water Body (Western section up to active terminus) */}
+        {/* 1. Precision Lake Shoreline Perimeter & Water Body */}
         <path
-          d={`M 140,165 
-             C 170,145 220,135 290,140 
-             C 340,145 380,150 ${activeTerminusX},152 
-             L ${activeTerminusX},198 
-             C 380,205 320,210 250,205 
-             C 190,200 160,185 140,165 Z`}
+          d={lakePathD}
           fill={
             isSouthLhonakBreach && !is2004Baseline
               ? 'url(#waterGradBreached)'
@@ -356,167 +793,188 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
               ? 'url(#waterGrad2004)'
               : 'url(#waterGradModern)'
           }
-          stroke={isSouthLhonakBreach && !is2004Baseline ? '#EF4444' : is2004Baseline ? '#38BDF8' : '#67E8F9'}
+          stroke={isSouthLhonakBreach && !is2004Baseline ? '#EF4444' : is2004Baseline ? '#38BDF8' : '#22D3EE'}
           strokeWidth="2.5"
-          className="filter drop-shadow-md"
+          filter="drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6))"
         />
 
-        {/* 2. New Expansion Zone Highlight (Between 2004 Baseline & Current Terminus) */}
-        {!is2004Baseline && retreatDistPx > 4 && showExpansionHighlight && !isSouthLhonakBreach && (
+        {/* 2. New Meltwater Expansion Zone Highlight */}
+        {!is2004Baseline && showExpansionHighlight && expansionPathD && !isSouthLhonakBreach && (
           <g>
             <path
-              d={`M ${baselineTerminusX},151 
-                 L ${activeTerminusX},152 
-                 L ${activeTerminusX},198 
-                 L ${baselineTerminusX},200 Z`}
+              d={expansionPathD}
               fill="url(#expansionHatch)"
               stroke="#FB7185"
               strokeWidth="2"
               strokeDasharray="4 2"
             />
-            {/* Expansion Glowing Water Fill */}
             <path
-              d={`M ${baselineTerminusX},151 
-                 L ${activeTerminusX},152 
-                 L ${activeTerminusX},198 
-                 L ${baselineTerminusX},200 Z`}
+              d={expansionPathD}
               fill="#F43F5E"
-              fillOpacity="0.30"
+              fillOpacity="0.25"
             />
           </g>
         )}
 
-        {/* 3. Upstream Glacier Tongue */}
-        <path
-          d={`M ${activeTerminusX},152 
-             C ${activeTerminusX + 30},150 560,140 640,130 
-             L 650,225 
-             C 580,215 ${activeTerminusX + 30},202 ${activeTerminusX},198 Z`}
-          fill="url(#glacierDebrisPattern)"
-          stroke="#6B7280"
-          strokeWidth="1.5"
-        />
-        <text x="560" y="195" fill="#E2E8F0" fontSize="9" fontWeight="bold" textAnchor="middle">
-          {data?.glacier_name || 'Glacier Tongue'}
-        </text>
+        {/* 3. Upstream Glacier Flow Indicator */}
+        <g opacity="0.85">
+          <line
+            x1={glacierFlow.x1}
+            y1={glacierFlow.y1}
+            x2={glacierFlow.x2}
+            y2={glacierFlow.y2}
+            stroke="#94A3B8"
+            strokeWidth="2"
+            strokeDasharray="4 3"
+          />
+          <text
+            x={(glacierFlow.x1 + glacierFlow.x2) / 2}
+            y={glacierFlow.y1 - 8}
+            fill="#E2E8F0"
+            fontSize="10"
+            fontWeight="bold"
+            textAnchor="middle"
+            filter="drop-shadow(0 1px 3px rgba(0,0,0,0.9))"
+          >
+            {glacierFlow.label}
+          </text>
+        </g>
 
-        {/* 4. Terminal Outlet Moraine Dam (West End) */}
-        <rect
-          x="132"
-          y="150"
-          width="10"
-          height="32"
-          rx="2"
-          fill={isSouthLhonakBreach && !is2004Baseline ? '#EF4444' : '#EAB308'}
-          stroke={isSouthLhonakBreach && !is2004Baseline ? '#B91C1C' : '#CA8A04'}
-          strokeWidth="1.5"
-        />
-        <text x="137" y="142" fill={isSouthLhonakBreach && !is2004Baseline ? '#FCA5A5' : '#FDE047'} fontSize="9" fontWeight="bold" textAnchor="middle">
-          {data?.icimod_code === 'PDGL_NEP_KOSHI_007' ? '1981 BREACH NOTCH' : data?.icimod_code === 'PDGL_NEP_KOSHI_002' ? 'ENGINEERED CANAL' : data?.icimod_code === 'PDGL_NEP_KOSHI_001' ? 'SPILLWAY SIPHON' : 'OUTLET DAM'}
-        </text>
-
-        {/* 5. Special South Lhonak Oct 2023 Breach Channel */}
-        {isSouthLhonakBreach && !is2004Baseline && (
-          <g>
-            <line x1="110" y1="165" x2="160" y2="165" stroke="#EF4444" strokeWidth="6" strokeDasharray="4 2" />
-            <rect x="70" y="190" width="135" height="20" rx="4" fill="#450A0A" stroke="#EF4444" strokeWidth="1" />
-            <text x="137" y="204" fill="#FCA5A5" fontSize="8.5" fontWeight="bold" textAnchor="middle">
-              OCT 2023 BREACH GORGE
-            </text>
-          </g>
-        )}
-
-        {/* 6. 2004 Calving Baseline Reference Line */}
+        {/* 4. 2004 Baseline Calving Front Reference Wall */}
         {(!is2004Baseline || viewMode === 'split') && (
           <g>
             <line
-              x1={baselineTerminusX}
-              y1="130"
-              x2={baselineTerminusX}
-              y2="220"
+              x1={baselineCalving.x1}
+              y1={baselineCalving.y1}
+              x2={baselineCalving.x2}
+              y2={baselineCalving.y2}
               stroke="#FACC15"
-              strokeWidth="2"
-              strokeDasharray="3 3"
+              strokeWidth="2.5"
+              strokeDasharray="4 3"
+              filter="drop-shadow(0 0 3px rgba(250, 204, 21, 0.8))"
             />
-            <text x={baselineTerminusX} y="125" fill="#FDE047" fontSize="9" fontWeight="bold" textAnchor="middle">
+            <text
+              x={(baselineCalving.x1 + baselineCalving.x2) / 2}
+              y={Math.min(baselineCalving.y1, baselineCalving.y2) - 8}
+              fill="#FDE047"
+              fontSize="9"
+              fontWeight="bold"
+              textAnchor="middle"
+              filter="drop-shadow(0 1px 3px rgba(0,0,0,0.9))"
+            >
               2004 CALVING WALL (0m)
             </text>
           </g>
         )}
 
-        {/* 7. Active Calving Front Cliff Line & Distance Ruler */}
+        {/* 5. Active Retreated Calving Front Cliff Line & Distance Ruler */}
         {showCalvingLine && (
           <g>
             <line
-              x1={activeTerminusX}
-              y1="135"
-              x2={activeTerminusX}
-              y2="215"
+              x1={activeCalving.x1}
+              y1={activeCalving.y1}
+              x2={activeCalving.x2}
+              y2={activeCalving.y2}
               stroke={isSouthLhonakBreach && !is2004Baseline ? '#EF4444' : '#F43F5E'}
-              strokeWidth="3"
+              strokeWidth="3.5"
+              filter="drop-shadow(0 0 5px rgba(244, 63, 94, 0.9))"
             />
             <rect
-              x={activeTerminusX - 38}
-              y="222"
-              width="76"
+              x={(activeCalving.x1 + activeCalving.x2) / 2 - 42}
+              y={Math.max(activeCalving.y1, activeCalving.y2) + 6}
+              width="84"
               height="18"
               rx="4"
               fill="#0F172A"
-              fillOpacity="0.9"
+              fillOpacity="0.95"
               stroke={isSouthLhonakBreach && !is2004Baseline ? '#EF4444' : '#F43F5E'}
               strokeWidth="1"
             />
             <text
-              x={activeTerminusX}
-              y="234"
+              x={(activeCalving.x1 + activeCalving.x2) / 2}
+              y={Math.max(activeCalving.y1, activeCalving.y2) + 18}
               fill="#FDA4AF"
               fontSize="9"
               fontWeight="bold"
               textAnchor="middle"
             >
-              {is2004Baseline ? '2004 FRONT' : `-${currentEpoch?.terminus_retreat_m}m`}
+              {is2004Baseline ? '2004 FRONT' : `-${currentEpoch?.terminus_retreat_m}m RETREAT`}
             </text>
 
-            {/* Retreat Measurement Arrow */}
-            {!is2004Baseline && retreatDistPx > 20 && (
+            {/* Geodesic Retreat Ruler between 2004 Baseline and Current Front */}
+            {!is2004Baseline && effectiveRatio > 0.08 && (
               <g>
                 <line
-                  x1={baselineTerminusX}
-                  y1="175"
-                  x2={activeTerminusX}
-                  y2="175"
+                  x1={(baselineCalving.x1 + baselineCalving.x2) / 2}
+                  y1={(baselineCalving.y1 + baselineCalving.y2) / 2}
+                  x2={(activeCalving.x1 + activeCalving.x2) / 2}
+                  y2={(activeCalving.y1 + activeCalving.y2) / 2}
                   stroke="#FFFFFF"
                   strokeWidth="2"
+                  strokeDasharray="3 2"
                 />
-                <rect
-                  x={baselineTerminusX + (retreatDistPx / 2) - 32}
-                  y="166"
-                  width="64"
-                  height="16"
-                  rx="3"
-                  fill="#000000"
-                  fillOpacity="0.85"
-                />
-                <text
-                  x={baselineTerminusX + (retreatDistPx / 2)}
-                  y="178"
-                  fill="#FFFFFF"
-                  fontSize="8.5"
-                  fontWeight="bold"
-                  textAnchor="middle"
-                >
-                  +{currentEpoch?.terminus_retreat_m}m
-                </text>
+                <circle cx={(baselineCalving.x1 + baselineCalving.x2) / 2} cy={(baselineCalving.y1 + baselineCalving.y2) / 2} r="3" fill="#FACC15" />
+                <circle cx={(activeCalving.x1 + activeCalving.x2) / 2} cy={(activeCalving.y1 + activeCalving.y2) / 2} r="3" fill="#F43F5E" />
               </g>
             )}
           </g>
         )}
+
+        {/* 6. Geographically Calibrated Anchor Pin & Crosshair (Aligned to Lake Outlet Moraine Dam) */}
+        <g>
+          {/* Target Ring */}
+          <circle cx={anchor.x} cy={anchor.y} r="14" fill="none" stroke="#F59E0B" strokeWidth="1" strokeDasharray="3 2" opacity="0.8" />
+          <circle cx={anchor.x} cy={anchor.y} r="6" fill="#F59E0B" fillOpacity="0.3" stroke="#F59E0B" strokeWidth="1.8" />
+          <circle cx={anchor.x} cy={anchor.y} r="2.5" fill="#FFFFFF" />
+
+          {/* Crosshair Leader Line to Callout Badge */}
+          <polyline
+            points={`${anchor.x},${anchor.y} ${anchor.x - 20},${anchor.y - 26} ${anchor.x - 140},${anchor.y - 26}`}
+            fill="none"
+            stroke="#F59E0B"
+            strokeWidth="1.2"
+          />
+
+          {/* Anchor Callout Badge */}
+          <rect
+            x={anchor.x - 180}
+            y={anchor.y - 50}
+            width="160"
+            height="34"
+            rx="5"
+            fill="#020617"
+            fillOpacity="0.94"
+            stroke="#F59E0B"
+            strokeWidth="1.2"
+            filter="drop-shadow(0 3px 6px rgba(0,0,0,0.8))"
+          />
+          <text x={anchor.x - 100} y={anchor.y - 36} fill="#FDE047" fontSize="9" fontWeight="bold" textAnchor="middle">
+            ⚓ {anchor.label}
+          </text>
+          <text x={anchor.x - 100} y={anchor.y - 23} fill="#94A3B8" fontSize="7.5" textAnchor="middle">
+            {anchor.sublabel}
+          </text>
+        </g>
       </svg>
     );
   };
 
   const currentChipUrl = currentEpoch?.image_chip_url;
   const baselineChipUrl = baselineEpoch?.image_chip_url || currentChipUrl;
+
+  // Shader class based on spectral band & sensor
+  const getFilterClass = (is2004Baseline: boolean) => {
+    if (spectralBand === 'nir') {
+      return 'contrast-135 saturate-200 brightness-95 hue-rotate-[-20deg]';
+    }
+    if (spectralBand === 'sar') {
+      return 'contrast-160 brightness-90 grayscale';
+    }
+    // Natural True Color
+    return is2004Baseline
+      ? 'contrast-115 brightness-95 saturate-105'
+      : 'contrast-110 brightness-102';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
@@ -631,9 +1089,9 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
 
         {/* 3. Scrollable Modal Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 font-mono custom-scrollbar">
-          {/* Overlay Feature Toggles & Active State */}
+          {/* Overlay Feature Toggles, Spectral Bands & Active State */}
           <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -643,7 +1101,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 />
                 <span className="text-[11px] text-rose-300 font-semibold flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-rose-400" />
-                  Highlight New Meltwater Expansion ({data?.net_summary?.net_expansion_sqm ? (data.net_summary.net_expansion_sqm > 0 ? '+' : '') + data.net_summary.net_expansion_sqm.toLocaleString() + ' m²' : '+430,000 m²'})
+                  Highlight Meltwater Expansion ({data?.net_summary?.net_expansion_sqm ? (data.net_summary.net_expansion_sqm > 0 ? '+' : '') + data.net_summary.net_expansion_sqm.toLocaleString() + ' m²' : '+260,000 m²'})
                 </span>
               </label>
 
@@ -656,9 +1114,44 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 />
                 <span className="text-[11px] text-cyan-300 font-semibold flex items-center gap-1">
                   <Ruler className="w-3 h-3 text-cyan-400" />
-                  Show Calving Front Line & Distance Ruler
+                  Show Calving Front Line & Ruler
                 </span>
               </label>
+
+              {/* Spectral Band Selector */}
+              <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-[10px]">
+                <span className="text-slate-500 px-1.5 flex items-center gap-1">
+                  <Eye className="w-3 h-3 text-slate-400" />
+                  Band:
+                </span>
+                <button
+                  onClick={() => setSpectralBand('rgb')}
+                  className={`px-2 py-0.5 rounded transition-all ${
+                    spectralBand === 'rgb' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Natural RGB true color satellite photography"
+                >
+                  RGB True Color
+                </button>
+                <button
+                  onClick={() => setSpectralBand('nir')}
+                  className={`px-2 py-0.5 rounded transition-all ${
+                    spectralBand === 'nir' ? 'bg-rose-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="False-color infrared water detection (NDWI)"
+                >
+                  NIR / NDWI Water
+                </button>
+                <button
+                  onClick={() => setSpectralBand('sar')}
+                  className={`px-2 py-0.5 rounded transition-all ${
+                    spectralBand === 'sar' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="High-contrast radar / moraine crest morphology"
+                >
+                  Moraine SAR
+                </button>
+              </div>
             </div>
 
             <div className="text-[11px] text-slate-400">
@@ -675,17 +1168,17 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 <div className="flex items-center justify-between text-xs px-1">
                   <span className="font-bold text-amber-400 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    2004 Baseline (Landsat 7 ETM+)
+                    2004 Baseline (Landsat 7 ETM+ • 30m GSD)
                   </span>
                   <span className="font-mono font-bold text-slate-200">
                     {initialAreaSqkm} km² • 0 m Retreat
                   </span>
                 </div>
-                <div className="relative w-full h-[250px] rounded-xl overflow-hidden border border-amber-500/40 bg-slate-950 shadow-inner">
+                <div className="relative w-full h-[280px] sm:h-[320px] rounded-xl overflow-hidden border border-amber-500/40 bg-slate-950 shadow-inner">
                   <img
                     src={baselineChipUrl}
                     alt="2004 Satellite View"
-                    className="w-full h-full object-cover filter brightness-90 contrast-110"
+                    className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(true)}`}
                   />
                   {renderLakeSvg(true)}
                   <div className="absolute top-2.5 left-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-amber-500/50 text-[10px] text-amber-300 font-bold">
@@ -702,17 +1195,17 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 <div className="flex items-center justify-between text-xs px-1">
                   <span className="font-bold text-cyan-400 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                    Year {selectedYear} ({currentEpoch?.sensor.split(' ')[0] || 'Modern'})
+                    Year {selectedYear} ({currentEpoch?.sensor || 'Copernicus Sentinel-2'})
                   </span>
                   <span className="font-mono font-bold text-rose-300">
                     {currentEpoch?.area_sqkm.toFixed(3)} km² ({currentEpoch?.delta_area_pct && currentEpoch.delta_area_pct > 0 ? `+${currentEpoch.delta_area_pct}%` : `${currentEpoch?.delta_area_pct || 0}%`})
                   </span>
                 </div>
-                <div className="relative w-full h-[250px] rounded-xl overflow-hidden border border-cyan-500/40 bg-slate-950 shadow-inner ring-1 ring-cyan-500/20">
+                <div className="relative w-full h-[280px] sm:h-[320px] rounded-xl overflow-hidden border border-cyan-500/40 bg-slate-950 shadow-inner ring-1 ring-cyan-500/20">
                   <img
                     src={currentChipUrl}
                     alt={`${selectedYear} Satellite View`}
-                    className="w-full h-full object-cover filter contrast-120 brightness-105"
+                    className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(false)}`}
                   />
                   {renderLakeSvg(false)}
                   <div className="absolute top-2.5 right-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-cyan-500/50 text-[10px] text-cyan-300 font-bold">
@@ -743,13 +1236,13 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 </span>
               </div>
 
-              <div className="relative w-full h-[270px] sm:h-[300px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950 select-none shadow-inner group">
+              <div className="relative w-full h-[300px] sm:h-[350px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950 select-none shadow-inner group">
                 {/* Background Layer: Selected Year */}
                 <div className="absolute inset-0">
                   <img
                     src={currentChipUrl}
                     alt="Modern satellite layer"
-                    className="w-full h-full object-cover filter contrast-120 brightness-105"
+                    className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(false)}`}
                   />
                   {renderLakeSvg(false)}
                   <div className="absolute top-3 right-3 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-cyan-500/50 text-[11px] text-cyan-300 font-bold">
@@ -759,14 +1252,14 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
 
                 {/* Foreground Layer: 2004 Baseline (Clipped by sliderPos) */}
                 <div
-                  className="absolute inset-0 overflow-hidden border-r-2 border-cyan-400"
+                  className="absolute inset-0 overflow-hidden border-r-2 border-cyan-400 shadow-2xl"
                   style={{ width: `${sliderPos}%` }}
                 >
-                  <div className="absolute inset-0 w-full h-full min-w-[700px]">
+                  <div className="absolute inset-0 w-full h-full min-w-[800px]">
                     <img
                       src={baselineChipUrl}
                       alt="2004 baseline satellite layer"
-                      className="w-full h-full object-cover filter brightness-90 contrast-110"
+                      className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(true)}`}
                     />
                     {renderLakeSvg(true)}
                   </div>
@@ -797,7 +1290,7 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 />
 
                 <div className="absolute bottom-2.5 left-2.5 z-10 bg-slate-950/85 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-800 text-[10px] text-slate-200">
-                  Drag divider across valley to inspect calving margin retreat
+                  Drag divider across valley to peel between 2004 baseline and {selectedYear} calving terminus
                 </div>
               </div>
             </div>

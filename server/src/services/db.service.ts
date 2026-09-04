@@ -120,7 +120,7 @@ export const MOCK_GLACIAL_LAKES: GlacialLake[] = [
     basin_name: 'Koshi',
     initial_area_sqm: 1580000,
     danger_level: 'CRITICAL',
-    centroid: { type: 'Point', coordinates: [85.996, 28.084] },
+    centroid: { type: 'Point', coordinates: [86.068, 28.066] },
   },
   {
     id: 'l3333333-3333-3333-3333-333333333333',
@@ -560,7 +560,7 @@ export const MOCK_HISTORICAL_GLOFS: HistoricalGLOFRecord[] = [
     country_region: 'Tibet (China) & Bagmati/Koshi (Nepal)',
     event_date: '1981-07-11',
     year: 1981,
-    coordinates: [85.996, 28.084],
+    coordinates: [86.068, 28.066],
     trigger_mechanism: 'MORAINE_COLLAPSE',
     estimated_volume_m3: 19000000,
     peak_discharge_cms: 16000,
@@ -810,7 +810,7 @@ export const MOCK_INSAR_TELEMETRY: any[] = [
     mean_coherence: 0.71,
     deformation_rating: 'CRITICAL_DESTABILIZATION',
     points: [
-      { point_id: 'pt-gal-1', lat: 28.084, lon: 85.996, los_velocity_mm_year: -28.4, coherence: 0.71, is_anomaly: true }
+      { point_id: 'pt-gal-1', lat: 28.066, lon: 86.068, los_velocity_mm_year: -28.4, coherence: 0.71, is_anomaly: true }
     ]
   },
   {

@@ -23,6 +23,7 @@ export interface LakeTimelapseComparison {
   basin: string;
   elevation_m: number;
   coordinates: [number, number];
+  bbox?: [number, number, number, number];
   study_period: string;
   glacier_name: string;
   net_summary: {
@@ -45,6 +46,7 @@ interface LakeDefinition {
   basin: string;
   elevation_m: number;
   coordinates: [number, number];
+  bbox?: [number, number, number, number];
   glacier_name: string;
   base_area_sqkm: number;
   final_area_sqkm: number;
@@ -64,7 +66,8 @@ export class TimelapseComparisonService {
       name: 'Galong Co / Cirenmaco (Poiqu Transboundary)',
       basin: 'Koshi (Bhote Koshi / Poiqu Corridor)',
       elevation_m: 4380,
-      coordinates: [85.996, 28.084],
+      coordinates: [86.068, 28.066],
+      bbox: [86.055, 28.056, 86.082, 28.076],
       glacier_name: 'Galong Glacier / Cirenmaco Tongue',
       base_area_sqkm: 1.380,
       final_area_sqkm: 1.640,
@@ -107,6 +110,7 @@ export class TimelapseComparisonService {
       basin: 'Koshi (Tama Koshi)',
       elevation_m: 4580,
       coordinates: [86.475, 27.868],
+      bbox: [86.455, 27.855, 86.495, 27.880],
       glacier_name: 'Trakarding Glacier',
       base_area_sqkm: 1.390,
       final_area_sqkm: 1.820,
@@ -148,7 +152,8 @@ export class TimelapseComparisonService {
       name: 'Imja Tsho (Everest Region)',
       basin: 'Koshi (Dudh Koshi)',
       elevation_m: 5010,
-      coordinates: [86.924, 27.910],
+      coordinates: [86.925, 27.902],
+      bbox: [86.905, 27.890, 86.945, 27.914],
       glacier_name: 'Imja / Lhotse Shar Glacier',
       base_area_sqkm: 0.860,
       final_area_sqkm: 1.460,
@@ -190,7 +195,8 @@ export class TimelapseComparisonService {
       name: 'Lower Barun Lake (Makalu)',
       basin: 'Koshi (Arun)',
       elevation_m: 4540,
-      coordinates: [87.094, 27.794],
+      coordinates: [87.098, 27.796],
+      bbox: [87.075, 27.785, 87.125, 27.810],
       glacier_name: 'Barun Glacier',
       base_area_sqkm: 0.720,
       final_area_sqkm: 2.140,
@@ -232,7 +238,8 @@ export class TimelapseComparisonService {
       name: 'Birendra Lake (Manaslu)',
       basin: 'Gandaki (Budhi Gandaki)',
       elevation_m: 3620,
-      coordinates: [84.638, 28.563],
+      coordinates: [84.648, 28.560],
+      bbox: [84.640, 28.552, 84.658, 28.568],
       glacier_name: 'Manaslu North Glacier Tongue',
       base_area_sqkm: 0.280,
       final_area_sqkm: 0.350,
@@ -274,7 +281,8 @@ export class TimelapseComparisonService {
       name: 'Thulagi Lake (Manaslu)',
       basin: 'Gandaki (Marsyangdi)',
       elevation_m: 4040,
-      coordinates: [84.532, 28.517],
+      coordinates: [84.545, 28.508],
+      bbox: [84.530, 28.495, 84.560, 28.518],
       glacier_name: 'Dona Glacier',
       base_area_sqkm: 0.780,
       final_area_sqkm: 1.040,
@@ -316,7 +324,8 @@ export class TimelapseComparisonService {
       name: 'South Lhonak Lake (Sikkim Arc)',
       basin: 'Teesta / Sikkim Arc',
       elevation_m: 5200,
-      coordinates: [88.190, 27.915],
+      coordinates: [88.210, 27.912],
+      bbox: [88.195, 27.900, 88.230, 27.925],
       glacier_name: 'South Lhonak Glacier',
       base_area_sqkm: 0.420,
       final_area_sqkm: 0.840,
@@ -359,6 +368,7 @@ export class TimelapseComparisonService {
       basin: 'Koshi (Dudh Koshi)',
       elevation_m: 4850,
       coordinates: [86.612, 27.765],
+      bbox: [86.598, 27.755, 86.626, 27.775],
       glacier_name: 'Lumding Glacier',
       base_area_sqkm: 0.840,
       final_area_sqkm: 1.050,
@@ -383,6 +393,7 @@ export class TimelapseComparisonService {
       basin: 'Koshi (Hongu / Dudh Koshi)',
       elevation_m: 5120,
       coordinates: [86.974, 27.782],
+      bbox: [86.960, 27.770, 86.988, 27.794],
       glacier_name: 'Chamlang South Glacier',
       base_area_sqkm: 0.740,
       final_area_sqkm: 0.910,
@@ -407,6 +418,7 @@ export class TimelapseComparisonService {
       basin: 'Koshi (Langmoche / Dudh Koshi)',
       elevation_m: 4360,
       coordinates: [86.584, 27.876],
+      bbox: [86.570, 27.865, 86.598, 27.887],
       glacier_name: 'Langmoche Glacier',
       base_area_sqkm: 0.610,
       final_area_sqkm: 0.680,
@@ -431,6 +443,7 @@ export class TimelapseComparisonService {
       basin: 'Gandaki (Trishuli)',
       elevation_m: 4620,
       coordinates: [85.485, 28.215],
+      bbox: [85.470, 28.205, 85.500, 28.225],
       glacier_name: 'Kaldang Glacier',
       base_area_sqkm: 0.490,
       final_area_sqkm: 0.590,
@@ -455,6 +468,7 @@ export class TimelapseComparisonService {
       basin: 'Karnali (Humla Karnali)',
       elevation_m: 4920,
       coordinates: [82.342, 29.893],
+      bbox: [82.325, 29.880, 82.360, 29.905],
       glacier_name: 'Changla Glacier',
       base_area_sqkm: 0.560,
       final_area_sqkm: 0.680,
@@ -477,6 +491,7 @@ export class TimelapseComparisonService {
       basin: 'Karnali (Mugu Karnali)',
       elevation_m: 4760,
       coordinates: [82.115, 29.542],
+      bbox: [82.100, 29.530, 82.130, 29.555],
       glacier_name: 'Mugu Glacier',
       base_area_sqkm: 0.440,
       final_area_sqkm: 0.510,
@@ -499,6 +514,7 @@ export class TimelapseComparisonService {
       basin: 'Mahakali (Chameliya)',
       elevation_m: 4680,
       coordinates: [80.950, 29.980],
+      bbox: [80.935, 29.968, 80.965, 29.992],
       glacier_name: 'Api Glacier',
       base_area_sqkm: 0.350,
       final_area_sqkm: 0.420,
@@ -727,6 +743,16 @@ export class TimelapseComparisonService {
       }
     }
 
+    const [bMinLon, bMinLat, bMaxLon, bMaxLat] = lake.bbox || [
+      lon - 0.016,
+      lat - 0.009,
+      lon + 0.016,
+      lat + 0.009,
+    ];
+
+    // High-resolution calibrated satellite chip from ESRI World Imagery export (CORS enabled, 800x450 resolution)
+    const arcGisChipUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bMinLon},${bMinLat},${bMaxLon},${bMaxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
+
     const epochs: HistoricalEpochData[] = Object.keys(fullMilestones).map((yearStr) => {
       const year = Number(yearStr);
       const m = fullMilestones[year];
@@ -756,9 +782,7 @@ export class TimelapseComparisonService {
         estimated_volume_million_m3: m.vol,
         glaciological_note: m.note,
         false_color_infrared_active: true,
-        image_chip_url: `https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=${
-          lon - 0.045
-        },${lat - 0.025},${lon + 0.025 + eastExtension},${lat + 0.025}&width=600&height=350`,
+        image_chip_url: arcGisChipUrl,
         polygon_coords: [
           [lon - 0.015, lat - 0.008],
           [lon + 0.005 + eastExtension, lat - 0.005],
@@ -782,6 +806,7 @@ export class TimelapseComparisonService {
       basin: lake.basin,
       elevation_m: lake.elevation_m,
       coordinates: [lon, lat],
+      bbox: [bMinLon, bMinLat, bMaxLon, bMaxLat],
       study_period: '2004 - 2026 (22 Consecutive Years)',
       glacier_name: lake.glacier_name,
       net_summary: {

@@ -68,7 +68,7 @@ export const HISTORICAL_GLOFS: HistoricalGLOFRecord[] = [
     country_region: 'Tibet (China) & Bagmati/Koshi (Nepal)',
     event_date: '1981-07-11',
     year: 1981,
-    coordinates: [85.996, 28.084],
+    coordinates: [86.068, 28.066],
     trigger_mechanism: 'MORAINE_COLLAPSE',
     estimated_volume_m3: 19000000,
     peak_discharge_cms: 16000,
