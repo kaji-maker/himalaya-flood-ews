@@ -91,6 +91,16 @@ const MONITORED_LAKES = [
   { code: 'PDGL_IND_SIKKIM_001', id: 'l-south-lhonak', name: 'South Lhonak', basin: 'Teesta Basin' },
 ];
 
+const LAKE_BBOX_MAP: Record<string, [number, number, number, number]> = {
+  PDGL_NEP_KOSHI_007: [86.055, 28.056, 86.082, 28.076],
+  PDGL_NEP_KOSHI_001: [86.455, 27.855, 86.495, 27.880],
+  PDGL_NEP_KOSHI_002: [86.905, 27.890, 86.945, 27.914],
+  PDGL_NEP_KOSHI_003: [87.075, 27.785, 87.125, 27.810],
+  PDGL_NEP_GANDAKI_002: [84.640, 28.552, 84.658, 28.568],
+  PDGL_NEP_GANDAKI_001: [84.530, 28.495, 84.560, 28.518],
+  PDGL_IND_SIKKIM_001: [88.195, 27.900, 88.230, 27.925],
+};
+
 export const CueSlewTaskingConsole: React.FC<CueSlewConsoleProps> = ({
   isOpen,
   onClose,
@@ -299,11 +309,20 @@ export const CueSlewTaskingConsole: React.FC<CueSlewConsoleProps> = ({
 
               {/* Simulated Submeter Viewport */}
               <div className="relative w-full h-[230px] rounded-lg overflow-hidden border border-slate-800 bg-slate-950 group">
-                <img
-                  src="https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=86.46,27.85,86.50,27.88&width=650&height=250"
-                  alt="Submeter satellite capture"
-                  className="w-full h-full object-cover filter contrast-125 brightness-95"
-                />
+                {(() => {
+                  const bbox = selectedOrder?.bounding_box || LAKE_BBOX_MAP[activeLakeCode] || [86.055, 28.056, 86.082, 28.076];
+                  const [minLon, minLat, maxLon, maxLat] = bbox;
+                  return (
+                    <img
+                      src={`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=650,250&f=image`}
+                      alt="Submeter satellite capture"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=${minLon},${minLat},${maxLon},${maxLat}&width=650&height=250`;
+                      }}
+                      className="w-full h-full object-cover filter contrast-125 brightness-95"
+                    />
+                  );
+                })()}
 
                 {/* CV Bounding Boxes */}
                 {/* 1. Tension Crack Box */}

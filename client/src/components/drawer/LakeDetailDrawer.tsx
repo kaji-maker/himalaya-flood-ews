@@ -326,22 +326,45 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                 </div>
 
                 {/* Satellite Imagery Preview Chip */}
-                <div className="relative w-full h-36 rounded-lg overflow-hidden border border-slate-800 my-2 bg-slate-950 group">
-                  <img
-                    src={`https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-2023&styles=&format=image/jpeg&srs=EPSG:4326&bbox=${(lake.centroid?.coordinates[0] || 86.475) - 0.04},${(lake.centroid?.coordinates[1] || 27.868) - 0.03},${(lake.centroid?.coordinates[0] || 86.475) + 0.04},${(lake.centroid?.coordinates[1] || 27.868) + 0.03}&width=600&height=300`}
-                    alt={`${lake.name} Real Satellite Image`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[10px] text-white">
-                    <span className="bg-black/60 backdrop-blur px-1.5 py-0.5 rounded border border-white/10 font-bold">
-                      {lake.name} ({lake.icimod_code || 'PDGL'})
-                    </span>
-                    <span className="bg-cyan-950/80 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/40">
-                      Cloud: 2.8% • S2A L2A
-                    </span>
-                  </div>
-                </div>
+                {(() => {
+                  const LAKE_BBOX_MAP: Record<string, [number, number, number, number]> = {
+                    PDGL_NEP_KOSHI_007: [86.055, 28.056, 86.082, 28.076],
+                    PDGL_NEP_KOSHI_001: [86.455, 27.855, 86.495, 27.880],
+                    PDGL_NEP_KOSHI_002: [86.905, 27.890, 86.945, 27.914],
+                    PDGL_NEP_KOSHI_003: [87.075, 27.785, 87.125, 27.810],
+                    PDGL_NEP_GANDAKI_002: [84.640, 28.552, 84.658, 28.568],
+                    PDGL_NEP_GANDAKI_001: [84.530, 28.495, 84.560, 28.518],
+                    PDGL_IND_SIKKIM_001: [88.195, 27.900, 88.230, 27.925],
+                  };
+                  const codeKey = (lake.icimod_code || lake.id || '').toUpperCase();
+                  const [minLon, minLat, maxLon, maxLat] =
+                    LAKE_BBOX_MAP[codeKey] || [
+                      (lake.centroid?.coordinates[0] || 86.475) - 0.016,
+                      (lake.centroid?.coordinates[1] || 27.868) - 0.010,
+                      (lake.centroid?.coordinates[0] || 86.475) + 0.016,
+                      (lake.centroid?.coordinates[1] || 27.868) + 0.010,
+                    ];
+                  const highResUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
+
+                  return (
+                    <div className="relative w-full h-40 rounded-lg overflow-hidden border border-slate-800 my-2 bg-slate-950 group shadow-inner">
+                      <img
+                        src={highResUrl}
+                        alt={`${lake.name} Real Satellite Image`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent pointer-events-none" />
+                      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[10px] text-white">
+                        <span className="bg-black/75 backdrop-blur px-2 py-0.5 rounded border border-white/10 font-bold font-mono">
+                          {lake.name} ({lake.icimod_code || 'PDGL'})
+                        </span>
+                        <span className="bg-cyan-950/90 text-cyan-300 px-2 py-0.5 rounded border border-cyan-500/40 font-mono font-bold">
+                          10m S2A / High-Res Ortho
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="p-2 bg-slate-950/60 rounded border border-slate-800">

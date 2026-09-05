@@ -20,6 +20,10 @@ import {
   AlertTriangle,
   Eye,
   Activity,
+  ZoomIn,
+  ZoomOut,
+  Move,
+  Maximize2,
 } from 'lucide-react';
 
 export interface TimelapsePresetLake {
@@ -179,51 +183,51 @@ const LAKE_GEOMETRIES: Record<string, LakeGeometryConfig> = {
   // 1. Galong Co / Cirenmaco (Bhote Koshi / Poiqu corridor)
   PDGL_NEP_KOSHI_007: {
     anchor: {
-      x: 215,
-      y: 180,
+      x: 180,
+      y: 195,
       label: '1981 BREACH NOTCH',
       sublabel: 'Western Moraine Scarp (4,380m)',
     },
     baselineCalving: {
-      x1: 430,
-      y1: 165,
-      x2: 430,
-      y2: 238,
+      x1: 425,
+      y1: 175,
+      x2: 425,
+      y2: 235,
       label: '2004 CALVING WALL',
     },
     modernCalving: {
       x1: 505,
-      y1: 185,
+      y1: 195,
       x2: 505,
-      y2: 242,
+      y2: 225,
     },
     lakePath: (t: number) => {
-      const termX = 430 + t * (505 - 430);
-      const termYTop = 165 + t * (185 - 165);
-      const termYBot = 238 + t * (242 - 238);
-      return `M 215,180 
-        C 250,165 310,158 370,162 
-        C 400,163 420,164 ${termX},${termYTop} 
+      const termX = 425 + t * (505 - 425);
+      const termYTop = 175 + t * (195 - 175);
+      const termYBot = 235 - t * (235 - 225);
+      return `M 180,195 
+        C 220,165 280,150 360,160 
+        C 390,165 410,170 ${termX},${termYTop} 
         L ${termX},${termYBot} 
-        C 420,240 370,245 320,235 
-        C 260,225 230,205 215,180 Z`;
+        C 410,238 360,245 300,242 
+        C 240,238 200,220 180,195 Z`;
     },
     expansionPath: (t: number) => {
       if (t <= 0.02) return null;
-      const termX = 430 + t * (505 - 430);
-      const termYTop = 165 + t * (185 - 165);
-      const termYBot = 238 + t * (242 - 238);
-      return `M 430,165 L ${termX},${termYTop} L ${termX},${termYBot} L 430,238 Z`;
+      const termX = 425 + t * (505 - 425);
+      const termYTop = 175 + t * (195 - 175);
+      const termYBot = 235 - t * (235 - 225);
+      return `M 425,175 L ${termX},${termYTop} L ${termX},${termYBot} L 425,235 Z`;
     },
     ruler: (t: number) => {
-      const termX = 430 + t * (505 - 430);
-      return { x1: 430, y1: 201, x2: termX, y2: 201 };
+      const termX = 425 + t * (505 - 425);
+      return { x1: 425, y1: 205, x2: termX, y2: 210 };
     },
     glacierFlow: {
       x1: 515,
-      y1: 215,
-      x2: 630,
-      y2: 230,
+      y1: 210,
+      x2: 620,
+      y2: 220,
       label: 'Galong Glacier Tongue ➔',
     },
   },
@@ -231,52 +235,52 @@ const LAKE_GEOMETRIES: Record<string, LakeGeometryConfig> = {
   // 2. Tsho Rolpa (Tama Koshi)
   PDGL_NEP_KOSHI_001: {
     anchor: {
-      x: 205,
-      y: 185,
+      x: 235,
+      y: 170,
       label: 'SPILLWAY SIPHON CANAL',
       sublabel: 'NW Terminal Moraine (4,580m)',
     },
     baselineCalving: {
-      x1: 440,
-      y1: 280,
-      x2: 390,
-      y2: 340,
+      x1: 455,
+      y1: 290,
+      x2: 405,
+      y2: 345,
       label: '2004 CALVING WALL',
     },
     modernCalving: {
-      x1: 570,
-      y1: 360,
-      x2: 520,
-      y2: 420,
+      x1: 580,
+      y1: 375,
+      x2: 530,
+      y2: 430,
     },
     lakePath: (t: number) => {
-      const topX = 440 + t * (570 - 440);
-      const topY = 280 + t * (360 - 280);
-      const botX = 390 + t * (520 - 390);
-      const botY = 340 + t * (420 - 340);
-      return `M 205,185 
-        C 245,155 330,210 400,255 
+      const topX = 455 + t * (580 - 455);
+      const topY = 290 + t * (375 - 290);
+      const botX = 405 + t * (530 - 405);
+      const botY = 345 + t * (430 - 345);
+      return `M 235,170 
+        C 275,145 350,195 410,240 
         L ${topX},${topY} 
         L ${botX},${botY} 
-        C 350,310 300,270 250,230 
-        C 225,210 212,195 205,185 Z`;
+        C 350,300 290,260 250,210 
+        C 240,195 235,180 235,170 Z`;
     },
     expansionPath: (t: number) => {
       if (t <= 0.02) return null;
-      const topX = 440 + t * (570 - 440);
-      const topY = 280 + t * (360 - 280);
-      const botX = 390 + t * (520 - 390);
-      const botY = 340 + t * (420 - 340);
-      return `M 440,280 L ${topX},${topY} L ${botX},${botY} L 390,340 Z`;
+      const topX = 455 + t * (580 - 455);
+      const topY = 290 + t * (375 - 290);
+      const botX = 405 + t * (530 - 405);
+      const botY = 345 + t * (430 - 345);
+      return `M 455,290 L ${topX},${topY} L ${botX},${botY} L 405,345 Z`;
     },
     ruler: (t: number) => {
-      const topX = 440 + t * (570 - 440);
-      const topY = 280 + t * (360 - 280);
-      return { x1: 440, y1: 280, x2: topX, y2: topY };
+      const topX = 455 + t * (580 - 455);
+      const topY = 290 + t * (375 - 290);
+      return { x1: 455, y1: 290, x2: topX, y2: topY };
     },
     glacierFlow: {
-      x1: 570,
-      y1: 390,
+      x1: 580,
+      y1: 400,
       x2: 670,
       y2: 430,
       label: 'Trakarding Glacier Tongue ➔',
@@ -286,47 +290,47 @@ const LAKE_GEOMETRIES: Record<string, LakeGeometryConfig> = {
   // 3. Imja Tsho (Everest / Dudh Koshi)
   PDGL_NEP_KOSHI_002: {
     anchor: {
-      x: 170,
-      y: 270,
+      x: 185,
+      y: 265,
       label: '2016 ENGINEERED CANAL',
       sublabel: 'West Outlet Spillway (5,010m)',
     },
     baselineCalving: {
-      x1: 490,
-      y1: 255,
-      x2: 490,
-      y2: 360,
+      x1: 475,
+      y1: 245,
+      x2: 475,
+      y2: 320,
       label: '2004 CALVING WALL',
     },
     modernCalving: {
       x1: 690,
-      y1: 260,
+      y1: 250,
       x2: 690,
-      y2: 365,
+      y2: 320,
     },
     lakePath: (t: number) => {
-      const termX = 490 + t * (690 - 490);
-      return `M 170,270 
-        C 230,240 360,245 450,250 
-        L ${termX},255 
-        L ${termX},362 
-        C 450,360 350,355 240,330 
-        C 195,310 180,285 170,270 Z`;
+      const termX = 475 + t * (690 - 475);
+      return `M 185,265 
+        C 240,235 340,235 440,240 
+        L ${termX},245 
+        L ${termX},320 
+        C 440,325 340,325 250,300 
+        C 210,285 195,275 185,265 Z`;
     },
     expansionPath: (t: number) => {
       if (t <= 0.02) return null;
-      const termX = 490 + t * (690 - 490);
-      return `M 490,255 L ${termX},255 L ${termX},362 L 490,360 Z`;
+      const termX = 475 + t * (690 - 475);
+      return `M 475,245 L ${termX},245 L ${termX},320 L 475,320 Z`;
     },
     ruler: (t: number) => {
-      const termX = 490 + t * (690 - 490);
-      return { x1: 490, y1: 310, x2: termX, y2: 310 };
+      const termX = 475 + t * (690 - 475);
+      return { x1: 475, y1: 285, x2: termX, y2: 285 };
     },
     glacierFlow: {
       x1: 700,
-      y1: 310,
+      y1: 285,
       x2: 780,
-      y2: 310,
+      y2: 285,
       label: 'Amphu / Lhotse Shar Cliffs ➔',
     },
   },
@@ -334,8 +338,8 @@ const LAKE_GEOMETRIES: Record<string, LakeGeometryConfig> = {
   // 4. Lower Barun Lake (Makalu-Barun / Arun)
   PDGL_NEP_KOSHI_003: {
     anchor: {
-      x: 120,
-      y: 245,
+      x: 50,
+      y: 230,
       label: 'TERMINAL MORAINE DAM',
       sublabel: 'Barun Gorge (4,540m)',
     },
@@ -343,38 +347,38 @@ const LAKE_GEOMETRIES: Record<string, LakeGeometryConfig> = {
       x1: 280,
       y1: 175,
       x2: 280,
-      y2: 275,
+      y2: 260,
       label: '2004 CALVING WALL',
     },
     modernCalving: {
-      x1: 450,
-      y1: 170,
-      x2: 450,
-      y2: 270,
+      x1: 480,
+      y1: 175,
+      x2: 480,
+      y2: 260,
     },
     lakePath: (t: number) => {
-      const termX = 280 + t * (450 - 280);
-      return `M 120,245 
-        C 150,210 200,185 250,180 
-        L ${termX},172 
-        L ${termX},272 
-        C 240,275 190,270 150,260 
-        C 135,255 125,250 120,245 Z`;
+      const termX = 280 + t * (480 - 280);
+      return `M 50,230 
+        C 100,185 180,175 260,175 
+        L ${termX},175 
+        L ${termX},260 
+        C 250,260 170,255 100,245 
+        Z`;
     },
     expansionPath: (t: number) => {
       if (t <= 0.02) return null;
-      const termX = 280 + t * (450 - 280);
-      return `M 280,175 L ${termX},172 L ${termX},272 L 280,275 Z`;
+      const termX = 280 + t * (480 - 280);
+      return `M 280,175 L ${termX},175 L ${termX},260 L 280,260 Z`;
     },
     ruler: (t: number) => {
-      const termX = 280 + t * (450 - 280);
-      return { x1: 280, y1: 225, x2: termX, y2: 225 };
+      const termX = 280 + t * (480 - 280);
+      return { x1: 280, y1: 218, x2: termX, y2: 218 };
     },
     glacierFlow: {
-      x1: 460,
-      y1: 220,
-      x2: 600,
-      y2: 220,
+      x1: 490,
+      y1: 215,
+      x2: 580,
+      y2: 215,
       label: 'Barun Glacier Tongue ➔',
     },
   },
@@ -382,88 +386,85 @@ const LAKE_GEOMETRIES: Record<string, LakeGeometryConfig> = {
   // 5. Birendra Lake (Manaslu / Budhi Gandaki)
   PDGL_NEP_GANDAKI_002: {
     anchor: {
-      x: 435,
-      y: 185,
+      x: 440,
+      y: 215,
       label: 'BUDHI GANDAKI OUTLET WEIR',
       sublabel: 'Manaslu Base (3,620m)',
     },
     baselineCalving: {
-      x1: 440,
-      y1: 215,
-      x2: 405,
-      y2: 225,
+      x1: 462,
+      y1: 195,
+      x2: 450,
+      y2: 215,
       label: '2004 BASIN',
     },
     modernCalving: {
-      x1: 465,
-      y1: 225,
-      x2: 395,
-      y2: 235,
+      x1: 480,
+      y1: 195,
+      x2: 465,
+      y2: 220,
     },
     lakePath: (t: number) => {
-      const tipX = 405 + t * (395 - 405);
-      const tipY = 225 + t * (235 - 225);
-      return `M 435,185 
-        C 450,195 465,210 460,220 
-        L ${tipX},${tipY} 
-        C 400,215 410,200 420,192 
-        Z`;
+      const tipX = 462 + t * (480 - 462);
+      return `M 440,215 
+        C 445,200 455,188 ${tipX},195 
+        L 465,220 
+        C 455,220 445,218 440,215 Z`;
     },
     expansionPath: (t: number) => {
       if (t <= 0.02) return null;
-      const tipX = 405 + t * (395 - 405);
-      const tipY = 225 + t * (235 - 225);
-      return `M 405,225 L 460,220 L 465,225 L ${tipX},${tipY} Z`;
+      const tipX = 462 + t * (480 - 462);
+      return `M 462,195 L ${tipX},195 L 465,220 L 450,215 Z`;
     },
     ruler: (t: number) => {
-      const tipX = 405 + t * (395 - 405);
-      return { x1: 405, y1: 225, x2: tipX, y2: 235 };
+      const tipX = 462 + t * (480 - 462);
+      return { x1: 462, y1: 205, x2: tipX, y2: 205 };
     },
     glacierFlow: {
-      x1: 410,
-      y1: 225,
-      x2: 350,
-      y2: 270,
-      label: 'Manaslu Avalanche Chute ➔',
+      x1: 480,
+      y1: 190,
+      x2: 540,
+      y2: 170,
+      label: 'Manaslu Ice Chute ➔',
     },
   },
 
   // 6. South Lhonak (Sikkim / Teesta)
   PDGL_IND_SIKKIM_001: {
     anchor: {
-      x: 370,
-      y: 160,
+      x: 400,
+      y: 150,
       label: 'OCT 4 2023 BREACH CANYON',
       sublabel: 'Teesta Surge Notch (5,200m)',
     },
     baselineCalving: {
-      x1: 260,
-      y1: 200,
-      x2: 260,
-      y2: 260,
+      x1: 240,
+      y1: 165,
+      x2: 240,
+      y2: 235,
       label: '2004 CALVING',
     },
     modernCalving: {
-      x1: 180,
-      y1: 210,
-      x2: 180,
-      y2: 250,
+      x1: 385,
+      y1: 175,
+      x2: 385,
+      y2: 220,
     },
     lakePath: () => {
-      return `M 370,160 
-        C 330,170 280,185 240,195 
-        L 150,210 
-        L 150,250 
-        C 240,245 300,230 350,200 
+      return `M 400,150 
+        C 350,160 260,165 160,165 
+        L 50,180 
+        L 50,230 
+        C 160,245 260,235 350,195 
         Z`;
     },
     expansionPath: () => null,
-    ruler: () => ({ x1: 260, y1: 230, x2: 180, y2: 230 }),
+    ruler: () => ({ x1: 240, y1: 200, x2: 385, y2: 200 }),
     glacierFlow: {
-      x1: 140,
-      y1: 230,
-      x2: 60,
-      y2: 230,
+      x1: 100,
+      y1: 200,
+      x2: 40,
+      y2: 200,
       label: 'South Lhonak Glacier ➔',
     },
   },
@@ -471,53 +472,45 @@ const LAKE_GEOMETRIES: Record<string, LakeGeometryConfig> = {
   // 7. Thulagi Lake (Marsyangdi)
   PDGL_NEP_GANDAKI_001: {
     anchor: {
-      x: 535,
-      y: 325,
+      x: 580,
+      y: 185,
       label: 'MARSYANGDI OUTLET WEIR',
       sublabel: 'Southern Moraine Lip (4,040m)',
     },
     baselineCalving: {
-      x1: 580,
-      y1: 240,
-      x2: 630,
-      y2: 270,
+      x1: 505,
+      y1: 100,
+      x2: 505,
+      y2: 160,
       label: '2004 CALVING',
     },
     modernCalving: {
-      x1: 600,
-      y1: 210,
-      x2: 660,
-      y2: 240,
+      x1: 470,
+      y1: 95,
+      x2: 470,
+      y2: 155,
     },
     lakePath: (t: number) => {
-      const topX = 580 + t * (600 - 580);
-      const topY = 240 + t * (210 - 240);
-      const botX = 630 + t * (660 - 630);
-      const botY = 270 + t * (240 - 270);
-      return `M 535,325 
-        C 510,290 530,260 560,245 
-        L ${topX},${topY} 
-        L ${botX},${botY} 
-        C 610,290 580,315 535,325 Z`;
+      const topX = 505 - t * (505 - 470);
+      return `M 580,185 
+        C 560,150 540,110 ${topX},95 
+        L ${topX},155 
+        C 530,170 560,180 580,185 Z`;
     },
     expansionPath: (t: number) => {
       if (t <= 0.02) return null;
-      const topX = 580 + t * (600 - 580);
-      const topY = 240 + t * (210 - 240);
-      const botX = 630 + t * (660 - 630);
-      const botY = 270 + t * (240 - 270);
-      return `M 580,240 L ${topX},${topY} L ${botX},${botY} L 630,270 Z`;
+      const topX = 505 - t * (505 - 470);
+      return `M 505,100 L ${topX},95 L ${topX},155 L 505,160 Z`;
     },
     ruler: (t: number) => {
-      const topX = 580 + t * (600 - 580);
-      const topY = 240 + t * (210 - 240);
-      return { x1: 580, y1: 240, x2: topX, y2: topY };
+      const topX = 505 - t * (505 - 470);
+      return { x1: 505, y1: 130, x2: topX, y2: 125 };
     },
     glacierFlow: {
-      x1: 610,
-      y1: 210,
-      x2: 670,
-      y2: 170,
+      x1: 460,
+      y1: 125,
+      x2: 390,
+      y2: 125,
       label: 'Dona Glacier Tongue ➔',
     },
   },
@@ -590,6 +583,48 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Dual Mode: 'ortho' (calibrated photorealistic model) | 'raw' (Copernicus/Landsat multi-spectral feeds)
+  const [imageryMode, setImageryMode] = useState<'ortho' | 'raw'>('ortho');
+  // Vector Overlay Opacity (0% to 100%)
+  const [overlayOpacity, setOverlayOpacity] = useState<number>(60);
+  const [showAnchor, setShowAnchor] = useState<boolean>(true);
+
+  // Interactive GIS Zoom (1x to 4x) & Pan
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const handleZoomIn = () => setZoom((z) => Math.min(4, +(z + 0.5).toFixed(1)));
+  const handleZoomOut = () => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(1)));
+  const handleResetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && zoom > 1) {
+      setPan({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y,
+      });
+    }
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    const delta = e.deltaY < 0 ? 0.25 : -0.25;
+    setZoom((z) => Math.min(4, Math.max(1, +(z + delta).toFixed(2))));
+  };
+
   // Multi-spectral band filter: 'rgb' (natural) | 'nir' (false-color infrared NDWI) | 'sar' (high-contrast terrain)
   const [spectralBand, setSpectralBand] = useState<'rgb' | 'nir' | 'sar'>('rgb');
 
@@ -605,6 +640,8 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
       setActiveLakeCode(target);
       setSelectedYear(2026);
       setIsPlaying(false);
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
     }
   }, [isOpen, icimodCode, lakeId]);
 
@@ -752,9 +789,10 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
 
     return (
       <svg
-        className="absolute inset-0 w-full h-full pointer-events-none select-none"
+        className="absolute inset-0 w-full h-full pointer-events-none select-none transition-opacity duration-200"
         viewBox="0 0 800 450"
         preserveAspectRatio="none"
+        style={{ opacity: overlayOpacity / 100 }}
       >
         <defs>
           {/* Glacial Water Gradient 2004 (Landsat 7 False Color NIR Navy) */}
@@ -920,47 +958,78 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           </g>
         )}
 
-        {/* 6. Geographically Calibrated Anchor Pin & Crosshair (Aligned to Lake Outlet Moraine Dam) */}
-        <g>
-          {/* Target Ring */}
-          <circle cx={anchor.x} cy={anchor.y} r="14" fill="none" stroke="#F59E0B" strokeWidth="1" strokeDasharray="3 2" opacity="0.8" />
-          <circle cx={anchor.x} cy={anchor.y} r="6" fill="#F59E0B" fillOpacity="0.3" stroke="#F59E0B" strokeWidth="1.8" />
-          <circle cx={anchor.x} cy={anchor.y} r="2.5" fill="#FFFFFF" />
+        {/* 6. Geographically Calibrated Anchor Pin & Crosshair (Smart, Compact Alignment) */}
+        {showAnchor && (
+          <g>
+            {/* Target Ring */}
+            <circle cx={anchor.x} cy={anchor.y} r="12" fill="none" stroke="#F59E0B" strokeWidth="1.2" strokeDasharray="3 2" opacity="0.9" />
+            <circle cx={anchor.x} cy={anchor.y} r="5" fill="#F59E0B" fillOpacity="0.4" stroke="#F59E0B" strokeWidth="1.8" />
+            <circle cx={anchor.x} cy={anchor.y} r="2" fill="#FFFFFF" />
 
-          {/* Crosshair Leader Line to Callout Badge */}
-          <polyline
-            points={`${anchor.x},${anchor.y} ${anchor.x - 20},${anchor.y - 26} ${anchor.x - 140},${anchor.y - 26}`}
-            fill="none"
-            stroke="#F59E0B"
-            strokeWidth="1.2"
-          />
+            {/* Smart Leader Line */}
+            <line
+              x1={anchor.x}
+              y1={anchor.y}
+              x2={anchor.x < 300 ? anchor.x + 22 : anchor.x - 22}
+              y2={anchor.y < 200 ? anchor.y - 20 : anchor.y + 20}
+              stroke="#F59E0B"
+              strokeWidth="1.2"
+            />
 
-          {/* Anchor Callout Badge */}
-          <rect
-            x={anchor.x - 180}
-            y={anchor.y - 50}
-            width="160"
-            height="34"
-            rx="5"
-            fill="#020617"
-            fillOpacity="0.94"
-            stroke="#F59E0B"
-            strokeWidth="1.2"
-            filter="drop-shadow(0 3px 6px rgba(0,0,0,0.8))"
-          />
-          <text x={anchor.x - 100} y={anchor.y - 36} fill="#FDE047" fontSize="9" fontWeight="bold" textAnchor="middle">
-            ⚓ {anchor.label}
-          </text>
-          <text x={anchor.x - 100} y={anchor.y - 23} fill="#94A3B8" fontSize="7.5" textAnchor="middle">
-            {anchor.sublabel}
-          </text>
-        </g>
+            {/* Smart Compact Badge */}
+            <rect
+              x={anchor.x < 300 ? anchor.x + 22 : anchor.x - 142}
+              y={anchor.y < 200 ? anchor.y - 34 : anchor.y + 10}
+              width="120"
+              height="26"
+              rx="4"
+              fill="#020617"
+              fillOpacity="0.94"
+              stroke="#F59E0B"
+              strokeWidth="1"
+              filter="drop-shadow(0 2px 4px rgba(0,0,0,0.8))"
+            />
+            <text
+              x={anchor.x < 300 ? anchor.x + 82 : anchor.x - 82}
+              y={anchor.y < 200 ? anchor.y - 22 : anchor.y + 22}
+              fill="#FDE047"
+              fontSize="8"
+              fontWeight="bold"
+              textAnchor="middle"
+            >
+              ⚓ {anchor.label}
+            </text>
+            <text
+              x={anchor.x < 300 ? anchor.x + 82 : anchor.x - 82}
+              y={anchor.y < 200 ? anchor.y - 12 : anchor.y + 32}
+              fill="#94A3B8"
+              fontSize="6.5"
+              textAnchor="middle"
+            >
+              {anchor.sublabel}
+            </text>
+          </g>
+        )}
       </svg>
     );
   };
 
-  const currentChipUrl = currentEpoch?.image_chip_url;
-  const baselineChipUrl = baselineEpoch?.image_chip_url || currentChipUrl;
+  const getChipUrl = (year: number) => {
+    if (imageryMode === 'raw') {
+      if (data?.bbox) {
+        const [minLon, minLat, maxLon, maxLat] = data.bbox;
+        if (year >= 2018 && year <= 2025) {
+          return `https://tiles.maps.eox.at/wms?service=wms&request=GetMap&version=1.1.1&layers=s2cloudless-${year}&styles=&format=image/jpeg&srs=EPSG:4326&bbox=${minLon},${minLat},${maxLon},${maxLat}&width=800&height=450`;
+        }
+        return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
+      }
+    }
+    const code = data?.icimod_code || activeLakeCode;
+    return `/imagery/timelapse/${code}/${year}.jpg?v=20260905_v3`;
+  };
+
+  const currentChipUrl = getChipUrl(selectedYear);
+  const baselineChipUrl = getChipUrl(2004);
 
   // Shader class based on spectral band & sensor
   const getFilterClass = (is2004Baseline: boolean) => {
@@ -1006,6 +1075,34 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Dual Imagery Mode Toggle */}
+            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs font-mono">
+              <button
+                onClick={() => setImageryMode('ortho')}
+                className={`px-2.5 py-1 rounded flex items-center gap-1.5 transition-all ${
+                  imageryMode === 'ortho'
+                    ? 'bg-cyan-600 text-white font-bold shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Seamless High-Resolution Ortho Calving Model (2004–2026)"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">High-Res Ortho</span>
+              </button>
+              <button
+                onClick={() => setImageryMode('raw')}
+                className={`px-2.5 py-1 rounded flex items-center gap-1.5 transition-all ${
+                  imageryMode === 'raw'
+                    ? 'bg-cyan-600 text-white font-bold shadow'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Raw Space Agency Sentinel-2 / Landsat Multi-Spectral Feeds"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Raw Space Feeds</span>
+              </button>
+            </div>
+
             {/* View Mode Selector */}
             <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs font-mono">
               <button
@@ -1114,9 +1211,37 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 />
                 <span className="text-[11px] text-cyan-300 font-semibold flex items-center gap-1">
                   <Ruler className="w-3 h-3 text-cyan-400" />
-                  Show Calving Front Line & Ruler
+                  Calving Front Line
                 </span>
               </label>
+
+              <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showAnchor}
+                  onChange={(e) => setShowAnchor(e.target.checked)}
+                  className="rounded accent-amber-500"
+                />
+                <span className="text-[11px] text-amber-300 font-semibold">
+                  Geo-Anchors
+                </span>
+              </label>
+
+              {/* Vector Overlay Opacity Slider */}
+              <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-2 py-1 rounded-lg">
+                <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-[10px] text-slate-400 font-semibold">Opacity:</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={overlayOpacity}
+                  onChange={(e) => setOverlayOpacity(Number(e.target.value))}
+                  aria-label="Vector Overlay Opacity"
+                  className="w-16 sm:w-20 h-1.5 accent-cyan-400 bg-slate-800 rounded appearance-none cursor-pointer"
+                />
+                <span className="text-[10px] text-cyan-300 font-bold w-7 text-right">{overlayOpacity}%</span>
+              </div>
 
               {/* Spectral Band Selector */}
               <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-[10px]">
@@ -1174,24 +1299,72 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                     {initialAreaSqkm} km² • 0 m Retreat
                   </span>
                 </div>
-                <div className="relative w-full h-[280px] sm:h-[320px] rounded-xl overflow-hidden border border-amber-500/40 bg-slate-950 shadow-inner">
-                  <img
-                    key={baselineChipUrl}
-                    src={baselineChipUrl}
-                    alt="2004 Satellite View"
-                    onError={(e) => {
-                      if (data?.bbox) {
-                        const [minLon, minLat, maxLon, maxLat] = data.bbox;
-                        (e.target as HTMLImageElement).src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
-                      }
+                <div
+                  className={`relative w-full h-[280px] sm:h-[330px] rounded-xl overflow-hidden border border-amber-500/40 bg-slate-950 shadow-inner select-none ${
+                    zoom > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+                  }`}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onWheel={handleWheel}
+                >
+                  <div
+                    className="absolute inset-0 w-full h-full transition-transform duration-75 origin-center"
+                    style={{
+                      transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
                     }}
-                    className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(true)}`}
-                  />
-                  {renderLakeSvg(true)}
-                  <div className="absolute top-2.5 left-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-amber-500/50 text-[10px] text-amber-300 font-bold">
+                  >
+                    <img
+                      key={baselineChipUrl}
+                      src={baselineChipUrl}
+                      alt="2004 Satellite View"
+                      onError={(e) => {
+                        if (data?.bbox) {
+                          const [minLon, minLat, maxLon, maxLat] = data.bbox;
+                          (e.target as HTMLImageElement).src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
+                        }
+                      }}
+                      className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(true)}`}
+                    />
+                    {renderLakeSvg(true)}
+                  </div>
+
+                  {/* Floating GIS Controls (Zoom & Pan) */}
+                  <div className="absolute top-2.5 right-2.5 z-30 flex items-center gap-1 bg-slate-950/85 backdrop-blur-md border border-slate-700/80 rounded-lg p-1 shadow-xl">
+                    <button
+                      onClick={handleZoomIn}
+                      className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-cyan-400 transition-colors"
+                      title="Zoom In (+)"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={handleZoomOut}
+                      disabled={zoom <= 1}
+                      className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      title="Zoom Out (-)"
+                    >
+                      <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={handleResetView}
+                      className="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-[10px] font-mono font-bold text-cyan-400 transition-colors"
+                      title="Reset Zoom & Pan (1x)"
+                    >
+                      {zoom.toFixed(1)}x
+                    </button>
+                    {zoom > 1 && (
+                      <span className="text-[9px] font-mono text-slate-400 px-1 border-l border-slate-800 hidden sm:inline">
+                        Drag to Pan
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="absolute top-2.5 left-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-amber-500/50 text-[10px] text-amber-300 font-bold z-10">
                     2004 • Baseline Anchor ({initialAreaSqkm} km²)
                   </div>
-                  <div className="absolute bottom-2.5 left-2.5 bg-slate-950/90 backdrop-blur px-2.5 py-1 rounded border border-slate-800 text-[10px] text-slate-300">
+                  <div className="absolute bottom-2.5 left-2.5 bg-slate-950/90 backdrop-blur px-2.5 py-1 rounded border border-slate-800 text-[10px] text-slate-300 z-10">
                     Terminus: {data?.glacier_name || 'Glacier Tongue'} at 0 m baseline
                   </div>
                 </div>
@@ -1208,24 +1381,72 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                     {currentEpoch?.area_sqkm.toFixed(3)} km² ({currentEpoch?.delta_area_pct && currentEpoch.delta_area_pct > 0 ? `+${currentEpoch.delta_area_pct}%` : `${currentEpoch?.delta_area_pct || 0}%`})
                   </span>
                 </div>
-                <div className="relative w-full h-[280px] sm:h-[320px] rounded-xl overflow-hidden border border-cyan-500/40 bg-slate-950 shadow-inner ring-1 ring-cyan-500/20">
-                  <img
-                    key={currentChipUrl}
-                    src={currentChipUrl}
-                    alt={`${selectedYear} Satellite View`}
-                    onError={(e) => {
-                      if (data?.bbox) {
-                        const [minLon, minLat, maxLon, maxLat] = data.bbox;
-                        (e.target as HTMLImageElement).src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
-                      }
+                <div
+                  className={`relative w-full h-[280px] sm:h-[330px] rounded-xl overflow-hidden border border-cyan-500/40 bg-slate-950 shadow-inner ring-1 ring-cyan-500/20 select-none ${
+                    zoom > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+                  }`}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onWheel={handleWheel}
+                >
+                  <div
+                    className="absolute inset-0 w-full h-full transition-transform duration-75 origin-center"
+                    style={{
+                      transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
                     }}
-                    className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(false)}`}
-                  />
-                  {renderLakeSvg(false)}
-                  <div className="absolute top-2.5 right-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-cyan-500/50 text-[10px] text-cyan-300 font-bold">
+                  >
+                    <img
+                      key={currentChipUrl}
+                      src={currentChipUrl}
+                      alt={`${selectedYear} Satellite View`}
+                      onError={(e) => {
+                        if (data?.bbox) {
+                          const [minLon, minLat, maxLon, maxLat] = data.bbox;
+                          (e.target as HTMLImageElement).src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=800,450&f=image`;
+                        }
+                      }}
+                      className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(false)}`}
+                    />
+                    {renderLakeSvg(false)}
+                  </div>
+
+                  {/* Floating GIS Controls (Zoom & Pan) */}
+                  <div className="absolute top-2.5 right-2.5 z-30 flex items-center gap-1 bg-slate-950/85 backdrop-blur-md border border-slate-700/80 rounded-lg p-1 shadow-xl">
+                    <button
+                      onClick={handleZoomIn}
+                      className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-cyan-400 transition-colors"
+                      title="Zoom In (+)"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={handleZoomOut}
+                      disabled={zoom <= 1}
+                      className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      title="Zoom Out (-)"
+                    >
+                      <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={handleResetView}
+                      className="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-[10px] font-mono font-bold text-cyan-400 transition-colors"
+                      title="Reset Zoom & Pan (1x)"
+                    >
+                      {zoom.toFixed(1)}x
+                    </button>
+                    {zoom > 1 && (
+                      <span className="text-[9px] font-mono text-slate-400 px-1 border-l border-slate-800 hidden sm:inline">
+                        Drag to Pan
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="absolute top-2.5 left-2.5 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-cyan-500/50 text-[10px] text-cyan-300 font-bold z-10">
                     {selectedYear} • Retreated -{currentEpoch?.terminus_retreat_m} m
                   </div>
-                  <div className="absolute bottom-2.5 right-2.5 bg-slate-950/90 backdrop-blur px-2.5 py-1 rounded border border-slate-800 text-[10px] text-slate-200">
+                  <div className="absolute bottom-2.5 right-2.5 bg-slate-950/90 backdrop-blur px-2.5 py-1 rounded border border-slate-800 text-[10px] text-slate-200 z-10">
                     {deltaSqm >= 0 ? (
                       <span className="text-rose-300">New Meltwater: +{currentEpoch?.delta_area_pct}% (+{deltaSqm.toLocaleString()} m²)</span>
                     ) : (
@@ -1250,9 +1471,23 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 </span>
               </div>
 
-              <div className="relative w-full h-[300px] sm:h-[350px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950 select-none shadow-inner group">
+              <div
+                className={`relative w-full h-[300px] sm:h-[350px] rounded-xl overflow-hidden border border-slate-800 bg-slate-950 select-none shadow-inner group ${
+                  zoom > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+                }`}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
+              >
                 {/* Background Layer: Selected Year */}
-                <div className="absolute inset-0">
+                <div
+                  className="absolute inset-0 w-full h-full transition-transform duration-75 origin-center"
+                  style={{
+                    transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                  }}
+                >
                   <img
                     key={`split-cur-${currentChipUrl}`}
                     src={currentChipUrl}
@@ -1266,17 +1501,22 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                     className={`w-full h-full object-cover transition-all duration-300 ${getFilterClass(false)}`}
                   />
                   {renderLakeSvg(false)}
-                  <div className="absolute top-3 right-3 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-cyan-500/50 text-[11px] text-cyan-300 font-bold">
-                    {selectedYear} • {currentEpoch?.area_sqkm.toFixed(3)} km² (-{currentEpoch?.terminus_retreat_m}m)
-                  </div>
+                </div>
+                <div className="absolute top-3 right-3 mr-24 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-cyan-500/50 text-[11px] text-cyan-300 font-bold z-10">
+                  {selectedYear} • {currentEpoch?.area_sqkm.toFixed(3)} km² (-{currentEpoch?.terminus_retreat_m}m)
                 </div>
 
                 {/* Foreground Layer: 2004 Baseline (Clipped by sliderPos) */}
                 <div
-                  className="absolute inset-0 overflow-hidden border-r-2 border-cyan-400 shadow-2xl"
+                  className="absolute inset-0 overflow-hidden border-r-2 border-cyan-400 shadow-2xl z-10"
                   style={{ width: `${sliderPos}%` }}
                 >
-                  <div className="absolute inset-0 w-full h-full min-w-[800px]">
+                  <div
+                    className="absolute inset-0 w-full h-full min-w-[800px] transition-transform duration-75 origin-center"
+                    style={{
+                      transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                    }}
+                  >
                     <img
                       key={`split-base-${baselineChipUrl}`}
                       src={baselineChipUrl}
@@ -1291,9 +1531,40 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                     />
                     {renderLakeSvg(true)}
                   </div>
-                  <div className="absolute top-3 left-3 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-amber-500/50 text-[11px] text-amber-300 font-bold">
+                  <div className="absolute top-3 left-3 bg-black/85 backdrop-blur px-2.5 py-1 rounded border border-amber-500/50 text-[11px] text-amber-300 font-bold z-10">
                     2004 Baseline • {initialAreaSqkm} km²
                   </div>
+                </div>
+
+                {/* Floating GIS Controls (Zoom & Pan) */}
+                <div className="absolute top-2.5 right-2.5 z-30 flex items-center gap-1 bg-slate-950/85 backdrop-blur-md border border-slate-700/80 rounded-lg p-1 shadow-xl">
+                  <button
+                    onClick={handleZoomIn}
+                    className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-cyan-400 transition-colors"
+                    title="Zoom In (+)"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleZoomOut}
+                    disabled={zoom <= 1}
+                    className="p-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-cyan-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    title="Zoom Out (-)"
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={handleResetView}
+                    className="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-[10px] font-mono font-bold text-cyan-400 transition-colors"
+                    title="Reset Zoom & Pan (1x)"
+                  >
+                    {zoom.toFixed(1)}x
+                  </button>
+                  {zoom > 1 && (
+                    <span className="text-[9px] font-mono text-slate-400 px-1 border-l border-slate-800 hidden sm:inline">
+                      Drag to Pan
+                    </span>
+                  )}
                 </div>
 
                 {/* Draggable Divider Handle */}
@@ -1307,18 +1578,20 @@ export const LakeComparisonModal: React.FC<LakeComparisonModalProps> = ({
                 </div>
 
                 {/* Range Input */}
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={sliderPos}
-                  onChange={(e) => setSliderPos(Number(e.target.value))}
-                  aria-label="Swipe curtain divider"
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
-                />
+                {zoom === 1 && (
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={sliderPos}
+                    onChange={(e) => setSliderPos(Number(e.target.value))}
+                    aria-label="Swipe curtain divider"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20"
+                  />
+                )}
 
                 <div className="absolute bottom-2.5 left-2.5 z-10 bg-slate-950/85 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-800 text-[10px] text-slate-200">
-                  Drag divider across valley to peel between 2004 baseline and {selectedYear} calving terminus
+                  {zoom > 1 ? 'Zoomed View • Drag to pan viewport' : 'Drag divider across valley to peel between 2004 baseline and current calving terminus'}
                 </div>
               </div>
             </div>
