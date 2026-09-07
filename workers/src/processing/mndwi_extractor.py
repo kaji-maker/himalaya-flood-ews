@@ -24,7 +24,8 @@ class MNDWIExtractor:
     with precise metric area calculations in UTM Zone 45N (EPSG:32645).
     """
 
-    TARGET_METRIC_CRS = "EPSG:32645"  # UTM Zone 45N for Nepal / Eastern Himalaya
+    TARGET_METRIC_CRS = "EPSG:32645"  # UTM Zone 45N default (Central/Eastern Nepal)
+    TARGET_METRIC_CRS_WEST = "EPSG:32644"  # UTM Zone 44N (Western Nepal < 84°E)
     EXCHANGE_CRS = "EPSG:4326"        # WGS84 GeoJSON standard
 
     def __init__(
@@ -37,16 +38,24 @@ class MNDWIExtractor:
         self.min_sieve_size = min_sieve_size
         self.connectivity = connectivity
 
-        # Initialize Coordinate Transformer from WGS84 to UTM 45N
+        # Initialize Coordinate Transformers for both Central/Eastern (45N) and Western (44N) Himalayan sectors
         try:
-            self.transformer = pyproj.Transformer.from_crs(
+            self.transformer_utm45 = pyproj.Transformer.from_crs(
                 self.EXCHANGE_CRS,
                 self.TARGET_METRIC_CRS,
                 always_xy=True
             )
+            self.transformer_utm44 = pyproj.Transformer.from_crs(
+                self.EXCHANGE_CRS,
+                self.TARGET_METRIC_CRS_WEST,
+                always_xy=True
+            )
+            self.transformer = self.transformer_utm45
         except Exception as e:
             logger.warning(f"PyProj transformer initialization failed ({e}). Fallback scaling will be used.")
             self.transformer = None
+            self.transformer_utm45 = None
+            self.transformer_utm44 = None
 
     def _load_raster_band(
         self,
@@ -135,15 +144,24 @@ class MNDWIExtractor:
         # If coordinates are geographic WGS84 (-180..180, -90..90)
         minx, miny, maxx, maxy = polygon_wgs84.bounds
         is_geographic = -180.0 <= minx <= 180.0 and -90.0 <= miny <= 90.0
+        centroid_lon = (minx + maxx) / 2.0
 
-        if is_geographic and self.transformer:
+        # Dynamically select UTM Zone 44N (< 84°E, Western Nepal) or UTM Zone 45N (>= 84°E, Central/Eastern Nepal)
+        active_transformer = (
+            self.transformer_utm44
+            if (centroid_lon < 84.0 and self.transformer_utm44)
+            else (self.transformer_utm45 or self.transformer)
+        )
+        target_crs_str = self.TARGET_METRIC_CRS_WEST if centroid_lon < 84.0 else self.TARGET_METRIC_CRS
+
+        if is_geographic and active_transformer:
             try:
-                projected_poly = transform(self.transformer.transform, polygon_wgs84)
+                projected_poly = transform(active_transformer.transform, polygon_wgs84)
                 area_val = float(projected_poly.area)
                 if not math.isnan(area_val) and area_val > 0:
                     return area_val
             except Exception as e:
-                logger.warning(f"Transformation to EPSG:32645 failed ({e}). Using ellipsoidal approximation.")
+                logger.warning(f"Transformation to {target_crs_str} failed ({e}). Using ellipsoidal approximation.")
 
         if is_geographic:
             # Ellipsoidal metric approximation in Nepal/Himalayan latitude (~28°N)

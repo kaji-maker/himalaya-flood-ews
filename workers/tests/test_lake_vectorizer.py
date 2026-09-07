@@ -33,3 +33,21 @@ def test_empty_mask_handling():
     assert result["lake_count"] == 0
     assert result["area_sqkm"] == 0.0
     assert result["geojson"]["coordinates"] == []
+
+
+def test_lake_vectorizer_dynamic_utm_zone_selection():
+    vectorizer = LakeVectorizer()
+    mask = np.zeros((20, 20), dtype=bool)
+    mask[5:15, 5:15] = True
+
+    # 1. Western Nepal (Karnali / Mahakali basins: lon < 84°E -> UTM Zone 44N)
+    transform_west = rasterio.transform.from_origin(82.34, 29.89, 0.0001, 0.0001)
+    result_west = vectorizer.vectorize_mask(mask, affine_transform=transform_west)
+    assert result_west["planar_crs"] == "EPSG:32644"
+    assert result_west["area_sqm"] > 0
+
+    # 2. Central/Eastern Nepal (Koshi / Everest basins: lon >= 84°E -> UTM Zone 45N)
+    transform_east = rasterio.transform.from_origin(86.92, 27.91, 0.0001, 0.0001)
+    result_east = vectorizer.vectorize_mask(mask, affine_transform=transform_east)
+    assert result_east["planar_crs"] == "EPSG:32645"
+    assert result_east["area_sqm"] > 0

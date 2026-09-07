@@ -29,9 +29,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ingestion_scheduler")
 
-# Local backup queue for resilient offline/network recovery
-LOCAL_BACKUP_DIR = Path("/tmp/himalaya_ews_backup")
-LOCAL_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+# Configurable local backup queue for resilient offline/network recovery
+DEFAULT_BACKUP_DIR = Path(os.getenv("BACKUP_DIR", Path(__file__).resolve().parent.parent.parent / ".backup_queue"))
+try:
+    DEFAULT_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    LOCAL_BACKUP_DIR = DEFAULT_BACKUP_DIR
+except Exception:
+    LOCAL_BACKUP_DIR = Path("/tmp/himalaya_ews_backup")
+    LOCAL_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
 # Priority High-Risk Himalayan Glacial Lakes Catalog
 PRIORITY_LAKES = [
@@ -131,6 +136,64 @@ class IngestionDaemon:
             f.write(json.dumps(entry) + "\n")
         logger.info(f"Buffered observation payload to dead-letter queue: {backup_file}")
 
+    def replay_dead_letter_queue(self) -> int:
+        """
+        Replays buffered observations from the dead-letter queue to the Core API.
+        Returns the count of successfully replayed observations.
+        """
+        backup_file = LOCAL_BACKUP_DIR / "dead_letter_ingests.jsonl"
+        if not backup_file.exists():
+            return 0
+
+        endpoint = f"{self.api_base_url}/ingest/observation"
+        remaining_entries = []
+        replayed_count = 0
+
+        try:
+            with open(backup_file, "r") as f:
+                lines = [line.strip() for line in f if line.strip()]
+
+            if not lines:
+                return 0
+
+            logger.info(f"Attempting to replay {len(lines)} buffered observations from dead-letter queue...")
+            with httpx.Client(timeout=8.0) as client:
+                for idx, line in enumerate(lines):
+                    try:
+                        entry = json.loads(line)
+                        payload = entry.get("payload")
+                        if not payload:
+                            continue
+                        res = client.post(endpoint, json=payload)
+                        if res.status_code in [200, 201]:
+                            replayed_count += 1
+                            logger.info(
+                                f"✓ Successfully replayed buffered observation ({replayed_count}/{len(lines)}) for lake {payload.get('lake_id')}"
+                            )
+                        else:
+                            logger.warning(
+                                f"Replay failed with status {res.status_code} for {payload.get('lake_id')}. Preserving queue."
+                            )
+                            remaining_entries.extend(lines[idx:])
+                            break
+                    except Exception as e:
+                        logger.warning(f"Replay connection error ({e}). Preserving queue.")
+                        remaining_entries.extend(lines[idx:])
+                        break
+
+            if remaining_entries:
+                with open(backup_file, "w") as f:
+                    for item in remaining_entries:
+                        f.write(item + "\n")
+            else:
+                backup_file.unlink(missing_ok=True)
+                logger.info("Dead-letter queue completely drained and cleared.")
+
+        except Exception as err:
+            logger.error(f"Error during dead-letter queue replay: {err}", exc_info=True)
+
+        return replayed_count
+
     def process_single_lake(self, lake: Dict[str, Any], sim_growth_factor: float = 1.0) -> Dict[str, Any]:
         """
         Executes the extraction and ingestion lifecycle for a single glacial lake:
@@ -160,7 +223,7 @@ class IngestionDaemon:
             shape=(128, 128)
         )
 
-        # 3. Compute MNDWI & Vectorize in UTM Zone 45N
+        # 3. Compute MNDWI & Vectorize in Dynamic UTM Zone (44N / 45N)
         pixel_size_deg = 0.0001
         aff_transform = rasterio.transform.from_origin(
             lake["lon"] - 0.0064,
@@ -194,6 +257,7 @@ class IngestionDaemon:
             timestamp=now
         )
         precip_48h_mm = round(gpm_data["accumulated_24h_mm"] * 1.8, 1)
+        precip_14d_mm = round(gpm_data.get("accumulated_72h_mm", precip_48h_mm * 1.5) * 2.5, 1)
 
         # 5. Build Ingestion Payload
         payload = {
@@ -204,6 +268,7 @@ class IngestionDaemon:
             "mean_mndwi": mean_mndwi,
             "cloud_cover_pct": cloud_pct,
             "precip_48h_mm": precip_48h_mm,
+            "precip_14d_mm": precip_14d_mm,
             "geojson_geometry": cleaned_geom,
             "dam_distortion_detected": sim_growth_factor > 1.25
         }
@@ -267,7 +332,7 @@ class IngestionDaemon:
         except Exception as e:
             logger.warning(f"InSAR telemetry post fallback ({e})")
 
-        return {"success": True, "insar_summary": insar_summary.dict()}
+        return {"success": True, "insar_summary": insar_summary.model_dump() if hasattr(insar_summary, "model_dump") else insar_summary.dict()}
 
     def process_edge_telemetry(self, lake: Dict[str, Any], sim_surge: bool = False) -> Dict[str, Any]:
         """
@@ -305,12 +370,19 @@ class IngestionDaemon:
         except Exception as e:
             logger.warning(f"Edge sensor telemetry post fallback ({e})")
 
-        return {"success": True, "edge_result": eval_result.dict()}
+        return {"success": True, "edge_result": eval_result.model_dump() if hasattr(eval_result, "model_dump") else eval_result.dict()}
 
     def run_multi_tier_cycle(self, lakes: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Runs complete Multi-Tiered (Optical, SAR InSAR Cue-and-Slew, Edge Sensor) pipeline.
         """
+        try:
+            replayed = self.replay_dead_letter_queue()
+            if replayed > 0:
+                logger.info(f"Replayed {replayed} buffered observations prior to multi-tier cycle.")
+        except Exception as e:
+            logger.warning(f"Dead letter replay check failed: {e}")
+
         target_lakes = lakes or PRIORITY_LAKES
         logger.info(f"=== Starting Multi-Tiered Ingestion Cycle for {len(target_lakes)} Lakes ===")
         optical_res = []
@@ -332,6 +404,13 @@ class IngestionDaemon:
         """
         Runs a complete ingestion cycle across all monitored Himalayan lakes.
         """
+        try:
+            replayed = self.replay_dead_letter_queue()
+            if replayed > 0:
+                logger.info(f"Replayed {replayed} buffered observations prior to cycle.")
+        except Exception as e:
+            logger.warning(f"Dead letter replay check failed: {e}")
+
         target_lakes = lakes or PRIORITY_LAKES
         logger.info(f"=== Starting Ingestion Cycle for {len(target_lakes)} Himalayan Glacial Lakes ===")
         results = []

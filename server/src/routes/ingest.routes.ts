@@ -14,6 +14,11 @@ const IngestObservationSchema = z.object({
   mean_mndwi: z.number().min(-1.0).max(1.0).nullable().optional(),
   cloud_cover_pct: z.number().min(0).max(100).optional().default(0),
   precip_48h_mm: z.number().min(0).optional().default(0),
+  precip_14d_mm: z.number().min(0).optional().default(0),
+  seismic_pga_g: z.number().min(0).optional(),
+  dam_core_type: z.string().optional(),
+  dam_width_to_height_ratio: z.number().positive().optional(),
+  hanging_glacier_slope_deg: z.number().min(0).optional(),
   geojson_geometry: z.record(z.any()).optional().nullable(),
   dam_distortion_detected: z.boolean().optional().default(false),
 });
@@ -43,6 +48,11 @@ router.post('/observation', async (req: Request, res: Response) => {
     mean_mndwi,
     cloud_cover_pct,
     precip_48h_mm,
+    precip_14d_mm,
+    seismic_pga_g,
+    dam_core_type,
+    dam_width_to_height_ratio,
+    hanging_glacier_slope_deg,
     dam_distortion_detected,
   } = parseResult.data;
 
@@ -100,6 +110,11 @@ router.post('/observation', async (req: Request, res: Response) => {
       area_sqm: Number(area_sqm),
       mean_mndwi,
       cloud_cover_pct: cloud_cover_pct || 0.0,
+      dam_core_type,
+      dam_width_to_height_ratio,
+      hanging_glacier_slope_deg,
+      precip_14d_mm,
+      seismic_pga_g,
       created_at: new Date().toISOString(),
     };
   }
@@ -109,7 +124,14 @@ router.post('/observation', async (req: Request, res: Response) => {
     lake_id,
     Number(area_sqm),
     Number(precip_48h_mm || 0),
-    Boolean(dam_distortion_detected)
+    Boolean(dam_distortion_detected),
+    undefined,
+    undefined,
+    Number(precip_14d_mm || 0),
+    seismic_pga_g !== undefined ? Number(seismic_pga_g) : undefined,
+    dam_core_type,
+    dam_width_to_height_ratio !== undefined ? Number(dam_width_to_height_ratio) : undefined,
+    hanging_glacier_slope_deg !== undefined ? Number(hanging_glacier_slope_deg) : undefined
   );
 
   return res.status(201).json({
@@ -119,6 +141,7 @@ router.post('/observation', async (req: Request, res: Response) => {
       observation: observationRecord,
       alert_triggered: triggeredAlert !== null,
       alert: triggeredAlert,
+      evaluation: triggeredAlert?.two_axis_score || null,
     },
   });
 });

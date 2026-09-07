@@ -16,6 +16,8 @@ class DamBreachParameters(BaseModel):
     valley_slope_deg: float = Field(default=4.5, description="Average downstream river channel gradient in degrees")
     manning_n: float = Field(default=0.055, description="Roughness coefficient for steep boulder-strewn Himalayan gorges")
     is_ephemeral_landslide_dam: bool = Field(default=False, description="True if temporary rock-ice avalanche valley choke (Bhotekoshi-type)")
+    sediment_bulking_factor: float = Field(default=1.35, description="Slurry sediment bulking factor Bf = 1 / (1 - Cv), typical 1.3 - 1.6 for Himalayan debris gorges")
+    volumetric_sediment_concentration: Optional[float] = Field(default=None, description="Volumetric sediment concentration Cv in [0.15, 0.45]")
 
 
 class ReachImpact(BaseModel):
@@ -37,6 +39,8 @@ class BreachSimulationResult(BaseModel):
     peak_outflow_q_nws_breach_cms: float  # Kayastha & Maskey (PIAHS 2024) benchmark
     recommended_peak_q_cms: float
     total_breach_formation_time_hrs: float
+    sediment_bulking_factor: float = 1.35
+    hydrograph: Optional[List[Dict[str, float]]] = None
     downstream_impacts: List[ReachImpact]
     inundation_geojson: Dict[str, Any]
 
@@ -50,6 +54,15 @@ class GLOFBreachModel:
     3. Ephemeral Landslide Dam & Rock-Ice Avalanche Surge Formulation (Costa & Schuster 1988)
     4. Kinematic wave routing with attenuation along steep Himalayan river gorges.
     """
+
+    @classmethod
+    def calculate_sediment_bulking_factor(cls, cv: float) -> float:
+        """
+        Calculates sediment bulking factor B_f = 1 / (1 - C_v) for debris flow surge.
+        C_v is the volumetric sediment concentration (typically 0.15 - 0.45 in Himalayan GLOFs).
+        """
+        clamped_cv = max(0.0, min(0.60, cv))
+        return 1.0 / (1.0 - clamped_cv)
 
     @classmethod
     def calculate_peak_outflow(cls, params: DamBreachParameters) -> Dict[str, float]:
@@ -81,22 +94,82 @@ class GLOFBreachModel:
         if params.is_ephemeral_landslide_dam:
             # Landslide dams fail with higher instantaneous discharge and rapid erosion
             q_landslide_choke = 0.063 * math.pow(v_w, 0.42) * math.pow(h_w, 1.35)
-            q_recommended = max(q_nws_breach, q_landslide_choke)
+            q_clean = max(q_nws_breach, q_landslide_choke)
             t_formation_hrs = 0.05  # Fast 3-minute runaway breaching
         else:
-            q_recommended = 0.4 * q_froehlich + 0.3 * q_nws_breach + 0.2 * q_costa + 0.1 * q_usbr
+            q_clean = 0.4 * q_froehlich + 0.3 * q_nws_breach + 0.2 * q_costa + 0.1 * q_usbr
             # Breach formation time (Froehlich 1995): t_f = 0.00254 * (V_w^0.53) * (h_b^-0.90) in hours
             t_formation_hrs = 0.00254 * math.pow(v_w, 0.53) * math.pow(h_w, -0.90)
             t_formation_hrs = max(0.25, min(t_formation_hrs, 4.0))
+
+        # Sediment bulking factor calculation: Bf = 1 / (1 - Cv)
+        if params.volumetric_sediment_concentration is not None:
+            cv = max(0.05, min(0.60, params.volumetric_sediment_concentration))
+            b_factor = 1.0 / (1.0 - cv)
+        else:
+            b_factor = max(1.0, params.sediment_bulking_factor)
+
+        # Bulked peak slurry discharge
+        q_bulked = q_clean * b_factor
 
         return {
             "q_froehlich_cms": round(q_froehlich, 1),
             "q_costa_cms": round(q_costa, 1),
             "q_usbr_cms": round(q_usbr, 1),
             "q_nws_breach_cms": round(q_nws_breach, 1),
-            "q_recommended_cms": round(q_recommended, 1),
+            "q_clean_recommended_cms": round(q_clean, 1),
+            "q_recommended_cms": round(q_bulked, 1),
+            "q_recommended_bulked_cms": round(q_bulked, 1),
+            "sediment_bulking_factor": round(b_factor, 2),
+            "volumetric_sediment_concentration": params.volumetric_sediment_concentration,
             "formation_time_hrs": round(t_formation_hrs, 2)
         }
+
+    @classmethod
+    def synthesize_breach_hydrograph(
+        cls,
+        q_peak_cms: float = 0.0,
+        formation_time_hrs: float = 0.0,
+        time_step_mins: float = 2.0,
+        duration_factor: float = 3.5,
+        **kwargs: Any
+    ) -> List[Dict[str, float]]:
+        """
+        Synthesizes dynamic unsteady GLOF breach outflow hydrograph Q(t).
+        Follows steep triangular/exponential breach curve (Fread 1988, Froehlich 2008):
+        - Rapid rising limb peaking at t_rise = 0.20 * t_f
+        - Exponential recession limb draining stored lake volume
+        """
+        peak_q = kwargs.get("peak_discharge_cms", q_peak_cms)
+        tf_hrs = kwargs.get("failure_duration_hrs", formation_time_hrs)
+        num_pts = kwargs.get("num_points")
+
+        total_time_hrs = max(0.5, tf_hrs * duration_factor)
+        if num_pts and num_pts > 1:
+            time_step_mins = (total_time_hrs * 60.0) / (num_pts - 1)
+        total_steps = int(round((total_time_hrs * 60.0) / max(0.5, time_step_mins)))
+        t_peak_hrs = max(0.01, 0.20 * tf_hrs)
+
+        hydrograph: List[Dict[str, float]] = []
+        base_flow = max(15.0, 0.005 * peak_q)
+
+        for i in range(total_steps + 1):
+            t_min = i * time_step_mins
+            t_hr = t_min / 60.0
+
+            if t_hr <= t_peak_hrs:
+                frac = t_hr / t_peak_hrs
+                q_t = base_flow + (peak_q - base_flow) * (frac ** 2.0)
+            else:
+                decay_k = 2.2 / max(0.1, tf_hrs)
+                q_t = base_flow + (peak_q - base_flow) * math.exp(-decay_k * (t_hr - t_peak_hrs))
+
+            hydrograph.append({
+                "time_minutes": round(t_min, 1),
+                "discharge_cms": round(max(base_flow, q_t), 1)
+            })
+
+        return hydrograph
 
     @classmethod
     def route_flood_wave(
@@ -107,17 +180,24 @@ class GLOFBreachModel:
         manning_n: float = 0.055
     ) -> List[ReachImpact]:
         """
-        Routes GLOF flood wave downstream using steep channel wave celerity
-        and peak discharge attenuation models.
+        Routes GLOF flood wave downstream using steep channel wave celerity,
+        peak discharge attenuation, and reach-variable channel slope/roughness.
         """
         impacts: List[ReachImpact] = []
-        slope_rad = math.radians(valley_slope_deg)
-        sin_slope = math.sin(slope_rad)
 
         for s in settlements:
             dist_km = s["distance_km"]
             dist_m = dist_km * 1000.0
             elev_drop = s.get("elevation_drop_m", dist_km * 45.0)
+            reach_slope = s.get("channel_slope_deg", s.get("reach_slope", valley_slope_deg))
+            reach_manning = s.get("reach_manning_n", s.get("manning_n", manning_n))
+
+            if reach_slope < 1.0:
+                # Given as dimensionless gradient / slope (e.g. 0.08 m/m)
+                sin_slope = max(0.002, reach_slope)
+            else:
+                slope_rad = math.radians(max(0.2, reach_slope))
+                sin_slope = math.sin(slope_rad)
 
             # Peak discharge attenuation along valley: Q(x) = Q_0 * exp(-k * x)
             # where k ~ 0.016 km^-1 for steep Himalayan incised gorges
@@ -125,10 +205,10 @@ class GLOFBreachModel:
             q_local = q_peak_cms * attenuation_factor
 
             # Approximate flood wave celerity (Manning / kinematic wave): c = (5/3) * v
-            channel_width = max(30.0, 25.0 + 0.8 * dist_km)
-            hydraulic_depth = max(1.5, math.pow((q_local * manning_n) / (channel_width * math.sqrt(sin_slope)), 0.6))
+            channel_width = max(30.0, s.get("channel_width_m", 25.0 + 0.8 * dist_km))
+            hydraulic_depth = max(1.5, math.pow((q_local * reach_manning) / (channel_width * math.sqrt(sin_slope)), 0.6))
             velocity = q_local / (channel_width * hydraulic_depth)
-            celerity_m_s = max(4.0, min(14.0, (5.0 / 3.0) * velocity))
+            celerity_m_s = max(3.0, min(24.0, (5.0 / 3.0) * velocity))
 
             travel_time_sec = dist_m / celerity_m_s
             travel_time_min = travel_time_sec / 60.0
@@ -221,6 +301,10 @@ class GLOFBreachModel:
             manning_n=params.manning_n
         )
         geojson = cls.generate_inundation_geojson(lake_coords, downstream_settlements)
+        hydrograph = cls.synthesize_breach_hydrograph(
+            q_peak_cms=outflow["q_recommended_cms"],
+            formation_time_hrs=outflow["formation_time_hrs"]
+        )
 
         return BreachSimulationResult(
             lake_name=params.lake_name,
@@ -231,6 +315,8 @@ class GLOFBreachModel:
             peak_outflow_q_nws_breach_cms=outflow["q_nws_breach_cms"],
             recommended_peak_q_cms=outflow["q_recommended_cms"],
             total_breach_formation_time_hrs=outflow["formation_time_hrs"],
+            sediment_bulking_factor=outflow["sediment_bulking_factor"],
+            hydrograph=hydrograph,
             downstream_impacts=impacts,
             inundation_geojson=geojson
         )

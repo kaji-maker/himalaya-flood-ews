@@ -108,6 +108,43 @@ describe('Himalaya Flood EWS - REST API Test Suite', () => {
     expect(['WARNING', 'EMERGENCY']).toContain(res.body.data.alert.severity);
   });
 
+  it('POST /api/v1/ingest/observation - should process observation with geotechnical fragility and seismic/antecedent triggers', async () => {
+    const payload = {
+      lake_id: 'l1111111-1111-1111-1111-111111111111',
+      observation_date: new Date().toISOString(),
+      sensor_name: 'Sentinel-2A MSI L2A',
+      area_sqm: 1620000.0,
+      mean_mndwi: 0.68,
+      cloud_cover_pct: 0.5,
+      precip_48h_mm: 35.0,
+      precip_14d_mm: 130.0,
+      seismic_pga_g: 0.26,
+      dam_core_type: 'ice_cored',
+      dam_width_to_height_ratio: 0.16,
+      hanging_glacier_slope_deg: 46.0,
+      geojson_geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [86.468, 27.855],
+            [86.485, 27.862],
+            [86.495, 27.873],
+            [86.488, 27.881],
+            [86.468, 27.855],
+          ],
+        ],
+      },
+    };
+
+    const res = await request(app).post('/api/v1/ingest/observation').send(payload);
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.observation.dam_core_type).toBe('ice_cored');
+    expect(res.body.data.observation.seismic_pga_g).toBe(0.26);
+    expect(res.body.data.evaluation.susceptibility_score).toBeGreaterThan(0.4);
+    expect(res.body.data.evaluation.trigger_urgency_score).toBeGreaterThan(0.4);
+  });
+
   it('POST /api/v1/ingest/observation - should reject malformed payload with 400 Bad Request', async () => {
     const invalidPayload = {
       lake_id: '', // Empty lake_id

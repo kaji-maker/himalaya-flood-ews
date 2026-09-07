@@ -80,3 +80,56 @@ def test_edge_hardware_binary_encoding_and_decoding():
     decoded_hex = EdgeHardwareGateway.decode_hex_string(hex_str)
     assert decoded_hex["station_numeric_id"] == station_id
     assert decoded_hex["reading"]["geophone_acoustic_energy_db"] == db
+
+
+def test_edge_hardware_crc16_integrity_and_corruption_rejection():
+    station_id = 99
+    epoch = 1788450000
+
+    # 1. Encode 18-byte packet with CRC-16
+    crc_frame = EdgeHardwareGateway.encode_binary_packet(
+        station_numeric_id=station_id,
+        timestamp_epoch=epoch,
+        dominant_freq_hz=18.5,
+        acoustic_db=65.0,
+        water_stage_m=3.5,
+        water_stage_rate_m_min=0.25,
+        tripwire_tripped=False,
+        battery_volts=13.1,
+        include_crc=True
+    )
+    assert len(crc_frame) == EdgeHardwareGateway.FRAME_SIZE_WITH_CRC
+
+    # 2. Decode valid CRC frame
+    decoded = EdgeHardwareGateway.decode_binary_packet(crc_frame)
+    assert decoded["station_numeric_id"] == station_id
+    assert decoded.get("crc_verified") is True
+    assert decoded["reading"]["water_stage_m"] == 3.5
+
+    # 3. Corrupt a single bit in the payload (simulate radio bit-flip)
+    corrupted_byte_list = bytearray(crc_frame)
+    corrupted_byte_list[5] ^= 0x01  # Flip one bit in payload
+    corrupted_frame = bytes(corrupted_byte_list)
+
+    with pytest.raises(ValueError, match="CRC-16 verification failed"):
+        EdgeHardwareGateway.decode_binary_packet(corrupted_frame)
+
+
+def test_edge_hardware_sensor_sanity_clamping():
+    # Test that out-of-bounds sensor values are clamped to physical limits
+    clamped_frame = EdgeHardwareGateway.encode_binary_packet(
+        station_numeric_id=10,
+        timestamp_epoch=1788450000,
+        dominant_freq_hz=500.0,     # Exceeds max 200 Hz
+        acoustic_db=-50.0,          # Below min 0 dB
+        water_stage_m=45.0,         # Exceeds max 30.0 m
+        water_stage_rate_m_min=18.0,# Exceeds max 10.0 m/min
+        tripwire_tripped=False,
+        battery_volts=12.0,
+        include_crc=True
+    )
+    decoded = EdgeHardwareGateway.decode_binary_packet(clamped_frame)
+    assert decoded["reading"]["geophone_dominant_freq_hz"] <= 200.0
+    assert decoded["reading"]["geophone_acoustic_energy_db"] >= 0.0
+    assert decoded["reading"]["water_stage_m"] <= 30.0
+    assert decoded["reading"]["water_stage_rate_m_min"] <= 10.0

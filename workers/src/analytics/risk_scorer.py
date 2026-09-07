@@ -26,6 +26,12 @@ class LakeMetricsInput(BaseModel):
     lake_volume_mcm: float = 50.0
     freeboard_m: float = 15.0
 
+    # Geomorphic Dam Structure & Avalanche Exposure Refinements
+    dam_core_type: Optional[str] = None  # 'ICE_CORED_MORAINE' | 'SEDIMENT_MORAINE' | 'BEDROCK_DAM'
+    dam_width_to_height_ratio: Optional[float] = None  # W/H ratio (slender < 1.0, broad > 2.5)
+    hanging_glacier_slope_deg: Optional[float] = None  # Hanging ice tongue slope > 30°
+    seismic_pga_g: Optional[float] = None              # Peak Ground Acceleration (g)
+
     # Multi-Tiered Cue-and-Slew (Tier 1 & 2) & Edge Ground Sensor (Tier 3) fields
     insar_los_velocity_mm_yr: Optional[float] = None
     insar_coherence: Optional[float] = None
@@ -93,14 +99,43 @@ class GLOFRiskScorer:
         moraine_slope_deg: float = 28.0,
         terrain_ruggedness_m: float = 450.0,
         lake_volume_mcm: float = 50.0,
-        freeboard_m: float = 15.0
+        freeboard_m: float = 15.0,
+        dam_core_type: Optional[str] = None,
+        dam_width_to_height_ratio: Optional[float] = None,
+        hanging_glacier_slope_deg: Optional[float] = None,
     ) -> float:
         f_slope = min(1.0, max(0.0, moraine_slope_deg / 40.0))
         f_rugged = min(1.0, max(0.0, terrain_ruggedness_m / 650.0))
         f_vol = min(1.0, max(0.0, (lake_volume_mcm / 100.0) ** 0.5))
         f_freeboard = min(1.0, max(0.0, 1.0 - (freeboard_m / 35.0)))
 
+        # Baseline geomorphic score
         s = 0.35 * f_slope + 0.25 * f_rugged + 0.25 * f_vol + 0.15 * f_freeboard
+
+        # Physical modifiers for dam core composition, slender crest ratio, and hanging ice avalanche exposure
+        if dam_core_type or dam_width_to_height_ratio is not None or hanging_glacier_slope_deg is not None:
+            mod_factor = 1.0
+            if dam_core_type:
+                core_upper = dam_core_type.upper()
+                if "ICE_CORED" in core_upper:
+                    mod_factor *= 1.15
+                elif "BEDROCK" in core_upper:
+                    mod_factor *= 0.40  # Highly resistant to piping incision and breach
+                elif "SEDIMENT" in core_upper:
+                    mod_factor *= 0.95
+
+            if dam_width_to_height_ratio is not None and dam_width_to_height_ratio > 0:
+                # Slender dam (W/H < 1.0) increases fragility; wide dam (W/H > 2.5) decreases fragility
+                ratio_mod = max(0.70, min(1.30, 1.25 - 0.25 * dam_width_to_height_ratio))
+                mod_factor *= ratio_mod
+
+            s = s * mod_factor
+
+            if hanging_glacier_slope_deg is not None and hanging_glacier_slope_deg > 30.0:
+                # Hanging glacier contact capable of generating catastrophic displacement waves
+                avalanche_surge = min(0.20, (hanging_glacier_slope_deg - 30.0) / 100.0)
+                s += avalanche_surge
+
         return round(min(1.0, max(0.0, s)), 3)
 
     @classmethod
@@ -109,15 +144,23 @@ class GLOFRiskScorer:
         growth_14d_pct: float = 0.0,
         growth_30d_pct: float = 0.0,
         precip_48h_mm: float = 0.0,
+        precip_14d_mm: float = 0.0,
         is_dam_anomaly: bool = False,
         insar_velocity_mm_yr: Optional[float] = None,
         insar_coherence: Optional[float] = None,
-        is_edge_surge: bool = False
+        is_edge_surge: bool = False,
+        seismic_pga_g: Optional[float] = None,
     ) -> float:
         if is_edge_surge or is_dam_anomaly:
             return 1.0
 
-        f_rain = min(1.0, max(0.0, precip_48h_mm / 70.0))
+        if seismic_pga_g is not None and seismic_pga_g >= 0.22:
+            return 1.0  # Severe ground motion inducing liquefaction/slump
+
+        f_rain_burst = min(1.0, max(0.0, precip_48h_mm / 70.0))
+        f_rain_antecedent = min(1.0, max(0.0, precip_14d_mm / 250.0))
+        f_rain = max(f_rain_burst, 0.7 * f_rain_burst + 0.3 * f_rain_antecedent)
+
         eff_growth = max(growth_14d_pct * 1.5, growth_30d_pct)
         f_growth = min(1.0, max(0.0, eff_growth / 30.0))
 
@@ -131,11 +174,16 @@ class GLOFRiskScorer:
         if insar_coherence is not None and insar_coherence < 0.60:
             f_coherence = min(1.0, max(0.0, (0.60 - insar_coherence) / 0.35))
 
-        f_radar = max(f_insar, f_coherence)
+        # Seismic ground motion acceleration factor
+        f_seismic = 0.0
+        if seismic_pga_g is not None and seismic_pga_g > 0:
+            f_seismic = min(1.0, max(0.0, seismic_pga_g / 0.20))
 
-        if f_radar > 0:
-            # Multi-sensor radar + optical + precipitation blend
-            t = max(f_rain, f_growth, f_radar) * 0.7 + ((f_rain + f_growth + f_radar) / 3.0) * 0.3
+        f_radar_geo = max(f_insar, f_coherence, f_seismic)
+
+        if f_radar_geo > 0:
+            # Multi-sensor radar + seismic + optical + precipitation blend
+            t = max(f_rain, f_growth, f_radar_geo) * 0.7 + ((f_rain + f_growth + f_radar_geo) / 3.0) * 0.3
         else:
             t = max(f_rain, f_growth) * 0.7 + (f_rain * f_growth) * 0.3
 
@@ -185,16 +233,21 @@ class GLOFRiskScorer:
             moraine_slope_deg=data.moraine_slope_deg,
             terrain_ruggedness_m=data.terrain_ruggedness_m,
             lake_volume_mcm=data.lake_volume_mcm,
-            freeboard_m=data.freeboard_m
+            freeboard_m=data.freeboard_m,
+            dam_core_type=data.dam_core_type,
+            dam_width_to_height_ratio=data.dam_width_to_height_ratio,
+            hanging_glacier_slope_deg=data.hanging_glacier_slope_deg,
         )
         t_score = cls.calculate_trigger_urgency_score(
             growth_14d_pct=growth_14d_pct,
             growth_30d_pct=growth_30d_pct,
             precip_48h_mm=data.precip_48h_mm,
+            precip_14d_mm=data.precip_14d_mm,
             is_dam_anomaly=is_dam_anomaly,
             insar_velocity_mm_yr=data.insar_los_velocity_mm_yr,
             insar_coherence=data.insar_coherence,
-            is_edge_surge=is_edge_surge
+            is_edge_surge=is_edge_surge,
+            seismic_pga_g=data.seismic_pga_g,
         )
         h_index = round(s_score * t_score, 3)
 
@@ -211,6 +264,13 @@ class GLOFRiskScorer:
         # Record standard indicators
         if data.precip_48h_mm > cls.THRESHOLD_WARNING_PRECIP_48H_MM:
             triggers.append(f"Heavy antecedent precipitation: {data.precip_48h_mm:.1f} mm in 48 hours")
+        if data.precip_14d_mm >= 150.0:
+            triggers.append(f"Sustained 14-day antecedent rainfall saturation: {data.precip_14d_mm:.1f} mm (elevated internal pore pressure)")
+        if data.seismic_pga_g is not None and data.seismic_pga_g >= 0.22:
+            triggers.append(f"Critical seismic ground shaking: PGA={data.seismic_pga_g:.2f}g (moraine crest liquefaction/slumping risk)")
+        elif data.seismic_pga_g is not None and data.seismic_pga_g >= 0.10:
+            triggers.append(f"Elevated seismic ground shaking: PGA={data.seismic_pga_g:.2f}g")
+
         if growth_14d_pct > cls.THRESHOLD_WARNING_GROWTH_14D_PCT:
             triggers.append(f"Rapid 14-day surface area expansion: +{growth_14d_pct:.1f}%")
         if growth_30d_pct > cls.THRESHOLD_EMERGENCY_GROWTH_PCT:
@@ -235,10 +295,11 @@ class GLOFRiskScorer:
         severity: Optional[str] = None
         quadrant: str = "DORMANT_STABLE"
 
-        # EMERGENCY Rule (Instant edge surge, dam collapse, catastrophic growth, severe InSAR subsidence, or dual trigger)
+        # EMERGENCY Rule (Instant edge surge, dam collapse, catastrophic growth, severe InSAR subsidence, critical earthquake shaking, or dual trigger)
         if (
             is_edge_surge or
             is_dam_anomaly or
+            (data.seismic_pga_g is not None and data.seismic_pga_g >= 0.22) or
             growth_30d_pct > cls.THRESHOLD_EMERGENCY_GROWTH_PCT or
             (data.insar_los_velocity_mm_yr is not None and data.insar_los_velocity_mm_yr <= cls.THRESHOLD_INSAR_SUBSIDENCE_CRITICAL_MM_YR) or
             (s_score >= 0.60 and t_score >= 0.60)
@@ -252,6 +313,8 @@ class GLOFRiskScorer:
         elif (
             (growth_14d_pct > cls.THRESHOLD_WARNING_GROWTH_14D_PCT) or
             (data.precip_48h_mm > cls.THRESHOLD_WARNING_PRECIP_48H_MM) or
+            (data.precip_14d_mm >= 150.0) or
+            (data.seismic_pga_g is not None and data.seismic_pga_g >= 0.10) or
             (data.insar_los_velocity_mm_yr is not None and data.insar_los_velocity_mm_yr <= cls.THRESHOLD_INSAR_CREEP_WARNING_MM_YR) or
             (t_score >= 0.55)
         ):
@@ -302,6 +365,11 @@ class GLOFRiskScorer:
                 "growth_14d_pct": growth_14d_pct,
                 "growth_30d_pct": growth_30d_pct,
                 "precip_48h_mm": data.precip_48h_mm,
+                "precip_14d_mm": data.precip_14d_mm,
+                "seismic_pga_g": data.seismic_pga_g,
+                "dam_core_type": data.dam_core_type,
+                "dam_width_to_height_ratio": data.dam_width_to_height_ratio,
+                "hanging_glacier_slope_deg": data.hanging_glacier_slope_deg,
                 "insar_los_velocity_mm_yr": data.insar_los_velocity_mm_yr,
                 "insar_coherence": data.insar_coherence,
                 "geophone_acoustic_energy_db": data.geophone_acoustic_energy_db,

@@ -58,6 +58,11 @@ class CloudAndSnowMask:
         Snow and clean ice can exhibit high green reflectance.
         Water absorbs NIR strongly (NIR < 0.12), whereas snow has high NIR (> 0.60).
         This rejects false water positives caused by melting snow or wet ice.
+        Auto-normalizes raw Sentinel-2 DN values (0-10000 scale) to surface reflectance (0-1 scale).
         """
-        refined_water_mask = water_mask & (nir_band < nir_water_threshold)
+        nir_f = nir_band.astype(np.float32)
+        if np.nanmax(nir_f) > 2.0:
+            nir_f = nir_f / 10000.0
+
+        refined_water_mask = water_mask & (nir_f < nir_water_threshold)
         return refined_water_mask

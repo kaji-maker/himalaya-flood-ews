@@ -85,3 +85,76 @@ def test_full_breach_simulation():
     assert len(result.downstream_impacts) == 2
     assert result.inundation_geojson["type"] == "FeatureCollection"
     assert len(result.inundation_geojson["features"]) == 3
+
+
+def test_sediment_bulking_factor_and_debris_flow_outflow():
+    # 1. Direct bulking factor formula check
+    bf_25 = GLOFBreachModel.calculate_sediment_bulking_factor(0.25)
+    assert bf_25 == pytest.approx(1.333, abs=0.005)
+
+    bf_40 = GLOFBreachModel.calculate_sediment_bulking_factor(0.40)
+    assert bf_40 == pytest.approx(1.667, abs=0.005)
+
+    # 2. Dam breach calculation with 25% sediment concentration
+    params = DamBreachParameters(
+        lake_name="Imja Tsho",
+        icimod_code="PDGL_NEP_KOSHI_002",
+        lake_volume_mcm=60.0,
+        dam_height_m=100.0,
+        breach_depth_m=25.0,
+        volumetric_sediment_concentration=0.25
+    )
+    outflow = GLOFBreachModel.calculate_peak_outflow(params)
+
+    assert outflow["volumetric_sediment_concentration"] == 0.25
+    assert outflow["sediment_bulking_factor"] == pytest.approx(1.333, abs=0.01)
+    assert outflow["q_recommended_bulked_cms"] == outflow["q_recommended_cms"]
+    assert outflow["q_recommended_bulked_cms"] == pytest.approx(
+        outflow["q_clean_recommended_cms"] * outflow["sediment_bulking_factor"], rel=0.01
+    )
+    assert outflow["q_recommended_bulked_cms"] > outflow["q_clean_recommended_cms"]
+
+
+def test_synthesize_breach_hydrograph():
+    peak_q = 5500.0
+    vol_mcm = 70.0
+    tf_hrs = 2.5
+
+    hydrograph = GLOFBreachModel.synthesize_breach_hydrograph(
+        peak_discharge_cms=peak_q,
+        total_volume_mcm=vol_mcm,
+        failure_duration_hrs=tf_hrs,
+        num_points=150
+    )
+
+    assert isinstance(hydrograph, list)
+    assert len(hydrograph) == 150
+
+    times = [pt["time_minutes"] for pt in hydrograph]
+    flows = [pt["discharge_cms"] for pt in hydrograph]
+
+    assert len(times) == 150
+    assert len(flows) == 150
+    assert max(flows) == pytest.approx(peak_q, rel=0.05)
+
+    # Discharge should start low and reach peak
+    assert flows[0] < 50.0
+    peak_idx = flows.index(max(flows))
+    assert 0 < peak_idx < len(flows) - 1
+
+
+def test_reach_variable_downstream_routing():
+    q_peak = 3000.0
+    # Compare steep high-gradient gorge vs low-gradient wide valley reach
+    steep_settlements = [
+        {"name": "Upper Gorge Settlement", "distance_km": 10.0, "reach_slope": 0.08, "reach_manning_n": 0.040}
+    ]
+    gentle_settlements = [
+        {"name": "Lower Valley Settlement", "distance_km": 10.0, "reach_slope": 0.005, "reach_manning_n": 0.040}
+    ]
+
+    impact_steep = GLOFBreachModel.route_flood_wave(q_peak_cms=q_peak, settlements=steep_settlements)[0]
+    impact_gentle = GLOFBreachModel.route_flood_wave(q_peak_cms=q_peak, settlements=gentle_settlements)[0]
+
+    # Steep reach accelerates flood wave: travel time should be shorter and peak higher
+    assert impact_steep.travel_time_minutes < impact_gentle.travel_time_minutes

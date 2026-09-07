@@ -6,36 +6,67 @@ import { IndustrialSCADAGatewayService, SCADAGatewayDispatchResult } from './sca
 export class RiskEvaluationService {
   /**
    * Calculates Static Geomorphic Susceptibility (S in [0, 1])
-   * based on moraine slope, lake volume, ruggedness, and freeboard margin.
+   * based on moraine slope, lake volume, ruggedness, freeboard margin, dam core, and hanging ice.
    */
   public static calculateSusceptibility(
     slopeDeg: number = 28.0,
     ruggednessM: number = 450.0,
     volumeMcm: number = 50.0,
-    freeboardM: number = 15.0
+    freeboardM: number = 15.0,
+    damCoreType?: string,
+    damWidthToHeightRatio?: number,
+    hangingGlacierSlopeDeg?: number
   ): number {
     const fSlope = Math.min(1.0, Math.max(0.0, slopeDeg / 40.0));
     const fRugged = Math.min(1.0, Math.max(0.0, ruggednessM / 650.0));
     const fVol = Math.min(1.0, Math.max(0.0, Math.sqrt(volumeMcm / 100.0)));
     const fFreeboard = Math.min(1.0, Math.max(0.0, 1.0 - freeboardM / 35.0));
 
-    const s = 0.35 * fSlope + 0.25 * fRugged + 0.25 * fVol + 0.15 * fFreeboard;
+    let s = 0.35 * fSlope + 0.25 * fRugged + 0.25 * fVol + 0.15 * fFreeboard;
+
+    if (damCoreType || damWidthToHeightRatio !== undefined || hangingGlacierSlopeDeg !== undefined) {
+      let modFactor = 1.0;
+      if (damCoreType) {
+        const coreUpper = damCoreType.toUpperCase();
+        if (coreUpper.includes('ICE_CORED')) modFactor *= 1.15;
+        else if (coreUpper.includes('BEDROCK')) modFactor *= 0.40;
+        else if (coreUpper.includes('SEDIMENT')) modFactor *= 0.95;
+      }
+      if (damWidthToHeightRatio !== undefined && damWidthToHeightRatio > 0) {
+        const ratioMod = Math.max(0.70, Math.min(1.30, 1.25 - 0.25 * damWidthToHeightRatio));
+        modFactor *= ratioMod;
+      }
+      s *= modFactor;
+
+      if (hangingGlacierSlopeDeg !== undefined && hangingGlacierSlopeDeg > 30.0) {
+        const avalancheSurge = Math.min(0.20, (hangingGlacierSlopeDeg - 30.0) / 100.0);
+        s += avalancheSurge;
+      }
+    }
+
     return Number(Math.min(1.0, Math.max(0.0, s)).toFixed(3));
   }
 
   /**
    * Calculates Dynamic Trigger Urgency (T in [0, 1])
-   * based on antecedent rainfall, MNDWI surge, InSAR deformation, and dam instability.
+   * based on antecedent rainfall, MNDWI surge, InSAR deformation, seismic PGA, and dam instability.
    */
   public static calculateTriggerUrgency(
     growth30dPct: number,
     precip48hMm: number,
     damAnomaly: boolean,
     insarVelocityMmYr?: number,
-    insarCoherence?: number
+    insarCoherence?: number,
+    precip14dMm: number = 0.0,
+    seismicPgaG?: number
   ): number {
     if (damAnomaly) return 1.0;
-    const fRain = Math.min(1.0, Math.max(0.0, precip48hMm / 70.0));
+    if (seismicPgaG !== undefined && seismicPgaG >= 0.22) return 1.0;
+
+    const fRainBurst = Math.min(1.0, Math.max(0.0, precip48hMm / 70.0));
+    const fRainAntecedent = Math.min(1.0, Math.max(0.0, precip14dMm / 250.0));
+    const fRain = Math.max(fRainBurst, 0.7 * fRainBurst + 0.3 * fRainAntecedent);
+
     const fGrowth = Math.min(1.0, Math.max(0.0, growth30dPct / 30.0));
 
     let fInsar = 0.0;
@@ -46,9 +77,21 @@ export class RiskEvaluationService {
     if (insarCoherence !== undefined && insarCoherence < 0.60) {
       fCoherence = Math.min(1.0, Math.max(0.0, (0.60 - insarCoherence) / 0.35));
     }
-    const fRadar = Math.max(fInsar, fCoherence);
 
-    const t = Math.max(fRain, fGrowth, fRadar) * 0.7 + ((fRain + fGrowth + fRadar) / 3.0) * 0.3;
+    let fSeismic = 0.0;
+    if (seismicPgaG !== undefined && seismicPgaG > 0) {
+      fSeismic = Math.min(1.0, Math.max(0.0, seismicPgaG / 0.20));
+    }
+
+    const fRadarGeo = Math.max(fInsar, fCoherence, fSeismic);
+
+    let t = 0.0;
+    if (fRadarGeo > 0) {
+      t = Math.max(fRain, fGrowth, fRadarGeo) * 0.7 + ((fRain + fGrowth + fRadarGeo) / 3.0) * 0.3;
+    } else {
+      t = Math.max(fRain, fGrowth) * 0.7 + (fRain * fGrowth) * 0.3;
+    }
+
     return Number(Math.min(1.0, Math.max(0.0, t)).toFixed(3));
   }
 
@@ -61,7 +104,12 @@ export class RiskEvaluationService {
     precip48hMm: number = 0.0,
     damDistortionDetected: boolean = false,
     insarVelocityMmYr?: number,
-    insarCoherence?: number
+    insarCoherence?: number,
+    precip14dMm: number = 0.0,
+    seismicPgaG?: number,
+    damCoreType?: string,
+    damWidthToHeightRatio?: number,
+    hangingGlacierSlopeDeg?: number
   ): Promise<FloodAlert | null> {
     let lakeName = 'Glacial Lake';
     let baselineSqm = currentAreaSqm;
@@ -109,8 +157,8 @@ export class RiskEvaluationService {
     const growthBaselinePct = ((currentAreaSqm - baselineSqm) / baselineSqm) * 100.0;
 
     // 3. Compute Two-Axis Metrics
-    const sScore = this.calculateSusceptibility(slopeDeg, 480.0, volumeMcm, freeboardM);
-    const tScore = this.calculateTriggerUrgency(growth30dPct, precip48hMm, damDistortionDetected, insarVelocityMmYr, insarCoherence);
+    const sScore = this.calculateSusceptibility(slopeDeg, 480.0, volumeMcm, freeboardM, damCoreType, damWidthToHeightRatio, hangingGlacierSlopeDeg);
+    const tScore = this.calculateTriggerUrgency(growth30dPct, precip48hMm, damDistortionDetected, insarVelocityMmYr, insarCoherence, precip14dMm, seismicPgaG);
     const hIndex = Number((sScore * tScore).toFixed(3));
 
     let severity: AlertSeverityLevel | null = null;
@@ -119,6 +167,14 @@ export class RiskEvaluationService {
 
     if (precip48hMm > 50.0) {
       triggers.push(`Heavy 48-hour antecedent rainfall: ${precip48hMm.toFixed(1)} mm`);
+    }
+    if (precip14dMm >= 150.0) {
+      triggers.push(`Sustained 14-day antecedent rainfall saturation: ${precip14dMm.toFixed(1)} mm`);
+    }
+    if (seismicPgaG !== undefined && seismicPgaG >= 0.22) {
+      triggers.push(`Critical seismic ground shaking: PGA=${seismicPgaG.toFixed(2)}g (moraine failure threshold)`);
+    } else if (seismicPgaG !== undefined && seismicPgaG >= 0.10) {
+      triggers.push(`Elevated seismic ground shaking: PGA=${seismicPgaG.toFixed(2)}g`);
     }
     if (growth30dPct > 15.0) {
       triggers.push(`Rapid lake area expansion: +${growth30dPct.toFixed(1)}%`);
@@ -131,13 +187,19 @@ export class RiskEvaluationService {
     }
 
     // Severity mapping
-    if (damDistortionDetected || growth30dPct > 30.0 || (insarVelocityMmYr !== undefined && insarVelocityMmYr <= -35.0) || (sScore >= 0.60 && tScore >= 0.60)) {
+    if (
+      damDistortionDetected ||
+      (seismicPgaG !== undefined && seismicPgaG >= 0.22) ||
+      growth30dPct > 30.0 ||
+      (insarVelocityMmYr !== undefined && insarVelocityMmYr <= -35.0) ||
+      (sScore >= 0.60 && tScore >= 0.60)
+    ) {
       severity = 'EMERGENCY';
       quadrant = 'CRITICAL_DUAL_TRIGGER';
       if (sScore >= 0.60 && tScore >= 0.60) {
         triggers.push(`Dual-axis hazard convergence: S=${sScore.toFixed(2)}, T=${tScore.toFixed(2)}, H=${hIndex.toFixed(2)}`);
       }
-    } else if (growth30dPct > 15.0 || precip48hMm > 50.0 || (insarVelocityMmYr !== undefined && insarVelocityMmYr <= -15.0) || tScore >= 0.55) {
+    } else if (growth30dPct > 15.0 || precip48hMm > 50.0 || precip14dMm >= 150.0 || (seismicPgaG !== undefined && seismicPgaG >= 0.10) || (insarVelocityMmYr !== undefined && insarVelocityMmYr <= -15.0) || tScore >= 0.55) {
       severity = 'WARNING';
       quadrant = 'TRIGGERED_TRANSIENT_WARNING';
     } else if (sScore >= 0.60 || growthBaselinePct > 8.0 || precip48hMm > 25.0) {

@@ -71,8 +71,17 @@ class HimalayanTopographicCorrector:
             if abs(shift_r) >= rows or abs(shift_c) >= cols:
                 break
 
-            # Rolled elevated terrain towards sun
-            rolled_elev = np.roll(dem_elevation_m, (shift_r, shift_c), axis=(0, 1))
+            # Rolled elevated terrain towards sun with boundary zeroing to prevent wrap-around artifacts
+            rolled_elev = np.roll(dem_elevation_m, (shift_r, shift_c), axis=(0, 1)).copy()
+            if shift_r > 0:
+                rolled_elev[:shift_r, :] = -9999.0
+            elif shift_r < 0:
+                rolled_elev[shift_r:, :] = -9999.0
+            if shift_c > 0:
+                rolled_elev[:, :shift_c] = -9999.0
+            elif shift_c < 0:
+                rolled_elev[:, shift_c:] = -9999.0
+
             dist_m = step * cell_size_m
 
             # Required elevation of an obstacle to cast shadow
