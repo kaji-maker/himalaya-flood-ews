@@ -5,6 +5,7 @@ import { RiskEvaluationService } from '../services/evaluation.service';
 import { SeismicTriggerService } from '../services/seismic_trigger.service';
 import { GpmPrecipitationService } from '../services/gpm_precipitation.service';
 import { CueSlewTaskingService } from '../services/cue_slew_tasking.service';
+import { LiveTelemetryService } from '../services/live_telemetry.service';
 
 const router = Router();
 
@@ -424,15 +425,67 @@ router.post('/precipitation/simulate-pulse', async (req: Request, res: Response)
       basin_id || 'KOSHI',
       Number(rate_mm_hr) || 28.5
     );
-    return res.status(201).json({
+    return res.json({
       success: true,
-      message: `Simulated extreme cloudburst pulse of ${rate_mm_hr || 28.5} mm/hr in ${basin_id || 'KOSHI'}`,
-      data: result.updated,
-      alert: result.alert,
+      message: 'Cloudburst pulse injected',
+      data: result,
     });
   } catch (err: any) {
-    return res.status(400).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: err.message });
   }
+});
+// =========================================================================
+// REAL-WORLD SCIENTIFIC TELEMETRY (SENTINEL-2 & OPEN-METEO GPM)
+// =========================================================================
+
+// GET /api/v1/telemetry/live-summary - Live scientific data summary (Sentinel-2 STAC & Open-Meteo 72h accumulation)
+router.get('/live-summary', async (req: Request, res: Response) => {
+  const force = req.query.refresh === 'true';
+  const summary = await LiveTelemetryService.getLiveSummary(force);
+  return res.json({
+    success: true,
+    data: summary,
+  });
+});
+
+// GET /api/v1/telemetry/precipitation/realtime - Live Open-Meteo 72h precipitation
+router.get('/precipitation/realtime', async (req: Request, res: Response) => {
+  const lat = req.query.lat ? Number(req.query.lat) : 27.8580;
+  const lon = req.query.lon ? Number(req.query.lon) : 86.4810;
+  const elev = req.query.elev ? Number(req.query.elev) : 4580;
+
+  const data = await LiveTelemetryService.fetchLivePrecipitation(lat, lon, elev);
+  return res.json({
+    success: true,
+    data: {
+      latitude: lat,
+      longitude: lon,
+      elevation_m: elev,
+      ...data,
+      source: 'Open-Meteo API (High-Altitude Elevation Reanalysis)',
+    },
+  });
+});
+
+// GET /api/v1/telemetry/satellite/latest - Latest Sentinel-2 scene from Element 84 Earth Search STAC
+router.get('/satellite/latest', async (req: Request, res: Response) => {
+  const bboxStr = req.query.bbox as string;
+  let bbox: [number, number, number, number] = [86.450, 27.835, 86.515, 27.880];
+  if (bboxStr) {
+    const parts = bboxStr.split(',').map(Number);
+    if (parts.length === 4 && !parts.some(isNaN)) {
+      bbox = [parts[0], parts[1], parts[2], parts[3]];
+    }
+  }
+
+  const data = await LiveTelemetryService.fetchLatestSentinel2Scene(bbox);
+  return res.json({
+    success: true,
+    data: {
+      bbox,
+      ...data,
+    },
+  });
 });
 
 export default router;

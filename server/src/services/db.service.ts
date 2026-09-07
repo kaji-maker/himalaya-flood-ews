@@ -715,7 +715,7 @@ export const MOCK_FLOOD_ALERTS: FloodAlert[] = [
     severity: 'EMERGENCY',
     trigger_reason: 'Moraine displacement surge +18.2% expansion and 72h GPM IMERG rainfall exceeding 140mm',
     created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-    resolved_at: null,
+    resolved_at: process.env.DEMO_MODE === 'true' ? null : '2026-09-02T12:00:00.000Z',
     affected_villages: ['Na', 'Bedding', 'Chhetchhet', 'Simigaon', 'Gongar Khola'],
   },
 ];

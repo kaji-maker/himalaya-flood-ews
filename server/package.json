@@ -8,6 +8,7 @@
     "start": "node dist/app.js",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "test": "jest --detectOpenHandles --forceExit",
+    "test:live": "python3 ../scripts/verify_live_feeds.py",
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {

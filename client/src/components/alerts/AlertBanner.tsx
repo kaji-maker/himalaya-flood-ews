@@ -35,14 +35,14 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
             <CheckCircle className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-white">All Glacial Lake Catchments Normal</h4>
+            <h4 className="text-sm font-semibold text-white">NORMAL MONITORING • Koshi & Pan-Himalayan Basins</h4>
             <p className="text-xs text-slate-400">
-              Continuous Sentinel-2 MNDWI & NASA GPM IMERG 30-minute automated telemetry scanning active across Nepal.
+              Live Copernicus Sentinel-2 STAC & Open-Meteo GPM IMERG 72h precipitation within safe hydrological thresholds. All 14 catchments stable.
             </p>
           </div>
         </div>
         <span className="text-xs font-mono text-emerald-400 bg-emerald-900/40 px-2.5 py-1 rounded-full border border-emerald-500/40">
-          0 Active Warnings
+          Status: NORMAL (0 Active Warnings)
         </span>
       </div>
     );

@@ -13,8 +13,8 @@ class WorkerConfig(BaseSettings):
         description="Redis queue / cache URI"
     )
     STAC_API_URL: str = Field(
-        default="https://planetarycomputer.microsoft.com/api/stac/v1",
-        description="Planetary Computer or CDSE STAC Endpoint"
+        default="https://earth-search.aws.element84.com/v1",
+        description="Element 84 Earth Search AWS, Planetary Computer, or CDSE STAC Endpoint"
     )
     NASA_EARTHDATA_TOKEN: str = Field(
         default="",

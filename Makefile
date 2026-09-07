@@ -55,6 +55,10 @@ validate-real-world:
 	@echo "Running Strict Real-World Data System Validation Suite (Zero Synthetic Fixtures)..."
 	PYTHONPATH=. workers/venv/bin/python3 scripts/validate_real_world_data.py
 
+verify-live-feeds:
+	@echo "Verifying Live External Telemetry Feeds (Sentinel-2 STAC & Open-Meteo)..."
+	python3 scripts/verify_live_feeds.py
+
 
 db-seed:
 	@echo "Seeding ICIMOD PDGL GeoJSON dataset..."

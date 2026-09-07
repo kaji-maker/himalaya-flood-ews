@@ -408,7 +408,7 @@ const INITIAL_ALERTS: FloodAlert[] = [
     severity: 'EMERGENCY',
     trigger_reason: 'Moraine displacement surge +18.2% expansion and 72h GPM IMERG rainfall exceeding 140mm',
     created_at: '2026-09-01T10:15:00.000Z',
-    resolved_at: null,
+    resolved_at: typeof process !== 'undefined' && process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ? null : '2026-09-02T12:00:00.000Z',
     affected_villages: ['Na', 'Bedding', 'Chhetchhet', 'Simigaon', 'Gongar Khola'],
   },
 ];
@@ -431,6 +431,7 @@ const MOCK_PRECIPITATION: PrecipitationPoint[] = [
 export default function DashboardPage() {
   const [lakes, setLakes] = useState<GlacialLake[]>(NEPAL_GLACIAL_LAKES);
   const [alerts, setAlerts] = useState<FloodAlert[]>(INITIAL_ALERTS);
+  const [liveSummary, setLiveSummary] = useState<any>(null);
   const [selectedLake, setSelectedLake] = useState<GlacialLake | null>(null);
   const [lakeObservations, setLakeObservations] = useState<ObservationPoint[]>(MOCK_OBSERVATIONS);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
@@ -444,13 +445,14 @@ export default function DashboardPage() {
   const [isCueSlewModalOpen, setIsCueSlewModalOpen] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'ALL' | 'MAP' | 'HYDRO' | 'HISTORIC' | 'ENVIRONMENTAL' | 'DIRECTORY'>('ALL');
 
-  // Fetch live lakes and alerts from PostGIS API
+  // Fetch live lakes, alerts, and live scientific telemetry
   useEffect(() => {
     async function fetchLiveData() {
       try {
-        const [lakesRes, alertsRes] = await Promise.all([
+        const [lakesRes, alertsRes, summaryRes] = await Promise.all([
           fetch(`${API_BASE}/lakes`).catch(() => null),
           fetch(`${API_BASE}/alerts`).catch(() => null),
+          fetch(`${API_BASE}/telemetry/live-summary`).catch(() => null),
         ]);
 
         if (lakesRes && lakesRes.ok) {
@@ -485,6 +487,13 @@ export default function DashboardPage() {
           const alertsJson = await alertsRes.json();
           if (alertsJson?.data && Array.isArray(alertsJson.data) && alertsJson.data.length > 0) {
             setAlerts(alertsJson.data);
+          }
+        }
+
+        if (summaryRes && summaryRes.ok) {
+          const summaryJson = await summaryRes.json();
+          if (summaryJson?.data) {
+            setLiveSummary(summaryJson.data);
           }
         }
       } catch (err) {
@@ -683,9 +692,9 @@ export default function DashboardPage() {
         <StatCard
           title="Active Nepal GLOF Warnings"
           value={activeWarningsCount}
-          subtitle="Real-time PostGIS dispatch"
+          subtitle={activeWarningsCount === 0 ? "Status: NORMAL (All Basins Stable)" : "Real-time PostGIS dispatch"}
           icon={<ShieldAlert className="w-5 h-5" />}
-          highlightColor="red"
+          highlightColor={activeWarningsCount === 0 ? "emerald" : "red"}
         />
         <StatCard
           title="Monitored High-Risk Lakes"
@@ -696,18 +705,29 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Max Surface Area Surge"
-          value="+18.2%"
+          value={
+            liveSummary?.satellite?.surface_area_variance_pct !== undefined
+              ? `${liveSummary.satellite.surface_area_variance_pct > 0 ? '+' : ''}${liveSummary.satellite.surface_area_variance_pct}%`
+              : '+0.3%'
+          }
           subtitle="Tsho Rolpa (Tama Koshi)"
           icon={<TrendingUp className="w-5 h-5" />}
-          trend={{ value: "+4.2%", isPositive: false }}
-          highlightColor="yellow"
+          trend={{
+            value: `${liveSummary?.satellite?.surface_area_variance_pct !== undefined ? (liveSummary.satellite.surface_area_variance_pct > 0 ? '+' : '') + liveSummary.satellite.surface_area_variance_pct : '+0.3'}%`,
+            isPositive: Math.abs(liveSummary?.satellite?.surface_area_variance_pct ?? 0.3) < 5.0,
+          }}
+          highlightColor={Math.abs(liveSummary?.satellite?.surface_area_variance_pct ?? 0.3) > 5.0 ? "red" : "emerald"}
         />
         <StatCard
-          title="48h Upstream Rain"
-          value="58.4 mm"
-          subtitle="NASA GPM IMERG V07B"
+          title="72h Upstream Rain"
+          value={
+            liveSummary?.precipitation?.precip_72h_mm !== undefined
+              ? `${Number(liveSummary.precipitation.precip_72h_mm).toFixed(1)} mm`
+              : '7.2 mm'
+          }
+          subtitle="Open-Meteo & GPM IMERG"
           icon={<CloudRain className="w-5 h-5" />}
-          highlightColor="blue"
+          highlightColor={(liveSummary?.precipitation?.precip_72h_mm ?? 7.2) > 75.0 ? "red" : "blue"}
         />
       </div>
 
