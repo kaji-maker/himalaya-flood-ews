@@ -425,10 +425,11 @@ router.post('/precipitation/simulate-pulse', async (req: Request, res: Response)
       basin_id || 'KOSHI',
       Number(rate_mm_hr) || 28.5
     );
-    return res.json({
+    return res.status(201).json({
       success: true,
       message: 'Cloudburst pulse injected',
-      data: result,
+      data: result.updated,
+      alert: result.alert,
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
