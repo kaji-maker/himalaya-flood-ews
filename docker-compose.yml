@@ -60,6 +60,7 @@ services:
       dockerfile: Dockerfile
     container_name: himalaya-workers
     environment:
+      API_BASE_URL: http://server:4000/api/v1
       DATABASE_URL: postgresql://ews_admin:ews_secure_password@postgis:5432/himalaya_ews
       REDIS_URL: redis://redis:6379
       SENTINEL_STAC_URL: https://planetarycomputer.microsoft.com/api/stac/v1
@@ -87,6 +88,7 @@ services:
     volumes:
       - ./client:/app
       - /app/node_modules
+      - /app/.next
 
 volumes:
   postgis_data:
