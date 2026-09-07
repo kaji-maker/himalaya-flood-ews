@@ -703,9 +703,9 @@ export const MOCK_FLOOD_ALERTS: FloodAlert[] = [
     lake_id: 'l-galong-co',
     lake_name: 'Bhotekoshi & Upper Trishuli Corridor (Galong Co / Langtang)',
     severity: 'EMERGENCY',
-    trigger_reason: 'Active debris-dam breach alert: Post-Aug 26 glacial collapse, 2.2M tonnes loose sediment, persistent upper catchment cloudbursts threatening Rasuwa & Nuwakot',
-    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-    resolved_at: null,
+    trigger_reason: 'Resolved historical breach: August 26, 2026 glacial collapse and 2.2M tonnes debris slurry surge dissipated downstream through Rasuwa, Kodari & Bhotekoshi corridor',
+    created_at: '2026-08-26T08:30:00.000Z',
+    resolved_at: '2026-08-27T06:00:00.000Z',
     affected_villages: ['Zhangmu / Kodari', 'Liping', 'Tatopani', 'Barhabise', 'Bhotekoshi Barrage'],
   },
   {
