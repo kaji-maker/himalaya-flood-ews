@@ -51,6 +51,10 @@ test-real-world:
 	@echo "Running Intensive Real-World End-to-End Validation Suite..."
 	PYTHONPATH=. workers/venv/bin/python3 scripts/test_real_world_e2e.py
 
+validate-real-world:
+	@echo "Running Strict Real-World Data System Validation Suite (Zero Synthetic Fixtures)..."
+	PYTHONPATH=. workers/venv/bin/python3 scripts/validate_real_world_data.py
+
 
 db-seed:
 	@echo "Seeding ICIMOD PDGL GeoJSON dataset..."
