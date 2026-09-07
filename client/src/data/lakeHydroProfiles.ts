@@ -9,6 +9,11 @@ export interface DownstreamReach {
   alert: 'IMMEDIATE' | 'HIGH' | 'MODERATE';
 }
 
+export interface HydrographPoint {
+  time_minutes: number;
+  discharge_cms: number;
+}
+
 export interface LakeHydroProfile {
   coupled_hydropower: string;
   insar_velocity_mm_yr: number;
@@ -26,9 +31,89 @@ export interface LakeHydroProfile {
   risk_quadrant: 'CRITICAL_DUAL_TRIGGER' | 'HIGH_SUSCEPTIBILITY_WATCH' | 'TRIGGERED_TRANSIENT_WARNING' | 'DORMANT_STABLE';
   estimated_volume_mcm: number;
   downstream_schedule: DownstreamReach[];
+  // Geotechnical, seismic, and sediment bulking extensions
+  dam_core_type: string;
+  dam_width_to_height_ratio: number;
+  hanging_glacier_slope_deg: number;
+  sediment_bulking_factor: number;
+  volumetric_sediment_concentration: number;
+  seismic_pga_g: number;
+  clean_peak_q_cms: number;
+  bulked_peak_q_cms: number;
+  breach_formation_time_hrs: number;
+  hydrograph: HydrographPoint[];
 }
 
-export const LAKE_HYDRO_PROFILES: Record<string, LakeHydroProfile> = {
+export function synthesizeBreachHydrograph(
+  peakQ: number,
+  tfHrs: number,
+  numPoints: number = 25
+): HydrographPoint[] {
+  const durationFactor = 3.5;
+  const totalTimeHrs = Math.max(0.5, tfHrs * durationFactor);
+  const timeStepMins = (totalTimeHrs * 60.0) / (numPoints - 1);
+  const tPeakHrs = Math.max(0.01, 0.20 * tfHrs);
+  const baseFlow = Math.max(15.0, 0.005 * peakQ);
+
+  const points: HydrographPoint[] = [];
+  for (let i = 0; i < numPoints; i++) {
+    const tMin = Number((i * timeStepMins).toFixed(1));
+    const tHr = tMin / 60.0;
+    let qT = baseFlow;
+    if (tHr <= tPeakHrs) {
+      const frac = tHr / tPeakHrs;
+      qT = baseFlow + (peakQ - baseFlow) * Math.pow(frac, 2.0);
+    } else {
+      const decayK = 2.2 / Math.max(0.1, tfHrs);
+      qT = baseFlow + (peakQ - baseFlow) * Math.exp(-decayK * (tHr - tPeakHrs));
+    }
+    points.push({
+      time_minutes: tMin,
+      discharge_cms: Math.round(Math.max(baseFlow, qT)),
+    });
+  }
+  return points;
+}
+
+export function hydrateLakeProfile(raw: any): LakeHydroProfile {
+  const isCritical = raw.risk_quadrant === 'CRITICAL_DUAL_TRIGGER' || raw.insar_rating === 'CRITICAL_DESTABILIZATION';
+  const isWatch = raw.risk_quadrant === 'HIGH_SUSCEPTIBILITY_WATCH' || raw.insar_rating === 'ACTIVE_CREEP';
+
+  const dam_core_type = raw.dam_core_type ?? (isCritical ? 'ICE_CORED' : isWatch ? 'SEDIMENT' : 'BEDROCK');
+  const dam_width_to_height_ratio = raw.dam_width_to_height_ratio ?? (isCritical ? 0.16 : isWatch ? 0.38 : 0.65);
+  const hanging_glacier_slope_deg = raw.hanging_glacier_slope_deg ?? (isCritical ? 44.0 : isWatch ? 36.0 : 25.0);
+  const sediment_bulking_factor = raw.sediment_bulking_factor ?? (isCritical ? 1.40 : isWatch ? 1.30 : 1.20);
+  const volumetric_sediment_concentration = raw.volumetric_sediment_concentration ?? Number(((sediment_bulking_factor - 1.0) / sediment_bulking_factor).toFixed(2));
+  const seismic_pga_g = raw.seismic_pga_g ?? (isCritical ? 0.24 : isWatch ? 0.12 : 0.05);
+
+  let bulked_peak_q_cms = raw.bulked_peak_q_cms;
+  if (!bulked_peak_q_cms && raw.downstream_schedule && raw.downstream_schedule.length > 0) {
+    const qStr = String(raw.downstream_schedule[0].q).replace(/[^0-9]/g, '');
+    bulked_peak_q_cms = Number(qStr) || 45000;
+  } else if (!bulked_peak_q_cms) {
+    bulked_peak_q_cms = Math.round((raw.estimated_volume_mcm || 50) * 850);
+  }
+
+  const clean_peak_q_cms = raw.clean_peak_q_cms ?? Math.round(bulked_peak_q_cms / sediment_bulking_factor);
+  const breach_formation_time_hrs = raw.breach_formation_time_hrs ?? (isCritical ? 0.75 : isWatch ? 1.25 : 1.80);
+  const hydrograph = raw.hydrograph ?? synthesizeBreachHydrograph(bulked_peak_q_cms, breach_formation_time_hrs);
+
+  return {
+    ...raw,
+    dam_core_type,
+    dam_width_to_height_ratio,
+    hanging_glacier_slope_deg,
+    sediment_bulking_factor,
+    volumetric_sediment_concentration,
+    seismic_pga_g,
+    clean_peak_q_cms,
+    bulked_peak_q_cms,
+    breach_formation_time_hrs,
+    hydrograph,
+  };
+}
+
+export const RAW_LAKE_HYDRO_PROFILES: Record<string, any> = {
   // 1. Galong Co / Cirenmaco (Poiqu / Bhote Koshi Transboundary)
   PDGL_NEP_KOSHI_007: {
     coupled_hydropower: 'Upper Bhotekoshi (102 MW) / Bhotekoshi Hydro (45 MW)',
@@ -388,6 +473,10 @@ export const LAKE_HYDRO_PROFILES: Record<string, LakeHydroProfile> = {
   },
 };
 
+export const LAKE_HYDRO_PROFILES: Record<string, LakeHydroProfile> = Object.fromEntries(
+  Object.entries(RAW_LAKE_HYDRO_PROFILES).map(([k, v]) => [k, hydrateLakeProfile(v)])
+);
+
 // Aliases mapping for common IDs / names
 const CODE_ALIASES: Record<string, string> = {
   'l-galong-co': 'PDGL_NEP_KOSHI_007',
@@ -499,7 +588,7 @@ export function getLakeHydroProfile(lake: GlacialLake | null): LakeHydroProfile 
     };
   });
 
-  return {
+  return hydrateLakeProfile({
     coupled_hydropower: lake.basin_name === 'Gandaki'
       ? 'Marsyangdi Hydro (69 MW)'
       : lake.basin_name === 'Karnali'
@@ -522,7 +611,7 @@ export function getLakeHydroProfile(lake: GlacialLake | null): LakeHydroProfile 
     risk_quadrant: isCritical ? 'CRITICAL_DUAL_TRIGGER' : isWatch ? 'HIGH_SUSCEPTIBILITY_WATCH' : 'DORMANT_STABLE',
     estimated_volume_mcm: Number(((lake.initial_area_sqm || 1000000) * 0.000045).toFixed(1)),
     downstream_schedule: schedule,
-  };
+  });
 }
 
 /**

@@ -6,6 +6,11 @@ export interface TwoAxisRiskScore {
   trigger_urgency_score: number; // Dynamic Weather Trigger T in [0, 1]
   combined_hazard_index: number; // H = S * T
   risk_matrix_quadrant: 'DORMANT_STABLE' | 'HIGH_SUSCEPTIBILITY_WATCH' | 'TRIGGERED_TRANSIENT_WARNING' | 'CRITICAL_DUAL_TRIGGER';
+  dam_core_type?: string;
+  dam_width_to_height_ratio?: number;
+  hanging_glacier_slope_deg?: number;
+  seismic_pga_g?: number;
+  precip_14d_mm?: number;
 }
 
 export interface DownstreamImpact {
@@ -32,6 +37,12 @@ export interface GlacialLake {
   polygon_coordinates?: number[][][];
   freeboard_m?: number;
   moraine_slope_deg?: number;
+  dam_core_type?: string;
+  dam_width_to_height_ratio?: number;
+  hanging_glacier_slope_deg?: number;
+  sediment_bulking_factor?: number;
+  volumetric_sediment_concentration?: number;
+  seismic_pga_g?: number;
   downstream_villages?: string[];
   downstream_impacts?: DownstreamImpact[];
   inundation_swath_coords?: [number, number][];

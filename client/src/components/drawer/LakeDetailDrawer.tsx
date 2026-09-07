@@ -619,6 +619,47 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                   Heavy rain, moderate moraine
                 </div>
               </div>
+
+              {/* Geotechnical Moraine Core & Seismic Hazard Parameters */}
+              <div className="mt-3 pt-3 border-t border-slate-800/80 font-mono text-[11px]">
+                <div className="text-[10px] uppercase text-slate-400 font-bold mb-2 flex items-center justify-between">
+                  <span>Geotechnical Dam Core & Seismic Fragility</span>
+                  {profile.seismic_pga_g >= 0.22 ? (
+                    <span className="text-rose-400 bg-rose-950/80 px-1.5 py-0.5 rounded border border-rose-500/40 animate-pulse">
+                      Critical Shaking: {profile.seismic_pga_g.toFixed(2)}g
+                    </span>
+                  ) : profile.seismic_pga_g >= 0.10 ? (
+                    <span className="text-amber-400 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-500/40">
+                      Elevated PGA: {profile.seismic_pga_g.toFixed(2)}g
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">PGA: {profile.seismic_pga_g.toFixed(2)}g</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-slate-950/70 p-2 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[9px] uppercase">Dam Core</span>
+                    <span className={`font-bold ${
+                      profile.dam_core_type === 'ICE_CORED' ? 'text-cyan-300' :
+                      profile.dam_core_type === 'BEDROCK' ? 'text-emerald-400' : 'text-amber-300'
+                    }`}>
+                      {profile.dam_core_type.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                  <div className="bg-slate-950/70 p-2 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[9px] uppercase">Width/Height</span>
+                    <span className="text-slate-200 font-bold">
+                      {profile.dam_width_to_height_ratio.toFixed(2)} W/H
+                    </span>
+                  </div>
+                  <div className="bg-slate-950/70 p-2 rounded border border-slate-800">
+                    <span className="text-slate-500 block text-[9px] uppercase">Hanging Ice</span>
+                    <span className={`font-bold ${profile.hanging_glacier_slope_deg > 35 ? 'text-rose-400' : 'text-slate-200'}`}>
+                      {profile.hanging_glacier_slope_deg.toFixed(0)}° slope
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* 3. High-Resolution Polygon Boundary Overlay */}
@@ -631,7 +672,7 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                   </h4>
                 </div>
                 <span className="text-[10px] font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
-                  EPSG:32645 Metric
+                  {lake.centroid.coordinates[0] < 84.0 ? 'EPSG:32644 (UTM 44N - West)' : 'EPSG:32645 (UTM 45N - East)'} Metric
                 </span>
               </div>
 
@@ -681,6 +722,76 @@ export const LakeDetailDrawer: React.FC<LakeDetailDrawerProps> = ({
                   Froehlich / Costa Model
                 </span>
               </div>
+
+              {/* Unsteady Breach Hydrograph Q(t) Mini-Chart */}
+              {profile.hydrograph && profile.hydrograph.length > 0 && (() => {
+                const pts = profile.hydrograph;
+                const maxQ = Math.max(...pts.map((p) => p.discharge_cms), 1000);
+                const maxT = Math.max(...pts.map((p) => p.time_minutes), 60);
+
+                const polyPoints = pts
+                  .map((p) => {
+                    const x = (p.time_minutes / maxT) * 310 + 5;
+                    const y = 90 - (p.discharge_cms / maxQ) * 75;
+                    return `${x.toFixed(1)},${y.toFixed(1)}`;
+                  })
+                  .join(' ');
+
+                const peakPoint = pts.reduce(
+                  (prev, curr) => (curr.discharge_cms > prev.discharge_cms ? curr : prev),
+                  pts[0]
+                );
+                const peakX = (peakPoint.time_minutes / maxT) * 310 + 5;
+                const peakY = 90 - (peakPoint.discharge_cms / maxQ) * 75;
+
+                return (
+                  <div className="bg-slate-950/80 p-3 rounded-lg border border-slate-800 mb-3 font-mono">
+                    <div className="flex items-center justify-between text-[11px] mb-2 flex-wrap gap-1">
+                      <span className="text-slate-400 font-semibold">Unsteady Outflow Hydrograph Q(t)</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-rose-400 font-bold">
+                          Bulked: {profile.bulked_peak_q_cms.toLocaleString()} m³/s
+                        </span>
+                        <span className="text-slate-500 text-[10px]">
+                          (B_f = {profile.sediment_bulking_factor.toFixed(2)}×, C_v = {(profile.volumetric_sediment_concentration * 100).toFixed(0)}%)
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="relative w-full h-24">
+                      <svg viewBox="0 0 320 100" className="w-full h-full overflow-visible">
+                        <defs>
+                          <linearGradient id="hydroFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#F43F5E" stopOpacity="0.5" />
+                            <stop offset="100%" stopColor="#F43F5E" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+                        <line x1="5" y1="90" x2="315" y2="90" stroke="#334155" strokeWidth="1" />
+                        <line x1="5" y1="52" x2="315" y2="52" stroke="#1E293B" strokeWidth="1" strokeDasharray="3 3" />
+                        <line x1="5" y1="15" x2="315" y2="15" stroke="#1E293B" strokeWidth="1" strokeDasharray="3 3" />
+
+                        <polygon points={`5,90 ${polyPoints} 315,90`} fill="url(#hydroFill)" />
+                        <polyline
+                          points={polyPoints}
+                          fill="none"
+                          stroke="#F43F5E"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+
+                        <circle cx={peakX} cy={peakY} r="3" fill="#FFE4E6" stroke="#E11D48" strokeWidth="1.5" />
+                      </svg>
+
+                      <div className="flex items-center justify-between text-[9px] text-slate-500 mt-1">
+                        <span>t = 0 min</span>
+                        <span className="text-rose-300 font-semibold">Peak at t = {peakPoint.time_minutes} min</span>
+                        <span>t = {maxT.toFixed(0)} min</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="space-y-2">
                 {downstreamSchedule.map((reach, idx) => (
