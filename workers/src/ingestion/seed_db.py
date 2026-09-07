@@ -105,8 +105,8 @@ SAMPLE_LAKES_DATA = [
         "icimod_code": "PDGL_NEP_KOSHI_007",
         "name": "Galong Co / Cirenmaco (Poiqu Transboundary)",
         "basin_name": "Koshi",
-        "lon": 85.996,
-        "lat": 28.084,
+        "lon": 86.068,
+        "lat": 28.066,
         "initial_area_sqm": 1580000.0,
         "danger_level": "CRITICAL"
     },

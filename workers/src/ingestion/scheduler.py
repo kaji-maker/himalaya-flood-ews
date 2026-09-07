@@ -89,6 +89,26 @@ PRIORITY_LAKES = [
         "lon": 82.342,
         "baseline_area_sqm": 680000.0,
         "bbox": [82.32, 29.88, 82.36, 29.91]
+    },
+    {
+        "lake_id": "l-galong-co",
+        "icimod_code": "PDGL_NEP_KOSHI_007",
+        "name": "Galong Co / Cirenmaco",
+        "basin_name": "Koshi",
+        "lat": 28.066,
+        "lon": 86.068,
+        "baseline_area_sqm": 1580000.0,
+        "bbox": [86.05, 28.05, 86.09, 28.08]
+    },
+    {
+        "lake_id": "l-birendra",
+        "icimod_code": "PDGL_NEP_GANDAKI_002",
+        "name": "Birendra Lake",
+        "basin_name": "Gandaki",
+        "lat": 28.563,
+        "lon": 84.638,
+        "baseline_area_sqm": 350000.0,
+        "bbox": [84.63, 28.55, 84.66, 28.58]
     }
 ]
 
