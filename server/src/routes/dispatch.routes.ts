@@ -1,14 +1,27 @@
 import { Router, Request, Response } from 'express';
 import { MultiChannelDispatchService } from '../services/dispatch.service';
 import { CommunityEWSService } from '../services/community_ews.service';
+import { IndustrialSCADAGatewayService } from '../services/scada_gateway.service';
 import { FloodAlert } from '../types';
-import { MOCK_HYDROPOWER_CASCADES, MOCK_DHM_STATIONS, MOCK_HISTORICAL_GLOFS } from '../services/db.service';
+import { db, MOCK_HYDROPOWER_CASCADES, MOCK_DHM_STATIONS, MOCK_HISTORICAL_GLOFS } from '../services/db.service';
+import { assessHydrometricStatus, HydrologyValidationError, queryHydrometricStations, storeHydrometricObservation } from '../services/hydrology.service';
 
 const router = Router();
 
 // In-memory mutable states for testing and live simulations
 let liveHydropowerCascades = [...MOCK_HYDROPOWER_CASCADES];
 let liveDhmStations = [...MOCK_DHM_STATIONS];
+const canonicalDataEnabled = process.env.EWS_CANONICAL_DATA === 'true' || Boolean(process.env.DATABASE_URL);
+
+function simulatedStation(station: any) {
+  return {
+    ...station,
+    source_key: 'legacy-demo',
+    observation_state: 'SIMULATED',
+    quality_status: 'SUSPECT',
+    quality_flags: ['IN_MEMORY_FIXTURE'],
+  };
+}
 
 /**
  * POST /api/v1/dispatch/test
@@ -205,12 +218,156 @@ router.post('/hydropower-cascades/:id/interlock', (req: Request, res: Response) 
 });
 
 /**
+ * POST /api/v1/dispatch/hydropower-cascades/:id/requisition
+ * Create a Level-1 Pre-Drawdown Requisition requiring Two-Person Rule authorization.
+ */
+router.post('/hydropower-cascades/:id/requisition', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { requested_by_engineer_id, justification, drawdown_buffer_m, action } = req.body;
+
+  if (!requested_by_engineer_id || !justification) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required parameters: requested_by_engineer_id and justification are mandatory',
+    });
+  }
+
+  const plant = liveHydropowerCascades.find(
+    (p) => p.id.toLowerCase() === id.toLowerCase() || p.name.toLowerCase().includes(id.toLowerCase())
+  );
+
+  if (!plant) {
+    return res.status(404).json({ success: false, error: `Hydropower plant ${id} not found` });
+  }
+
+  const requisition = IndustrialSCADAGatewayService.requestPreDrawdownRequisition({
+    facility_id: plant.id,
+    facility_name: plant.name,
+    requested_by_engineer_id,
+    justification,
+    drawdown_buffer_m: Number(drawdown_buffer_m || plant.drawdown_buffer_m),
+    action: action || 'PRE_DRAWDOWN',
+  });
+
+  return res.status(201).json({
+    success: true,
+    message: `Pre-Drawdown Requisition created for ${plant.name}. Pending secondary engineer digital sign-off.`,
+    data: requisition,
+  });
+});
+
+/**
+ * POST /api/v1/dispatch/hydropower-cascades/requisitions/:reqId/authorize
+ * Authorize a pending requisition with a secondary engineer's credentials (Two-Person Rule).
+ */
+router.post('/hydropower-cascades/requisitions/:reqId/authorize', (req: Request, res: Response) => {
+  const { reqId } = req.params;
+  const { second_engineer_id, digital_key } = req.body;
+
+  if (!second_engineer_id || !digital_key) {
+    return res.status(400).json({
+      success: false,
+      error: 'Missing required parameters: second_engineer_id and digital_key are mandatory',
+    });
+  }
+
+  try {
+    const authorizedReq = IndustrialSCADAGatewayService.authorizePreDrawdownRequisition({
+      requisition_id: reqId,
+      second_engineer_id,
+      digital_key,
+    });
+
+    // Update the live cascade state
+    const plantIndex = liveHydropowerCascades.findIndex((p) => p.id === authorizedReq.facility_id);
+    if (plantIndex !== -1) {
+      liveHydropowerCascades[plantIndex] = {
+        ...liveHydropowerCascades[plantIndex],
+        interlock_status: 'PRE_DRAWDOWN',
+        last_tripped_at: authorizedReq.second_key_approved_at,
+        last_command_hex: authorizedReq.dispatch_payload?.iec104_frames[0]?.hex_payload || null,
+      };
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Two-Person Rule satisfied: Pre-Drawdown Authorized for ${authorizedReq.facility_name}`,
+      data: authorizedReq,
+    });
+  } catch (err: any) {
+    return res.status(403).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
+/**
+ * GET /api/v1/dispatch/hydropower-cascades/requisitions
+ * List all SCADA authorization requisitions.
+ */
+router.get('/hydropower-cascades/requisitions', (req: Request, res: Response) => {
+  const requisitions = IndustrialSCADAGatewayService.getRequisitions();
+  return res.status(200).json({
+    success: true,
+    count: requisitions.length,
+    data: requisitions,
+  });
+});
+
+/**
  * GET /api/v1/dispatch/dhm-stations
  * List all real-time DHM hydrometric gauging stations and current river stage readings.
  */
-router.get('/dhm-stations', (req: Request, res: Response) => {
+router.get('/dhm-stations', async (req: Request, res: Response) => {
   const { basin, status } = req.query;
-  let stations = [...liveDhmStations];
+  let stations: any[] = [];
+
+  if (canonicalDataEnabled) {
+    try {
+      const registered = await queryHydrometricStations();
+      const ids = registered.map((s: any) => s.id);
+      const observations = ids.length
+        ? await db('hydrometric_observations').distinctOn('station_id').whereIn('station_id', ids).orderBy('station_id').orderBy('observed_at', 'desc')
+        : [];
+      const latest = new Map<string, any>();
+      for (const observation of observations) {
+        if (!latest.has(observation.station_id)) latest.set(observation.station_id, observation);
+      }
+      stations = registered.map((station: any) => {
+        const observation = latest.get(station.id);
+        const assessment = assessHydrometricStatus(station, observation);
+        const stage = observation?.stage_m == null ? null : Number(observation.stage_m);
+        const warning = station.active_warning_stage_m == null ? null : Number(station.active_warning_stage_m);
+        const danger = station.active_danger_stage_m == null ? null : Number(station.active_danger_stage_m);
+        return {
+          id: station.id,
+          station_number: Number(station.station_number),
+          name: station.name,
+          river: station.river,
+          basin: station.basin,
+          elevation_m: station.elevation_m == null ? null : Number(station.elevation_m),
+          current_stage_m: stage,
+          warning_stage_m: warning,
+          danger_stage_m: danger,
+          current_discharge_cms: observation?.discharge_cms == null ? null : Number(observation.discharge_cms),
+          ...assessment,
+          telemetry_source: station.source_key === 'dhm-hydrology' ? 'DHM_TELEMETRIC_NETWORK' : 'PARTNER_NETWORK',
+          source_key: station.source_key,
+          last_updated: observation?.observed_at ?? null,
+          provider: station.provider,
+          product: station.product,
+          is_authoritative: station.is_authoritative,
+          threshold_source_url: station.threshold_source_url ?? null,
+          threshold_retrieved_at: station.threshold_retrieved_at ?? null,
+        };
+      });
+    } catch (err) {
+      return res.status(503).json({ success: false, error: 'Canonical hydrology store unavailable' });
+    }
+  } else {
+    stations = liveDhmStations.map(simulatedStation);
+  }
 
   if (basin) {
     stations = stations.filter(
@@ -234,7 +391,7 @@ router.get('/dhm-stations', (req: Request, res: Response) => {
  * POST /api/v1/dispatch/dhm-stations/:id/reading
  * Ingest new stage / discharge readings from telemetry and evaluate threshold breaches.
  */
-router.post('/dhm-stations/:id/reading', (req: Request, res: Response) => {
+router.post('/dhm-stations/:id/reading', async (req: Request, res: Response) => {
   const { id } = req.params;
   const { stage_m, discharge_cms } = req.body;
 
@@ -242,10 +399,32 @@ router.post('/dhm-stations/:id/reading', (req: Request, res: Response) => {
     (s) => s.id.toLowerCase() === id.toLowerCase() || String(s.station_number) === id
   );
 
-  if (stnIndex === -1) {
-    return res.status(404).json({ success: false, error: `DHM Station ${id} not found` });
+  if (canonicalDataEnabled) {
+    try {
+      const stationQuery = db('hydrometric_stations').where({ active: true });
+      if (stnIndex !== -1) {
+        stationQuery.andWhere('station_number', Number(liveDhmStations[stnIndex].station_number));
+      } else if (/^\d+(\.\d{1,2})?$/.test(id)) {
+        stationQuery.andWhere('station_number', Number(id));
+      } else if (/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id)) {
+        stationQuery.andWhere('id', id);
+      } else {
+        return res.status(404).json({ success: false, error: 'DHM station not found' });
+      }
+      const station = await stationQuery.first();
+      if (!station) return res.status(404).json({ success: false, error: 'DHM station not registered' });
+      const result = await storeHydrometricObservation({
+        ...req.body, station_number: Number(station.station_number),
+        observed_at: req.body.observed_at ?? new Date().toISOString(), raw_payload: req.body,
+      });
+      return res.status(201).json({ success: true, message: 'Canonical hydrometric observation persisted', data: result });
+    } catch (error) {
+      if (error instanceof HydrologyValidationError) return res.status(error.status).json({ success: false, error: error.message });
+      return res.status(503).json({ success: false, error: 'Canonical hydrology store unavailable; observation not persisted' });
+    }
   }
 
+  if (stnIndex === -1) return res.status(404).json({ success: false, error: 'DHM station not found' });
   const stn = liveDhmStations[stnIndex];
   const newStage = typeof stage_m === 'number' ? stage_m : stn.current_stage_m;
   const newDischarge = typeof discharge_cms === 'number' ? discharge_cms : stn.current_discharge_cms;
@@ -270,7 +449,7 @@ router.post('/dhm-stations/:id/reading', (req: Request, res: Response) => {
   return res.status(200).json({
     success: true,
     message: `Station #${stn.station_number} reading updated. Current Status: ${newStatus}`,
-    data: updatedStn,
+    data: simulatedStation(updatedStn),
   });
 });
 

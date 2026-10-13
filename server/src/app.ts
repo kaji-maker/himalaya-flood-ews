@@ -1,8 +1,8 @@
+import './config/environment';
 import path from 'path';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 
 import lakesRouter from './routes/lakes.routes';
 import alertsRouter from './routes/alerts.routes';
@@ -11,9 +11,9 @@ import ingestRouter from './routes/ingest.routes';
 import capRouter from './routes/cap.routes';
 import dispatchRouter from './routes/dispatch.routes';
 import reportsRouter from './routes/reports.routes';
+import hydrologyRouter from './routes/hydrology.routes';
+import researchRouter from './routes/research.routes';
 import { checkDatabaseHealth } from './services/db.service';
-
-dotenv.config();
 
 export const app = express();
 const PORT = process.env.PORT || 4000;
@@ -189,6 +189,8 @@ app.use('/api/v1', reportsRouter);
 app.use('/api/v1/alerts', alertsRouter);
 app.use('/api/v1/alerts', capRouter);
 app.use('/api/v1/dispatch', dispatchRouter);
+app.use('/api/v1/hydrology', hydrologyRouter);
+app.use('/api/v1/research', researchRouter);
 app.use('/api/v1/telemetry', telemetryRouter);
 app.use('/api/v1/ingest', ingestRouter);
 

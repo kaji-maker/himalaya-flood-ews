@@ -21,75 +21,67 @@ export const HIMALAYAN_MONITORED_LAKES: MonitoredLakeCoord[] = [
 ];
 
 export class SeismicTriggerService {
+  private static lastSyncTimestamp = 0;
   private static recentSeismicEvents: SeismicEvent[] = [
     {
-      id: 'usgs-himalaya-2026-01',
-      magnitude: 5.4,
+      id: 'us7000tbwb',
+      magnitude: 5.2,
       depth_km: 10.0,
-      latitude: 27.780,
-      longitude: 86.320,
-      place: '22 km WSW of Tsho Rolpa (Dolakha, Nepal)',
-      occurred_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+      latitude: 28.271,
+      longitude: 85.515,
+      place: '55 km NW of Kodāri̇̄, Nepal (Langtang Main Himalayan Thrust)',
+      occurred_at: '2026-08-26T02:52:10.000Z',
       source: 'USGS',
-      max_pga_g: 0.18,
+      max_pga_g: 0.16,
       affected_lakes: [
         {
           lake_id: 'l-tsho-rolpa',
           lake_name: 'Tsho Rolpa Glacial Lake',
-          distance_km: 18.5,
-          computed_pga_g: 0.18,
-          destabilization_risk: 'HIGH_SLUMP_RISK',
-          action_triggered: 'TRIGGER_URGENT_SKYSAT_CUE_SLEW',
-        },
-        {
-          lake_id: 'l-lumding',
-          lake_name: 'Lumding Tsho',
-          distance_km: 29.2,
-          computed_pga_g: 0.11,
+          distance_km: 104.2,
+          computed_pga_g: 0.05,
           destabilization_risk: 'MODERATE_LIQUEFACTION',
           action_triggered: 'INCREASE_GEOPHONE_SAMPLING_RATE',
         },
-      ],
-      alert_dispatched: true,
-    },
-    {
-      id: 'usgs-himalaya-2026-02',
-      magnitude: 4.8,
-      depth_km: 14.0,
-      latitude: 28.480,
-      longitude: 84.490,
-      place: '8 km SW of Manaslu / Thulagi Lake (Gandaki, Nepal)',
-      occurred_at: new Date(Date.now() - 3600000 * 18).toISOString(),
-      source: 'USGS',
-      max_pga_g: 0.13,
-      affected_lakes: [
         {
           lake_id: 'l-thulagi',
           lake_name: 'Thulagi Lake (Manaslu)',
-          distance_km: 6.2,
-          computed_pga_g: 0.13,
-          destabilization_risk: 'HIGH_SLUMP_RISK',
-          action_triggered: 'TRIGGER_URGENT_SKYSAT_CUE_SLEW',
+          distance_km: 101.5,
+          computed_pga_g: 0.05,
+          destabilization_risk: 'MODERATE_LIQUEFACTION',
+          action_triggered: 'INCREASE_GEOPHONE_SAMPLING_RATE',
         },
       ],
       alert_dispatched: false,
     },
     {
-      id: 'usgs-himalaya-2026-03',
-      magnitude: 5.7,
-      depth_km: 12.0,
-      latitude: 28.850,
-      longitude: 82.200,
-      place: 'Jajarkot Active Thrust Fault (Karnali, Nepal)',
-      occurred_at: new Date(Date.now() - 3600000 * 48).toISOString(),
+      id: 'us7000tdv4',
+      magnitude: 5.1,
+      depth_km: 10.0,
+      latitude: 31.362,
+      longitude: 80.330,
+      place: '115 km NE of Joshīmath, India (Garhwal / Western Himalaya)',
+      occurred_at: '2026-09-03T08:16:36.000Z',
       source: 'USGS',
-      max_pga_g: 0.04,
+      max_pga_g: 0.15,
+      affected_lakes: [],
+      alert_dispatched: false,
+    },
+    {
+      id: 'us6000tn6q',
+      magnitude: 4.8,
+      depth_km: 10.0,
+      latitude: 30.320,
+      longitude: 84.276,
+      place: '143 km NW of Saga, China (Trans-Himalayan Fault / Poiqu Headwaters)',
+      occurred_at: '2026-08-18T19:59:08.000Z',
+      source: 'USGS',
+      max_pga_g: 0.11,
       affected_lakes: [
         {
           lake_id: 'l-thulagi',
           lake_name: 'Thulagi Lake (Manaslu)',
-          distance_km: 231.0,
-          computed_pga_g: 0.04,
+          distance_km: 201.2,
+          computed_pga_g: 0.02,
           destabilization_risk: 'NEGLIGIBLE',
           action_triggered: 'STANDBY_BASELINE_LOG',
         },
@@ -302,6 +294,10 @@ export class SeismicTriggerService {
    * Retrieves list of recent Himalayan earthquakes and their moraine impacts.
    */
   public static getRecentEvents(limit: number = 10): SeismicEvent[] {
+    // If cache is older than 5 minutes, refresh in background
+    if (Date.now() - this.lastSyncTimestamp > 300000) {
+      this.fetchUsgsHimalayanFeed().catch(() => {});
+    }
     return this.recentSeismicEvents.slice(0, limit);
   }
 
@@ -310,24 +306,25 @@ export class SeismicTriggerService {
    */
   public static async fetchUsgsHimalayanFeed(): Promise<SeismicEvent[]> {
     const url =
-      'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=4.5&minlatitude=26.0&maxlatitude=31.5&minlongitude=79.0&maxlongitude=90.0&limit=15';
+      'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=4.5&minlatitude=25.0&maxlatitude=33.0&minlongitude=78.0&maxlongitude=94.0&limit=20';
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-
       const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         console.warn(`[USGS Ingest] HTTP response not ok (${response.status}), using cached telemetry`);
-        return this.getRecentEvents();
+        return this.recentSeismicEvents;
       }
 
       const geojson = (await response.json()) as any;
       if (!geojson.features || !Array.isArray(geojson.features)) {
-        return this.getRecentEvents();
+        return this.recentSeismicEvents;
       }
+
+      this.lastSyncTimestamp = Date.now();
 
       for (const feature of geojson.features) {
         const [lon, lat, depth] = feature.geometry.coordinates;
@@ -351,10 +348,17 @@ export class SeismicTriggerService {
         }
       }
 
-      return this.getRecentEvents();
+      // Sort by occurrence time descending
+      this.recentSeismicEvents.sort(
+        (a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
+      );
+
+      return this.recentSeismicEvents;
     } catch (err: any) {
       console.warn(`[USGS Ingest] Live fetch unavailable (${err.message}). Using local Himalayan seismic telemetry.`);
-      return this.getRecentEvents();
+      return this.recentSeismicEvents;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 }

@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start -p 3000",
     "type-check": "tsc --noEmit",
+    "test:hydrology": "node --import ../server/node_modules/tsx/dist/loader.mjs --test tests/hydrology.test.tsx",
+    "hydrology:smoke": "node --import ../server/node_modules/tsx/dist/loader.mjs scripts/hydrology_smoke.ts",
     "lint": "next lint"
   },
   "dependencies": {

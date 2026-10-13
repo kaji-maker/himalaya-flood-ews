@@ -43,6 +43,12 @@ services:
       DATABASE_URL: postgresql://ews_admin:ews_secure_password@postgis:5432/himalaya_ews
       REDIS_URL: redis://redis:6379
       ALERT_WEBHOOK_URL: http://server:4000/api/v1/alerts/webhook-mock
+      NEBIUS_API_KEY: ${NEBIUS_API_KEY:-}
+      NEBIUS_BASE_URL: ${NEBIUS_BASE_URL:-https://api.tokenfactory.nebius.com/v1/}
+      NEBIUS_MODEL: ${NEBIUS_MODEL:-nvidia/nemotron-3-super-120b-a12b}
+      NEBIUS_MAX_TOKENS: ${NEBIUS_MAX_TOKENS:-900}
+      DHM_POLL_INTERVAL_SECONDS: ${DHM_POLL_INTERVAL_SECONDS:-900}
+      DHM_RAINFALL_STATION_IDS: ${DHM_RAINFALL_STATION_IDS:-55,57,107,408,663,923}
       DEMO_MODE: "false"
       LIVE_DATA: "true"
     ports:
@@ -55,6 +61,24 @@ services:
     volumes:
       - ./server:/app
       - /app/node_modules
+
+  dhm-ingestion:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: himalaya-dhm-ingestion
+    profiles: ["hydrology"]
+    command: ["node", "dist/scripts/dhm_ingestion.js"]
+    restart: unless-stopped
+    stop_grace_period: 120s
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://ews_admin:ews_secure_password@postgis:5432/himalaya_ews
+      DHM_POLL_INTERVAL_SECONDS: ${DHM_POLL_INTERVAL_SECONDS:-900}
+      DHM_RAINFALL_STATION_IDS: ${DHM_RAINFALL_STATION_IDS:-55,57,107,408,663,923}
+    depends_on:
+      postgis:
+        condition: service_healthy
 
   workers:
     build:

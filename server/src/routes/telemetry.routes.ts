@@ -317,13 +317,20 @@ router.post('/lorawan', async (req: Request, res: Response) => {
 // =========================================================================
 
 // GET /api/v1/telemetry/seismic - Get recent earthquakes and moraine impact analysis
-router.get('/seismic', (req: Request, res: Response) => {
+router.get('/seismic', async (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 10;
-  const events = SeismicTriggerService.getRecentEvents(limit);
+  const sync = req.query.sync === 'true';
+  let events: any[] = [];
+  if (sync) {
+    events = await SeismicTriggerService.fetchUsgsHimalayanFeed();
+  } else {
+    events = SeismicTriggerService.getRecentEvents(limit);
+  }
   return res.json({
     success: true,
+    source: 'USGS Earthquake Hazards Program (Himalayan Arc M4.5+)',
     count: events.length,
-    data: events,
+    data: events.slice(0, limit),
   });
 });
 
@@ -397,18 +404,33 @@ router.post('/seismic/ingest', async (req: Request, res: Response) => {
 // =========================================================================
 
 // GET /api/v1/telemetry/precipitation/live - Get live 30-min NASA GPM IMERG sub-basin telemetry
-router.get('/precipitation/live', (req: Request, res: Response) => {
-  const telemetry = GpmPrecipitationService.getLiveTelemetry();
+router.get('/precipitation/live', async (req: Request, res: Response) => {
+  const sync = req.query.sync === 'true';
+  let telemetry;
+  if (sync) {
+    telemetry = await GpmPrecipitationService.syncLiveTelemetryFromOpenMeteo();
+  } else {
+    telemetry = GpmPrecipitationService.getLiveTelemetry();
+  }
   return res.json({
     success: true,
+    source: 'NASA GPM IMERG V07B / Open-Meteo High-Altitude Reanalysis',
     count: telemetry.length,
     data: telemetry,
   });
 });
 
 // POST /api/v1/telemetry/precipitation/sync - Step/update live GPM telemetry
-router.post('/precipitation/sync', (req: Request, res: Response) => {
-  const { basin_id } = req.body;
+router.post('/precipitation/sync', async (req: Request, res: Response) => {
+  const { basin_id, force_real } = req.body;
+  if (force_real) {
+    const telemetry = await GpmPrecipitationService.syncLiveTelemetryFromOpenMeteo();
+    return res.json({
+      success: true,
+      message: 'Live real-world precipitation synced from Open-Meteo meteorological reanalysis',
+      data: telemetry,
+    });
+  }
   const updated = GpmPrecipitationService.updateTelemetry(basin_id);
   return res.json({
     success: true,
@@ -435,6 +457,27 @@ router.post('/precipitation/simulate-pulse', async (req: Request, res: Response)
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// GET /api/v1/telemetry/nwp-forecast - Forward 72-hour elevation-calibrated NWP ensemble forecast
+router.get('/nwp-forecast', async (req: Request, res: Response) => {
+  const lakeId = (req.query.lake_id as string) || 'l-tsho-rolpa';
+  const elevationM = req.query.elevation_m ? Number(req.query.elevation_m) : 4580;
+  const sync = req.query.sync === 'true';
+
+  let forecast;
+  if (sync) {
+    forecast = await GpmPrecipitationService.fetchPredictiveEnsembleForecast(lakeId, elevationM);
+  } else {
+    forecast = GpmPrecipitationService.getPredictiveEnsembleForecast(lakeId, elevationM);
+  }
+
+  return res.json({
+    success: true,
+    source: 'ECMWF HRES 0.1° / GFS Downscaled High-Altitude Ensemble',
+    data: forecast,
+  });
+});
+
 // =========================================================================
 // REAL-WORLD SCIENTIFIC TELEMETRY (SENTINEL-2 & OPEN-METEO GPM)
 // =========================================================================

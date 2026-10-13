@@ -7,7 +7,10 @@ __pycache__/
 # Environment & local secrets
 .env
 .env.local
+.env.*
+!.env.example
 *.local
+database/backups/
 
 # Builds & caches
 .next/

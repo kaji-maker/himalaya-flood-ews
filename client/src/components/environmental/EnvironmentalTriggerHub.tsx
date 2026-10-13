@@ -12,12 +12,17 @@ import {
   AlertTriangle,
   Waves,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Sparkles,
   ArrowUpRight,
   Droplet,
   CheckCircle2,
+  Globe,
+  Sliders,
+  Database,
 } from 'lucide-react';
-import { SeismicEvent, LiveGpmPrecipitationTelemetry, FloodAlert } from '@/types';
+import { SeismicEvent, LiveGpmPrecipitationTelemetry, FloodAlert, LakeCatchmentPredictiveForecast } from '@/types';
 
 interface EnvironmentalTriggerHubProps {
   onAlertCreated?: (alert: FloodAlert) => void;
@@ -30,21 +35,27 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
   onAlertCreated,
   onSelectLakeById,
 }) => {
-  const [activeTab, setActiveTab] = useState<'SEISMIC' | 'GPM'>('SEISMIC');
+  const [activeTab, setActiveTab] = useState<'SEISMIC' | 'GPM' | 'NWP_PREDICTIVE'>('SEISMIC');
   const [seismicEvents, setSeismicEvents] = useState<SeismicEvent[]>([]);
   const [gpmTelemetry, setGpmTelemetry] = useState<LiveGpmPrecipitationTelemetry[]>([]);
+  const [nwpForecast, setNwpForecast] = useState<LakeCatchmentPredictiveForecast | null>(null);
   const [isSimulatingQuake, setIsSimulatingQuake] = useState<boolean>(false);
   const [isSimulatingRain, setIsSimulatingRain] = useState<boolean>(false);
   const [isSyncingUsgs, setIsSyncingUsgs] = useState<boolean>(false);
+  const [isSyncingGpm, setIsSyncingGpm] = useState<boolean>(false);
+  const [isSyncingNwp, setIsSyncingNwp] = useState<boolean>(false);
+  const [showDrillControls, setShowDrillControls] = useState<boolean>(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [lastActionStatus, setLastActionStatus] = useState<string | null>(null);
 
-  // Fetch initial environmental telemetry
+  // Fetch initial environmental telemetry with live scientific sync enabled
   useEffect(() => {
     const fetchTelemetry = async () => {
       try {
-        const [seismicRes, gpmRes] = await Promise.all([
-          fetch(`${API_BASE}/telemetry/seismic?limit=8`),
-          fetch(`${API_BASE}/telemetry/precipitation/live`),
+        const [seismicRes, gpmRes, nwpRes] = await Promise.all([
+          fetch(`${API_BASE}/telemetry/seismic?sync=true&limit=8`),
+          fetch(`${API_BASE}/telemetry/precipitation/live?sync=true`),
+          fetch(`${API_BASE}/telemetry/nwp-forecast?lake_id=l-tsho-rolpa&elevation_m=4580`),
         ]);
 
         if (seismicRes.ok) {
@@ -56,6 +67,12 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
           const gJson = await gpmRes.json();
           if (gJson?.data) setGpmTelemetry(gJson.data);
         }
+
+        if (nwpRes.ok) {
+          const nJson = await nwpRes.json();
+          if (nJson?.data) setNwpForecast(nJson.data);
+        }
+        setLastSyncedAt(new Date().toLocaleTimeString());
       } catch (err) {
         console.warn('Live environmental API polling fallback:', err);
       }
@@ -66,7 +83,76 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
     return () => clearInterval(interval);
   }, []);
 
-  // Handler: Simulate Mw 6.2 Earthquake
+  // Handler: Sync USGS live feed (M4.5+ Himalayan Arc)
+  const handleSyncUsgs = async () => {
+    setIsSyncingUsgs(true);
+    setLastActionStatus('Syncing live M4.5+ Himalayan feed from USGS Earthquake Hazards Program...');
+    try {
+      const res = await fetch(`${API_BASE}/telemetry/seismic/sync`, { method: 'POST' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data) {
+          setSeismicEvents(json.data);
+          setLastActionStatus(`USGS Feed Synced: ${json.count} real-world earthquakes along Himalayan Arc.`);
+          setLastSyncedAt(new Date().toLocaleTimeString());
+        }
+      }
+    } catch (err: any) {
+      setLastActionStatus(`USGS sync offline fallback: ${err.message}`);
+    } finally {
+      setIsSyncingUsgs(false);
+    }
+  };
+
+  // Handler: Sync GPM & Open-Meteo high-altitude precipitation
+  const handleSyncGpm = async () => {
+    setIsSyncingGpm(true);
+    setLastActionStatus('Syncing high-altitude precipitation from Open-Meteo & NASA GPM IMERG...');
+    try {
+      const res = await fetch(`${API_BASE}/telemetry/precipitation/live?sync=true`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data) {
+          setGpmTelemetry(json.data);
+          setLastActionStatus(`Synced ${json.data.length} real-world alpine basin precipitation feeds.`);
+          setLastSyncedAt(new Date().toLocaleTimeString());
+        }
+      }
+    } catch (err: any) {
+      setLastActionStatus(`Precipitation sync offline fallback: ${err.message}`);
+    } finally {
+      setIsSyncingGpm(false);
+    }
+  };
+
+  // Handler: Sync 72h NWP predictive ensemble
+  const handleSyncNwp = async () => {
+    setIsSyncingNwp(true);
+    setLastActionStatus('Fetching 72-hour ECMWF / Open-Meteo high-altitude predictive ensemble...');
+    try {
+      const res = await fetch(`${API_BASE}/telemetry/nwp-forecast?lake_id=l-tsho-rolpa&elevation_m=4580`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.data) {
+          setNwpForecast(json.data);
+          setLastActionStatus('72-hour predictive weather ensemble updated from high-altitude reanalysis.');
+          setLastSyncedAt(new Date().toLocaleTimeString());
+        }
+      }
+    } catch (err: any) {
+      setLastActionStatus(`NWP sync fallback: ${err.message}`);
+    } finally {
+      setIsSyncingNwp(false);
+    }
+  };
+
+  // Handler: Reset to live scientific feeds
+  const handleResetToLive = async () => {
+    setLastActionStatus('Resetting all telemetry to authoritative live scientific feeds...');
+    await Promise.all([handleSyncUsgs(), handleSyncGpm(), handleSyncNwp()]);
+  };
+
+  // Handler: Simulate Mw 6.2 Earthquake (Drill Mode)
   const handleSimulateQuake = async () => {
     setIsSimulatingQuake(true);
     setLastActionStatus('Simulating Mw 6.2 thrust fault earthquake in Dolakha...');
@@ -103,27 +189,7 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
     }
   };
 
-  // Handler: Sync USGS live feed
-  const handleSyncUsgs = async () => {
-    setIsSyncingUsgs(true);
-    setLastActionStatus('Syncing live M4.5+ Himalayan feed from USGS Earthquake Hazards Program...');
-    try {
-      const res = await fetch(`${API_BASE}/telemetry/seismic/sync`, { method: 'POST' });
-      if (res.ok) {
-        const json = await res.json();
-        if (json?.data) {
-          setSeismicEvents(json.data);
-          setLastActionStatus(`USGS Feed Synced: ${json.count} earthquakes verified along Himalayan Arc.`);
-        }
-      }
-    } catch (err: any) {
-      setLastActionStatus(`USGS sync offline fallback.`);
-    } finally {
-      setIsSyncingUsgs(false);
-    }
-  };
-
-  // Handler: Simulate GPM extreme cloudburst pulse
+  // Handler: Simulate GPM extreme cloudburst pulse (Drill Mode)
   const handleSimulateRainPulse = async () => {
     setIsSimulatingRain(true);
     setLastActionStatus('Simulating NASA GPM IMERG 28.5 mm/hr cloudburst pulse in Koshi headwaters...');
@@ -173,9 +239,21 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                 Live Ingest Active
               </span>
+              {lastSyncedAt && (
+                <span className="text-[10px] text-slate-400">
+                  Last Sync: {lastSyncedAt}
+                </span>
+              )}
             </div>
-            <p className="text-[11px] text-slate-400">
-              USGS Real-time Seismic Arc ($M_w \ge 4.5$) • Ground Motion Prediction (GMPE) • NASA GPM IMERG 30-min Inflow
+            <p className="text-[11px] text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
+              <span className="text-sky-300 font-semibold flex items-center gap-1">
+                <Globe className="w-3 h-3" /> Real Feeds:
+              </span>
+              <span>USGS FDSNWS Seismic Arc ($M_w \ge 4.5$)</span>
+              <span>•</span>
+              <span>Open-Meteo High-Altitude Reanalysis & NASA GPM</span>
+              <span>•</span>
+              <span>ECMWF HRES 72h Ensemble</span>
             </p>
           </div>
         </div>
@@ -202,8 +280,20 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
+            <Droplet className="w-3.5 h-3.5" />
+            <span>NASA GPM & Reanalysis ({gpmTelemetry.length} Basins)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('NWP_PREDICTIVE')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              activeTab === 'NWP_PREDICTIVE'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+            }`}
+          >
             <CloudRain className="w-3.5 h-3.5" />
-            <span>NASA GPM IMERG ({gpmTelemetry.length} Basins)</span>
+            <span>72h NWP Ensemble ({nwpForecast?.model_source ? 'ECMWF HRES' : 'Forecast'})</span>
           </button>
         </div>
       </div>
@@ -215,6 +305,53 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
           <button onClick={() => setLastActionStatus(null)} className="text-slate-400 hover:text-white text-xs px-1">
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Operator Drill & Stress Testing Console (Collapsible) */}
+      {showDrillControls && (
+        <div className="mb-3.5 p-3 rounded-xl bg-amber-950/30 border border-amber-500/50 space-y-2 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="font-bold text-amber-200 text-xs uppercase tracking-wider">
+                Operator Drill & Synthetic Simulation Console
+              </span>
+            </div>
+            <span className="text-[10px] text-amber-300/90 bg-amber-900/50 px-2 py-0.5 rounded border border-amber-600/40 font-mono">
+              Drill Mode Active
+            </span>
+          </div>
+          <p className="text-[11px] text-amber-100/70 leading-relaxed">
+            Inject synthetic extreme environmental forcing triggers to stress-test downstream industrial SCADA gate interlocks, acoustic siren towers, and civil protection evacuation routing without waiting for natural disasters.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/30">
+            <button
+              onClick={handleSimulateQuake}
+              disabled={isSimulatingQuake}
+              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-950/50 transition-all disabled:opacity-50"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>{isSimulatingQuake ? 'Computing GMPE...' : '⚡ Simulate Mw 6.2 Quake (Dolakha)'}</span>
+            </button>
+
+            <button
+              onClick={handleSimulateRainPulse}
+              disabled={isSimulatingRain}
+              className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-sky-950/50 transition-all disabled:opacity-50"
+            >
+              <CloudRain className="w-3.5 h-3.5" />
+              <span>{isSimulatingRain ? 'Injecting Rain...' : '🌧️ Simulate 28.5 mm/hr Cloudburst (Koshi)'}</span>
+            </button>
+
+            <button
+              onClick={handleResetToLive}
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs flex items-center gap-1.5 ml-auto transition-all"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reset to Live Feeds</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -234,19 +371,23 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
               <button
                 onClick={handleSyncUsgs}
                 disabled={isSyncingUsgs}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-md shadow-amber-950/40"
               >
-                <RefreshCw className={`w-3 h-3 ${isSyncingUsgs ? 'animate-spin' : ''}`} />
-                <span>{isSyncingUsgs ? 'Syncing...' : 'Sync USGS Feed'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingUsgs ? 'animate-spin' : ''}`} />
+                <span>{isSyncingUsgs ? 'Querying USGS...' : 'Sync USGS M4.5+ Arc'}</span>
               </button>
 
               <button
-                onClick={handleSimulateQuake}
-                disabled={isSimulatingQuake}
-                className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-950/50 transition-all disabled:opacity-50"
+                onClick={() => setShowDrillControls(!showDrillControls)}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs flex items-center gap-1.5 transition-all ${
+                  showDrillControls
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-500/60'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                }`}
               >
-                <Zap className="w-3.5 h-3.5" />
-                <span>{isSimulatingQuake ? 'Computing GMPE...' : '⚡ Simulate Mw 6.2 Quake'}</span>
+                <Sliders className="w-3 h-3 text-amber-400" />
+                <span>Drill Mode</span>
+                {showDrillControls ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
             </div>
           </div>
@@ -370,18 +511,31 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
             <div className="flex items-center gap-2 text-[11px] text-slate-300">
               <Droplet className="w-3.5 h-3.5 text-sky-400" />
               <span>
-                NASA GPM Early Run IMERG V07B • Extreme Cloudburst Trigger: <strong>&gt;15 mm/hr or &gt;50 mm/3h</strong>
+                Open-Meteo High-Altitude Reanalysis & NASA GPM IMERG • Surge Threshold: <strong>&gt;15 mm/hr or &gt;50 mm/3h</strong>
               </span>
             </div>
 
             <div className="flex items-center gap-2">
               <button
-                onClick={handleSimulateRainPulse}
-                disabled={isSimulatingRain}
-                className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-sky-950/50 transition-all disabled:opacity-50"
+                onClick={handleSyncGpm}
+                disabled={isSyncingGpm}
+                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-md shadow-sky-950/40"
               >
-                <CloudRain className="w-3.5 h-3.5" />
-                <span>{isSimulatingRain ? 'Injecting Rain...' : '🌧️ Simulate 28.5 mm/hr Cloudburst'}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingGpm ? 'animate-spin' : ''}`} />
+                <span>{isSyncingGpm ? 'Syncing Precipitation...' : 'Sync Live Inflow Feeds'}</span>
+              </button>
+
+              <button
+                onClick={() => setShowDrillControls(!showDrillControls)}
+                className={`px-2.5 py-1.5 rounded-lg border text-xs flex items-center gap-1.5 transition-all ${
+                  showDrillControls
+                    ? 'bg-amber-950/80 text-amber-300 border-amber-500/60'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                }`}
+              >
+                <Sliders className="w-3 h-3 text-amber-400" />
+                <span>Drill Mode</span>
+                {showDrillControls ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
             </div>
           </div>
@@ -469,6 +623,115 @@ export const EnvironmentalTriggerHub: React.FC<EnvironmentalTriggerHubProps> = (
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Forward 72-Hour Elevation-Calibrated NWP Predictive Ensemble */}
+      {activeTab === 'NWP_PREDICTIVE' && nwpForecast && (
+        <div className="space-y-3">
+          {/* Summary Banner */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-indigo-950/40 p-3 rounded-xl border border-indigo-500/40">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-white text-xs flex items-center gap-1.5">
+                  <CloudRain className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>{nwpForecast.lake_name} Catchment ({nwpForecast.elevation_m_asl} m ASL)</span>
+                </h4>
+                <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-900 text-indigo-200 border border-indigo-600">
+                  {nwpForecast.model_source}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-300">
+                Lapse-rate calibrated 0°C freezing level isotherm tracking with proactive reservoir pre-drawdown window.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border ${
+                  nwpForecast.rain_on_snow_risk === 'CRITICAL_HYDROSTATIC_SPIKE'
+                    ? 'bg-rose-500 text-white animate-pulse border-rose-400'
+                    : nwpForecast.rain_on_snow_risk === 'MODERATE_MELT_SURGE'
+                    ? 'bg-amber-500/30 text-amber-300 border-amber-500'
+                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                }`}
+              >
+                {nwpForecast.rain_on_snow_risk.replace(/_/g, ' ')}
+              </span>
+
+              <button
+                onClick={handleSyncNwp}
+                disabled={isSyncingNwp}
+                className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all disabled:opacity-50 shadow-md shadow-indigo-950/40"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingNwp ? 'animate-spin' : ''}`} />
+                <span>{isSyncingNwp ? 'Refreshing...' : 'Refresh Forecast'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Key Atmospheric Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+            <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[9px] text-slate-400 block">Current 0°C Isotherm:</span>
+              <span className="font-bold text-amber-300 text-sm">{nwpForecast.freezing_level_current_m_asl} m ASL</span>
+              <span className="text-[9px] text-slate-500 block">
+                {nwpForecast.freezing_level_current_m_asl >= nwpForecast.elevation_m_asl
+                  ? '⚠️ Above Moraine (Liquid Rain)'
+                  : '❄️ Below Moraine (Solid Snow)'}
+              </span>
+            </div>
+
+            <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[9px] text-slate-400 block">Forward 24h QPF:</span>
+              <span className="font-bold text-cyan-300 text-sm">{nwpForecast.forward_24h_qpf_mm} mm</span>
+              <span className="text-[9px] text-slate-500 block">48h: {nwpForecast.forward_48h_qpf_mm} mm • 72h: {nwpForecast.forward_72h_qpf_mm} mm</span>
+            </div>
+
+            <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[9px] text-slate-400 block">Advance Decision Lead Time:</span>
+              <span className="font-bold text-emerald-300 text-sm">+{nwpForecast.advance_lead_time_hours} Hours</span>
+              <span className="text-[9px] text-slate-500 block">Proactive Reservoir Buffer Window</span>
+            </div>
+
+            <div className="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[9px] text-slate-400 block">Recommended Pre-Drawdown:</span>
+              <span className="font-bold text-rose-300 text-sm">+{nwpForecast.recommended_drawdown_buffer_m} m Buffer</span>
+              <span className="text-[9px] text-slate-500 block">Gradual headpond pre-release</span>
+            </div>
+          </div>
+
+          {/* Forecast Time Steps */}
+          <div className="space-y-1">
+            <div className="text-[10px] font-bold text-slate-400">Step-by-Step Numerical Weather Prediction Ensembles:</div>
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+              {nwpForecast.forecast_steps.map((step) => (
+                <div
+                  key={step.step_hours}
+                  className="bg-slate-950/80 p-2 rounded-lg border border-slate-800 text-[10px] space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-indigo-300">T+{step.step_hours}h</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded text-[8px] font-bold ${
+                        step.is_rain_on_snow
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {step.is_rain_on_snow ? '🌧️ Rain-on-Snow' : '❄️ Snowpack'}
+                    </span>
+                  </div>
+                  <div className="text-slate-200">
+                    <div>Rate: <span className="font-bold text-white">{step.precipitation_rate_mm_hr} mm/hr</span></div>
+                    <div>Accum: <span className="font-bold text-cyan-300">{step.accumulated_forward_mm} mm</span></div>
+                    <div>Temp: <span className="font-bold">{step.temperature_c}°C</span></div>
+                    <div className="text-slate-400 text-[9px]">0°C Elev: {step.freezing_level_m_asl} m</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

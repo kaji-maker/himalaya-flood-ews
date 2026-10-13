@@ -84,7 +84,7 @@ export interface CueAndSlewTaskingOrder {
 export interface SCADAGateCommand {
   facility_id: string;
   facility_name: string;
-  action: 'EMERGENCY_FULL_OPEN' | 'HOLD' | 'STAGE_MONITORING';
+  action: 'EMERGENCY_FULL_OPEN' | 'PRE_DRAWDOWN' | 'HOLD' | 'STAGE_MONITORING';
   target_spillway_gates: string[];
   estimated_arrival_minutes: number;
   command_payload: Record<string, any>;
@@ -101,8 +101,18 @@ export interface EdgeSensorReading {
   water_stage_m: number;
   water_stage_rate_m_min: number;
   tripwire_status: 'INTACT' | 'TRIPPED';
+  battery_volts?: number;
+  is_solar_charging?: boolean;
+  ambient_temp_c?: number;
+  link_type?: 'IRIDIUM_SBD' | 'LORAWAN' | 'VHF_APRS';
+  link_rssi_dbm?: number;
   is_slurry_surge_detected?: boolean;
   alarm_level?: 'NORMAL' | 'ELEVATED' | 'CRITICAL_SURGE';
+  quorum_status?: 'NORMAL' | 'WATCH_SINGLE_TRIGGER' | 'WARNING_DUAL_CORROBORATION' | 'CRITICAL_ZERO_HOUR_GLOF';
+  triggered_modalities?: string[];
+  quorum_count?: number;
+  confidence_score?: number;
+  health_metrics?: Record<string, any>;
   scada_actuation?: SCADAGateCommand | null;
 }
 
@@ -232,6 +242,22 @@ export interface DHMHydrometricStation {
   status: 'NORMAL' | 'WATCH' | 'CRITICAL_SURGE';
   telemetry_source: 'DHM_TELEMETRIC_NETWORK' | 'GOES_SATELLITE';
   last_updated: string;
+}
+
+export interface HydrometricObservation {
+  id: string;
+  station_id: string;
+  observed_at: string;
+  received_at: string;
+  stage_m?: number | null;
+  discharge_cms?: number | null;
+  rainfall_mm?: number | null;
+  trend?: 'RISING' | 'FALLING' | 'STEADY' | 'UNKNOWN';
+  observation_state: 'OBSERVED' | 'FORECAST' | 'MODELLED' | 'SIMULATED' | 'STALE' | 'UNAVAILABLE';
+  quality_status: 'GOOD' | 'SUSPECT' | 'REJECTED' | 'MISSING';
+  quality_score: number;
+  quality_flags: string[];
+  source_key: string;
 }
 
 export interface HistoricalGLOFRecord {

@@ -178,6 +178,23 @@ export interface HydropowerPlantCascade {
   last_command_hex?: string | null;
 }
 
+export interface SCADAAuthorizationRequisition {
+  requisition_id: string;
+  facility_id: string;
+  facility_name: string;
+  action: 'EMERGENCY_FULL_OPEN' | 'PRE_DRAWDOWN' | 'HOLD';
+  drawdown_buffer_m: number;
+  requested_by_engineer_id: string;
+  justification: string;
+  status: 'PENDING_SECOND_KEY' | 'AUTHORIZED' | 'REJECTED' | 'EXPIRED' | 'AUTO_OVERRIDDEN_BY_GROUND_QUORUM';
+  requested_at: string;
+  expires_at: string;
+  auth_token: string;
+  second_key_approved_by?: string | null;
+  second_key_approved_at?: string | null;
+  dispatch_payload?: any;
+}
+
 export interface DHMHydrometricStation {
   id: string;
   station_number: number;
@@ -213,5 +230,32 @@ export interface HistoricalGLOFRecord {
   fatalities: number;
   infrastructure_impact: string;
   key_findings: string;
+}
+
+export interface NWPTimeStepForecast {
+  step_hours: number;
+  forecast_time: string;
+  precipitation_rate_mm_hr: number;
+  accumulated_forward_mm: number;
+  temperature_c: number;
+  freezing_level_m_asl: number;
+  is_rain_on_snow: boolean;
+}
+
+export interface LakeCatchmentPredictiveForecast {
+  lake_id: string;
+  lake_name: string;
+  elevation_m_asl: number;
+  basin: string;
+  model_source: string;
+  generated_at: string;
+  freezing_level_current_m_asl: number;
+  forward_24h_qpf_mm: number;
+  forward_48h_qpf_mm: number;
+  forward_72h_qpf_mm: number;
+  rain_on_snow_risk: 'CRITICAL_HYDROSTATIC_SPIKE' | 'MODERATE_MELT_SURGE' | 'SNOWFALL_ACCUMULATION' | 'NONE';
+  recommended_drawdown_buffer_m: number;
+  advance_lead_time_hours: number;
+  forecast_steps: NWPTimeStepForecast[];
 }
 

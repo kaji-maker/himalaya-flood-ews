@@ -61,6 +61,9 @@ describe('Edge Satellite & LoRaWAN Webhooks with SCADA Integration', () => {
     const evaluation = res.body.evaluation;
     expect(evaluation.reading.is_slurry_surge_detected).toBe(true);
     expect(evaluation.reading.alarm_level).toBe('CRITICAL_SURGE');
+    expect(evaluation.reading.quorum_status).toBe('CRITICAL_ZERO_HOUR_GLOF');
+    expect(evaluation.reading.quorum_count).toBe(3);
+    expect(evaluation.reading.confidence_score).toBeGreaterThanOrEqual(0.95);
     expect(evaluation.scada_command).not.toBeNull();
     expect(evaluation.scada_command.action).toBe('EMERGENCY_FULL_OPEN');
     expect(evaluation.scada_command.facility_name).toContain('Upper Tama Koshi');

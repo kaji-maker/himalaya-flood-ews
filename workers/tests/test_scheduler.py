@@ -72,10 +72,12 @@ def test_run_multi_tier_cycle():
         assert len(results["edge_sensor_records"]) == 1
 
 
-def test_dead_letter_queue_and_replay():
-    from src.ingestion.scheduler import LOCAL_BACKUP_DIR
+def test_dead_letter_queue_and_replay(tmp_path, monkeypatch):
+    import src.ingestion.scheduler as sched_mod
+    monkeypatch.setattr(sched_mod, "LOCAL_BACKUP_DIR", tmp_path)
+
     daemon = IngestionDaemon(api_base_url="http://localhost:4000/api/v1")
-    backup_file = LOCAL_BACKUP_DIR / "dead_letter_ingests.jsonl"
+    backup_file = tmp_path / "dead_letter_ingests.jsonl"
 
     if backup_file.exists():
         backup_file.unlink()
@@ -97,4 +99,3 @@ def test_dead_letter_queue_and_replay():
         replayed = daemon.replay_dead_letter_queue()
         assert replayed == 2
         assert not backup_file.exists()
-

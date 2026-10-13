@@ -82,4 +82,19 @@ describe('Seismic Trigger Hub & NASA GPM IMERG Ingest Tests', () => {
     expect(res.body.alert.severity).toBe('WARNING');
     expect(res.body.alert.trigger_reason).toContain('GPM IMERG EXTREME RAINFALL PULSE');
   });
+
+  it('GET /api/v1/telemetry/nwp-forecast - should return elevation-calibrated forward predictive NWP forecast', async () => {
+    const res = await request(app)
+      .get('/api/v1/telemetry/nwp-forecast')
+      .query({ lake_id: 'l-tsho-rolpa', elevation_m: 4580 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.elevation_m_asl).toBe(4580);
+    expect(res.body.data.model_source).toBe('ECMWF_HRES_0.1DEG');
+    expect(res.body.data.forecast_steps.length).toBe(5);
+    expect(res.body.data.forward_24h_qpf_mm).toBeGreaterThan(0);
+    expect(res.body.data.recommended_drawdown_buffer_m).toBeGreaterThanOrEqual(1.0);
+    expect(res.body.data.advance_lead_time_hours).toBeGreaterThanOrEqual(6);
+  });
 });

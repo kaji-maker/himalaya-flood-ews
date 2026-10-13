@@ -1,0 +1,22 @@
+{
+  "data_kind": "synthetic",
+  "stations": [{ "station_number": 289.95, "name": "Synthetic replay gauge — not Nepal event validation" }],
+  "thresholds": [{ "id": "threshold-capture-1", "threshold_id": "threshold-1", "station_number": 289.95,
+    "available_at": "2024-07-01T06:00:00Z", "availability_order": 1, "capture_kind": "INSERT", "source_key": "synthetic-test",
+    "effective_from": "2024-07-01T06:00:00Z", "effective_to": null, "retrieved_at": "2024-07-01T06:00:00Z", "unit": "m",
+    "warning_stage_m": 5, "danger_stage_m": 7, "status": "VERIFIED", "source_url": "https://example.org/synthetic-thresholds" }],
+  "observations": [
+    { "id": "point-2", "observation_id": "observation-2", "station_number": 289.95, "available_at": "2024-07-01T06:10:00Z", "availability_order": 2, "capture_kind": "INSERT", "source_key": "synthetic-test", "observed_at": "2024-07-01T06:10:00Z", "received_at": "2024-07-01T06:10:00Z", "stage_m": 4, "stage_unit": "m", "discharge_cms": null, "discharge_unit": "m3/s", "observation_state": "OBSERVED", "quality_status": "GOOD", "quality_flags": [] },
+    { "id": "point-3", "observation_id": "observation-3", "station_number": 289.95, "available_at": "2024-07-01T06:20:00Z", "availability_order": 3, "capture_kind": "INSERT", "source_key": "synthetic-test", "observed_at": "2024-07-01T06:20:00Z", "received_at": "2024-07-01T06:20:00Z", "stage_m": 5, "stage_unit": "m", "discharge_cms": null, "discharge_unit": "m3/s", "observation_state": "OBSERVED", "quality_status": "GOOD", "quality_flags": [] },
+    { "id": "point-4", "observation_id": "observation-4", "station_number": 289.95, "available_at": "2024-07-01T06:30:00Z", "availability_order": 4, "capture_kind": "INSERT", "source_key": "synthetic-test", "observed_at": "2024-07-01T06:30:00Z", "received_at": "2024-07-01T06:30:00Z", "stage_m": 7, "stage_unit": "m", "discharge_cms": null, "discharge_unit": "m3/s", "observation_state": "OBSERVED", "quality_status": "GOOD", "quality_flags": [] },
+    { "id": "point-5", "observation_id": "observation-5", "station_number": 289.95, "available_at": "2024-07-01T06:40:00Z", "availability_order": 5, "capture_kind": "INSERT", "source_key": "synthetic-test", "observed_at": "2024-07-01T06:40:00Z", "received_at": "2024-07-01T06:40:00Z", "stage_m": 0, "stage_unit": "m", "discharge_cms": null, "discharge_unit": "m3/s", "observation_state": "OBSERVED", "quality_status": "GOOD", "quality_flags": [] },
+    { "id": "point-6", "observation_id": "observation-6", "station_number": 289.95, "available_at": "2024-07-01T13:00:00Z", "availability_order": 6, "capture_kind": "INSERT", "source_key": "synthetic-test", "observed_at": "2024-07-01T06:00:00Z", "received_at": "2024-07-01T13:00:00Z", "stage_m": 8, "stage_unit": "m", "discharge_cms": null, "discharge_unit": "m3/s", "observation_state": "OBSERVED", "quality_status": "GOOD", "quality_flags": [] }
+  ],
+  "labels": [
+    { "observation_capture_id": "point-2", "hazard_present": false, "source_url": "https://example.org/synthetic-outcomes", "reviewed_by": "synthetic-fixture", "evidence_kind": "SYNTHETIC_TEST_EXPECTATION" },
+    { "observation_capture_id": "point-3", "hazard_present": true, "source_url": "https://example.org/synthetic-outcomes", "reviewed_by": "synthetic-fixture", "evidence_kind": "SYNTHETIC_TEST_EXPECTATION" },
+    { "observation_capture_id": "point-4", "hazard_present": false, "source_url": "https://example.org/synthetic-outcomes", "reviewed_by": "synthetic-fixture", "evidence_kind": "SYNTHETIC_TEST_EXPECTATION" },
+    { "observation_capture_id": "point-5", "hazard_present": true, "source_url": "https://example.org/synthetic-outcomes", "reviewed_by": "synthetic-fixture", "evidence_kind": "SYNTHETIC_TEST_EXPECTATION" },
+    { "observation_capture_id": "point-6", "hazard_present": true, "source_url": "https://example.org/synthetic-outcomes", "reviewed_by": "synthetic-fixture", "evidence_kind": "SYNTHETIC_TEST_EXPECTATION" }
+  ]
+}

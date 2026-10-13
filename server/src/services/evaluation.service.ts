@@ -369,8 +369,38 @@ export class RiskEvaluationService {
     const isStageSurge = reading.water_stage_rate_m_min >= 0.50;
     const isTripwireSevered = reading.tripwire_status === 'TRIPPED';
 
-    const isSurge = isSlurryAcoustic || isStageSurge || isTripwireSevered;
-    const alarmLevel = isSurge ? 'CRITICAL_SURGE' : (reading.geophone_acoustic_energy_db > 55.0 ? 'ELEVATED' : 'NORMAL');
+    const triggeredModalities: string[] = [];
+    if (isSlurryAcoustic) triggeredModalities.push('GEOPHONE_ACOUSTIC_SLURRY');
+    if (isStageSurge) triggeredModalities.push('STAGE_SURGE_RATE');
+    if (isTripwireSevered) triggeredModalities.push('TRIPWIRE_RUPTURE');
+
+    const quorumCount = triggeredModalities.length;
+    let quorumStatus: 'NORMAL' | 'WATCH_SINGLE_TRIGGER' | 'WARNING_DUAL_CORROBORATION' | 'CRITICAL_ZERO_HOUR_GLOF' = 'NORMAL';
+    let confidenceScore = 0.05;
+    let isSurge = false;
+    let alarmLevel: 'NORMAL' | 'ELEVATED' | 'CRITICAL_SURGE' = 'NORMAL';
+
+    if (quorumCount >= 3 || (isTripwireSevered && isStageSurge)) {
+      quorumStatus = 'CRITICAL_ZERO_HOUR_GLOF';
+      confidenceScore = 0.98;
+      isSurge = true;
+      alarmLevel = 'CRITICAL_SURGE';
+    } else if (quorumCount >= 2 || isTripwireSevered) {
+      quorumStatus = 'WARNING_DUAL_CORROBORATION';
+      confidenceScore = 0.85;
+      isSurge = true;
+      alarmLevel = 'CRITICAL_SURGE';
+    } else if (quorumCount === 1) {
+      quorumStatus = 'WATCH_SINGLE_TRIGGER';
+      confidenceScore = 0.42;
+      isSurge = false;
+      alarmLevel = 'ELEVATED';
+    } else {
+      quorumStatus = 'NORMAL';
+      confidenceScore = 0.05;
+      isSurge = false;
+      alarmLevel = (reading.geophone_acoustic_energy_db > 55.0 || reading.water_stage_rate_m_min > 0.20) ? 'ELEVATED' : 'NORMAL';
+    }
 
     let scadaCommand: SCADAGateCommand | null = null;
     let industrialDispatch: SCADAGatewayDispatchResult | null = null;
@@ -407,13 +437,29 @@ export class RiskEvaluationService {
           override_interlocks: true,
           source: reading.station_id,
           gorge: reading.gorge_name,
+          quorum_status: quorumStatus,
+          quorum_count: quorumCount,
+          confidence_score: confidenceScore,
           eta_minutes: etaMinutes,
         },
       };
 
-      industrialDispatch = IndustrialSCADAGatewayService.prepareIndustrialDispatch(scadaCommand);
+      if (quorumStatus === 'CRITICAL_ZERO_HOUR_GLOF') {
+        const overrideReq = IndustrialSCADAGatewayService.executeZeroHourQuorumOverride({
+          facility_id: facility.id,
+          facility_name: facility.name,
+          target_spillway_gates: facility.gates,
+          quorum_count: quorumCount,
+          confidence_score: confidenceScore,
+          estimated_arrival_minutes: etaMinutes,
+          reason: `Zero-Hour Ground Quorum Breach in ${reading.gorge_name} (${quorumCount}/3 sensors corroborated)`,
+        });
+        industrialDispatch = overrideReq.dispatch_payload || IndustrialSCADAGatewayService.prepareIndustrialDispatch(scadaCommand);
+      } else {
+        industrialDispatch = IndustrialSCADAGatewayService.prepareIndustrialDispatch(scadaCommand);
+      }
 
-      const reason = `GLOF EMERGENCY [EDGE_SENSOR_TRIPWIRE] in ${reading.gorge_name}: Hyper-concentrated boulder slurry surge detected (${reading.geophone_acoustic_energy_db.toFixed(1)} dB at ${reading.geophone_dominant_freq_hz.toFixed(1)} Hz, +${reading.water_stage_rate_m_min.toFixed(2)} m/min stage rise) -> SCADA Spillway Gates Triggered at ${facility.name} (ETA: ${etaMinutes} min)`;
+      const reason = `GLOF EMERGENCY [${quorumStatus}] in ${reading.gorge_name}: ${quorumCount}/3 modalities triggered (${triggeredModalities.join(', ')}) -> SCADA Spillway Gates Triggered at ${facility.name} (ETA: ${etaMinutes} min, Confidence: ${(confidenceScore * 100).toFixed(0)}%)`;
 
       alert = {
         id: `a-edge-${Date.now()}`,
@@ -447,8 +493,24 @@ export class RiskEvaluationService {
       water_stage_m: reading.water_stage_m,
       water_stage_rate_m_min: reading.water_stage_rate_m_min,
       tripwire_status: reading.tripwire_status,
+      battery_volts: (reading as any).battery_volts || 12.6,
+      is_solar_charging: (reading as any).is_solar_charging ?? true,
+      ambient_temp_c: (reading as any).ambient_temp_c || 4.2,
+      link_type: (reading as any).link_type || 'IRIDIUM_SBD',
+      link_rssi_dbm: (reading as any).link_rssi_dbm || -75.0,
       is_slurry_surge_detected: isSurge,
       alarm_level: alarmLevel,
+      quorum_status: quorumStatus,
+      triggered_modalities: triggeredModalities,
+      quorum_count: quorumCount,
+      confidence_score: confidenceScore,
+      health_metrics: {
+        battery_volts: (reading as any).battery_volts || 12.6,
+        is_solar_charging: (reading as any).is_solar_charging ?? true,
+        ambient_temp_c: (reading as any).ambient_temp_c || 4.2,
+        link_type: (reading as any).link_type || 'IRIDIUM_SBD',
+        link_rssi_dbm: (reading as any).link_rssi_dbm || -75.0,
+      },
       scada_actuation: scadaCommand,
     };
 

@@ -61,3 +61,55 @@ def test_edge_sensors_tripwire_rupture():
     assert result.alarm_level == "CRITICAL_SURGE"
     assert result.scada_actuation_required
     assert result.scada_command.facility_id == "scada-marsyangdi-hydro"
+
+
+def test_edge_sensors_single_modality_watch():
+    """Verify isolated single sensor anomaly raises WATCH/ELEVATED cue without tripping sirens or SCADA gates"""
+    reading = EdgeSensorReading(
+        station_id="gorge-03",
+        gorge_name="Barun Gorge Choke Point",
+        lake_id="l-lower-barun",
+        geophone_dominant_freq_hz=4.0,       # Low frequency wind/stream turbulence (not slurry)
+        geophone_acoustic_energy_db=42.0,
+        water_stage_m=3.1,
+        water_stage_rate_m_min=0.55,         # Isolated stage rise spike
+        tripwire_status="INTACT"
+    )
+    result = EdgeSensorProcessor.evaluate_telemetry(reading)
+    assert not result.is_slurry_surge_detected
+    assert result.alarm_level == "ELEVATED"
+    assert result.quorum_status == "WATCH_SINGLE_TRIGGER"
+    assert result.quorum_count == 1
+    assert "STAGE_SURGE_RATE" in result.triggered_modalities
+    assert not result.scada_actuation_required
+    assert result.scada_command is None
+    assert result.confidence_score < 0.50
+
+
+def test_edge_sensors_three_sensor_critical_zero_hour():
+    """Verify full 3-sensor quorum yields high-confidence CRITICAL_ZERO_HOUR_GLOF alert"""
+    reading = EdgeSensorReading(
+        station_id="gorge-01",
+        gorge_name="Rolwaling Upper Gorge",
+        lake_id="l-tsho-rolpa",
+        geophone_dominant_freq_hz=24.0,
+        geophone_acoustic_energy_db=86.5,    # Massive boulder slurry
+        water_stage_m=6.8,
+        water_stage_rate_m_min=0.92,         # Flash surge
+        tripwire_status="TRIPPED",           # Dam crest failure
+        battery_volts=12.8,
+        is_solar_charging=True,
+        ambient_temp_c=2.1,
+        link_type="IRIDIUM_SBD",
+        link_rssi_dbm=-72.0
+    )
+    result = EdgeSensorProcessor.evaluate_telemetry(reading)
+    assert result.is_slurry_surge_detected
+    assert result.alarm_level == "CRITICAL_SURGE"
+    assert result.quorum_status == "CRITICAL_ZERO_HOUR_GLOF"
+    assert result.quorum_count == 3
+    assert len(result.triggered_modalities) == 3
+    assert result.confidence_score >= 0.95
+    assert result.scada_actuation_required
+    assert result.health_metrics["battery_status"] == "NORMAL"
+    assert result.health_metrics["link_health"] == "STRONG"

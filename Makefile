@@ -1,4 +1,4 @@
-.PHONY: help setup dev up down db-migrate db-seed test test-workers test-server test-client worker-daemon worker-cycle build lint clean
+.PHONY: help setup dev up down db-migrate dhm-thresholds-sync hydrology-smoke hydrology-backtest hydrology-replay-smoke dhm-sync dhm-daemon db-seed test test-workers test-server test-client audit-server audit-server-all worker-daemon worker-cycle build lint clean
 
 help:
 	@echo "Himalaya Flood & GLOF Early Warning System (EWS)"
@@ -8,10 +8,18 @@ help:
 	@echo "make up            - Start background docker containers"
 	@echo "make down          - Stop all docker containers"
 	@echo "make db-migrate    - Apply PostGIS migrations"
+	@echo "make dhm-thresholds-sync - Refresh published DHM thresholds"
+	@echo "make hydrology-smoke - Validate live ingestion and replay handling"
+	@echo "make hydrology-backtest - Read-only canonical river-rule replay (last 24 hours)"
+	@echo "make hydrology-replay-smoke - Verify replay audit integrity in a rolled-back experiment"
+	@echo "make dhm-sync      - Refresh river readings, thresholds, and rainfall once"
+	@echo "make dhm-daemon    - Run scheduled DHM research ingestion"
 	@echo "make db-seed       - Ingest ICIMOD PDGL GeoJSON seed dataset"
 	@echo "make test          - Run all test suites across modules"
 	@echo "make test-workers  - Run Python worker pytest suite"
 	@echo "make test-server   - Run Node.js API test suite"
+	@echo "make audit-server  - Audit backend production dependencies"
+	@echo "make audit-server-all - Audit backend runtime and development dependencies"
 	@echo "make test-client   - Run Client tests/type-check"
 	@echo "make worker-daemon - Start background satellite & weather ingestion daemon"
 	@echo "make worker-cycle  - Run a single satellite & weather ingestion pass"
@@ -36,12 +44,25 @@ down:
 	docker-compose down
 
 db-migrate:
-	@echo "Applying database migrations to PostGIS..."
-	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/001_enable_postgis.sql
-	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/002_create_basins_and_lakes.sql
-	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/003_create_observations_and_alerts.sql
-	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/004_create_insar_and_edge_sensors.sql
-	psql "$${DATABASE_URL:-postgresql://ews_admin:ews_secure_password@localhost:5435/himalaya_ews}" -f database/migrations/005_add_utm_projected_area_and_mvt.sql
+	cd server && npm run build && npm run db:migrate
+
+dhm-thresholds-sync:
+	cd server && npm run build && npm run dhm:thresholds-sync
+
+hydrology-smoke:
+	cd server && npm run build && npm run hydrology:smoke
+
+hydrology-backtest:
+	cd server && npm run build && npm run hydrology:backtest
+
+hydrology-replay-smoke:
+	cd server && npm run build && npm run hydrology:replay-smoke
+
+dhm-sync:
+	cd server && npm run build && npm run dhm:sync
+
+dhm-daemon:
+	cd server && npm run build && npm run dhm:daemon
 
 simulate-drill:
 	@echo "Running Multi-Tiered GLOF Simulation Drill..."
@@ -74,9 +95,16 @@ test-server:
 	@echo "Running Node.js server tests..."
 	cd server && npm test
 
+audit-server:
+	cd server && npm audit --omit=dev
+
+audit-server-all:
+	cd server && npm audit
+
 test-client:
 	@echo "Type checking client application..."
 	cd client && npm run type-check
+	cd client && npm run test:hydrology
 
 worker-daemon:
 	@echo "Starting Ingestion Daemon..."

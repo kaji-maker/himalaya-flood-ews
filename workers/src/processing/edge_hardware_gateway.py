@@ -59,6 +59,7 @@ class EdgeHardwareGateway:
         water_stage_rate_m_min: float,
         tripwire_tripped: bool = False,
         battery_volts: float = 12.6,
+        is_solar_charging: bool = True,
         include_crc: bool = False,
     ) -> bytes:
         """
@@ -81,6 +82,8 @@ class EdgeHardwareGateway:
         flags = 0
         if tripwire_tripped:
             flags |= 0x01
+        if is_solar_charging:
+            flags |= 0x02
         if db_clamped > 70.0 and 10.0 <= freq_clamped <= 45.0:
             flags |= 0x08  # Slurry surge flag
 
@@ -140,6 +143,7 @@ class EdgeHardwareGateway:
         water_stage_m = max(0.0, min(60.0, round(stage_scaled / 1000.0, 3)))
         water_stage_rate_m_min = round(rate_scaled / 1000.0, 3)
         tripwire_status = "TRIPPED" if (flags & 0x01) else "INTACT"
+        is_solar_charging = bool(flags & 0x02)
         battery_volts = round(batt_scaled / 10.0, 1)
 
         reading = EdgeSensorReading(
@@ -151,6 +155,9 @@ class EdgeHardwareGateway:
             water_stage_m=water_stage_m,
             water_stage_rate_m_min=water_stage_rate_m_min,
             tripwire_status=tripwire_status,
+            battery_volts=battery_volts,
+            is_solar_charging=is_solar_charging,
+            link_type="IRIDIUM_SBD",
         )
 
         # Run automated evaluation

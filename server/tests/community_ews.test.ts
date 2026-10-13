@@ -145,6 +145,36 @@ describe('Community Early Warning & Last-Mile Dissemination (SMS & Solar Sirens)
     expect(barun).toBeDefined();
     expect(barun.deformation_rating).toBe('CRITICAL_DESTABILIZATION');
   });
+
+  it('POST /api/v1/dispatch/hydropower-cascades/:id/requisition - should create pending pre-drawdown requisition', async () => {
+    const res = await request(app)
+      .post('/api/v1/dispatch/hydropower-cascades/hp-upper-tamakoshi/requisition')
+      .send({
+        requested_by_engineer_id: 'ENG-DAWA-TAMAKOSHI',
+        justification: 'Predicted forward rain-on-snow event (55mm/24h) above 4,580m ASL',
+        drawdown_buffer_m: 4.5,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.requisition_id).toBeDefined();
+    expect(res.body.data.status).toBe('PENDING_SECOND_KEY');
+
+    const reqId = res.body.data.requisition_id;
+
+    // Authorize with secondary engineer
+    const authRes = await request(app)
+      .post(`/api/v1/dispatch/hydropower-cascades/requisitions/${reqId}/authorize`)
+      .send({
+        second_engineer_id: 'ENG-PASANG-LEAD',
+        digital_key: 'KEY_AUTH_2026',
+      });
+
+    expect(authRes.status).toBe(200);
+    expect(authRes.body.success).toBe(true);
+    expect(authRes.body.data.status).toBe('AUTHORIZED');
+    expect(authRes.body.data.second_key_approved_by).toBe('ENG-PASANG-LEAD');
+  });
 });
 
 

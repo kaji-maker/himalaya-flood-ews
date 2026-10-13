@@ -10,6 +10,7 @@ import { EnvironmentalTriggerHub } from '@/components/environmental/Environmenta
 import { LakeComparisonModal } from '@/components/satellite/LakeComparisonModal';
 import { CueSlewTaskingConsole } from '@/components/satellite/CueSlewTaskingConsole';
 import { HydropowerCascadePanel } from '@/components/hydropower/HydropowerCascadePanel';
+import { HydrologyPanel } from '@/components/hydrology/HydrologyPanel';
 import { HistoricalGlofPanel } from '@/components/historical/HistoricalGlofPanel';
 import { GlacialLake, FloodAlert, ObservationPoint, PrecipitationPoint } from '@/types';
 import { generateLakeObservations, generateLakePrecipitation } from '@/data/lakeHydroProfiles';
@@ -443,10 +444,11 @@ export default function DashboardPage() {
     code: 'PDGL_NEP_KOSHI_001',
   });
   const [isCueSlewModalOpen, setIsCueSlewModalOpen] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'ALL' | 'MAP' | 'HYDRO' | 'HISTORIC' | 'ENVIRONMENTAL' | 'DIRECTORY'>('ALL');
+  const [viewMode, setViewMode] = useState<'ALL' | 'MAP' | 'HYDRO' | 'HYDROLOGY' | 'HISTORIC' | 'ENVIRONMENTAL' | 'DIRECTORY'>('HYDROLOGY');
 
   // Fetch live lakes, alerts, and live scientific telemetry
   useEffect(() => {
+    if (viewMode === 'HYDROLOGY') return;
     async function fetchLiveData() {
       try {
         const [lakesRes, alertsRes, summaryRes] = await Promise.all([
@@ -502,7 +504,7 @@ export default function DashboardPage() {
     }
 
     fetchLiveData();
-  }, []);
+  }, [viewMode]);
 
   // Fetch lake history upon lake selection
   const handleSelectLake = async (lake: GlacialLake) => {
@@ -681,14 +683,14 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* 1. Real-time Warning & Emergency Banner across Nepal */}
-      <AlertBanner
+      {viewMode !== 'HYDROLOGY' && <AlertBanner
         alerts={alerts}
         onAcknowledge={handleAcknowledgeAlert}
         onSelectLakeById={handleSelectLakeById}
-      />
+      />}
 
       {/* 2. Top Telemetry KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {viewMode !== 'HYDROLOGY' && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Active Nepal GLOF Warnings"
           value={activeWarningsCount}
@@ -729,7 +731,7 @@ export default function DashboardPage() {
           icon={<CloudRain className="w-5 h-5" />}
           highlightColor={(liveSummary?.precipitation?.precip_72h_mm ?? 7.2) > 75.0 ? "red" : "blue"}
         />
-      </div>
+      </div>}
 
       {/* Executive Operations Navigation Bar */}
       <div className="sticky top-16 z-30 backdrop-blur-md bg-slate-900/90 border border-slate-800/90 rounded-2xl p-1.5 shadow-2xl flex items-center justify-between gap-2 overflow-x-auto">
@@ -739,6 +741,7 @@ export default function DashboardPage() {
           </span>
           {[
             { id: 'ALL', label: 'All Modules', icon: LayoutGrid, count: null },
+            { id: 'HYDROLOGY', label: 'Rainfall & Rivers', icon: CloudRain, count: null },
             { id: 'MAP', label: '3D Glacier Grid', icon: Mountain, count: filteredLakes.length },
             { id: 'ENVIRONMENTAL', label: 'Cryosphere Triggers', icon: CloudRain, count: null },
             { id: 'HYDRO', label: 'Cascade Defense', icon: Zap, count: '6 Dams' },
@@ -775,12 +778,14 @@ export default function DashboardPage() {
           })}
         </div>
 
-        <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-400 px-3 py-1 bg-slate-950/60 rounded-xl border border-slate-800/80">
+        {viewMode !== 'HYDROLOGY' && <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-400 px-3 py-1 bg-slate-950/60 rounded-xl border border-slate-800/80">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-[11px] text-slate-300 font-medium">Ops Active:</span>
           <span className="text-cyan-400 font-bold">{filteredLakes.length} High-Risk Basins</span>
-        </div>
+        </div>}
       </div>
+
+      {(viewMode === 'ALL' || viewMode === 'HYDROLOGY') && <HydrologyPanel />}
 
       {/* 3. 3D Terrain Map Centered on Nepal */}
       {(viewMode === 'ALL' || viewMode === 'MAP') && (

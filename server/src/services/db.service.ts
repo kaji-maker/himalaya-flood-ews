@@ -1,8 +1,6 @@
+import '../config/environment';
 import knex, { Knex } from 'knex';
-import dotenv from 'dotenv';
 import { Basin, GlacialLake, FloodAlert, HydropowerPlantCascade, DHMHydrometricStation, HistoricalGLOFRecord } from '../types';
-
-dotenv.config();
 
 const connectionString =
   process.env.DATABASE_URL ||
